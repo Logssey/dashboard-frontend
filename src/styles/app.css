@@ -1,0 +1,12 @@
+/* 템플릿에 없는 화면(로그인, 상단 사용자 영역)용 스타일. 템플릿 변수만 사용한다 */
+.topbar-user { gap: 10px; }
+.topbar-user .name { font-size: 13px; color: var(--text-body); }
+.btn.small { min-height: 34px; padding: 6px 12px; font-size: 12px; }
+
+.login-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+.login-card { width: 100%; max-width: 400px; display: grid; gap: var(--space-6); }
+.login-card .brand { padding: 0; }
+.login-form { display: grid; gap: var(--space-4); }
+.login-form .btn { width: 100%; }
+
+.page-loading { padding: 40px; }

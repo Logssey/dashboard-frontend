@@ -1,0 +1,70 @@
+// 백엔드 API 응답 모양 그대로 (API 명세). 화면도 이 이름을 그대로 쓴다 (변환 없음)
+
+export type Environment = 'ALL' | 'PROD' | 'DEV'
+export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+export type Domain = 'SECRETS' | 'CONFIGURATION' | 'IDENTITIES' | 'RUNTIME' | 'VULNERABILITIES'
+export type Provider = 'AWS' | 'KUBERNETES' | 'GITHUB'
+
+export interface LoginResponse {
+  userId: number
+  displayName: string
+  role: string
+}
+
+export interface OverviewSummaryResponse {
+  unreviewedCriticalCount: number
+  totalCount: number
+  unreviewedCount: number
+  connectedAssetCount: number
+  securityScore: number
+  scoreRule: string
+  lastCollectedAt: string
+}
+
+export interface RiskTrendResponse {
+  days: Array<{
+    date: string
+    total: number
+    critical: number
+    high: number
+    medium: number
+    low: number
+  }>
+}
+
+export interface AssetSummaryResponse {
+  totalCount: number
+  providers: Array<{
+    provider: Provider
+    description: string
+    count: number
+  }>
+}
+
+export interface AssetRef {
+  assetId: number
+  name: string
+  provider: Provider
+  assetType: string
+}
+
+export interface PriorityFinding {
+  eventId: number
+  displayId: string | null
+  severity: Severity
+  title: string
+  asset: AssetRef | null
+  environment: Exclude<Environment, 'ALL'>
+  ownerTeam: string
+  reviewStatus: 'UNREVIEWED' | 'REVIEWED'
+  actionStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'RISK_ACCEPTED'
+  detectedAt: string
+  domain: Domain | null
+  evidence: string | null
+  recommendation: string | null
+}
+
+export interface PriorityFindingListResponse {
+  items: PriorityFinding[]
+  unreviewedCount: number
+}
