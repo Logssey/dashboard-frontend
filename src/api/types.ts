@@ -68,3 +68,40 @@ export interface PriorityFindingListResponse {
   items: PriorityFinding[]
   unreviewedCount: number
 }
+
+// 키 목록 조회 (API 명세: 키 목록 조회)
+export type CredentialIssuer = 'AWS' | 'GITHUB' | 'NOTION'
+export type CredentialStatus = 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'REVOKED' | 'UNKNOWN'
+export type ExpiryPolicy = 'FIXED' | 'NEVER' | 'UNKNOWN'
+
+export interface CredentialRisk {
+  eventId: number
+  displayId: string | null
+  severity: Severity
+  title: string
+  reviewStatus: 'UNREVIEWED' | 'REVIEWED'
+}
+
+export interface CredentialItem {
+  credentialId: number
+  displayName: string | null
+  externalId: string | null
+  issuer: CredentialIssuer
+  credentialType: string
+  status: CredentialStatus
+  expiryPolicy: ExpiryPolicy
+  expiresAt: string | null
+  lastUsedAt: string | null
+  owner: string | null
+  ownerTeam: string | null
+  risks: CredentialRisk[]
+}
+
+export interface CredentialListResponse {
+  summary: {
+    totalCount: number
+    atRiskCount: number
+    expiringSoonCount: number
+  }
+  items: CredentialItem[]
+}
