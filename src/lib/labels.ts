@@ -58,6 +58,7 @@ const credentialTypeNames: Record<string, string> = {
   NOTION_INTERNAL_CONNECTION_TOKEN: 'Notion 내부 연결 토큰',
   AWS_ACCESS_KEY: 'AWS Access Key',
   GITHUB_FINE_GRAINED_PAT: 'GitHub Fine-grained PAT',
+  NOTION_TOKEN: 'Notion 토큰',
 }
 
 export function credentialTypeLabel(type: string): string {

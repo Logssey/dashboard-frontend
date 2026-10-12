@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { type CredentialFilter, fetchCredentials } from '@/api/credentials'
-import type { CredentialItem } from '@/api/types'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { type CredentialFilter, fetchCredentials, scanCredentials } from '@/api/credentials'
+import type { CredentialItem, ScanResult } from '@/api/types'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
+import { Icon } from '@/components/Icon'
 import { MetricCard } from '@/components/MetricCard'
 import { PageHeader } from '@/components/PageHeader'
 import {
@@ -55,13 +56,41 @@ export function SecretsPage() {
   const summary = credentials.data?.summary
   const items = credentials.data?.items ?? []
 
+  // "지금 스캔": 끝나면 키 목록과 통합 현황을 다시 불러온다
+  const queryClient = useQueryClient()
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null)
+  const scan = useMutation({
+    mutationFn: scanCredentials,
+    onSuccess: (result) => {
+      setScanResult(result)
+      void queryClient.invalidateQueries({ queryKey: ['credentials'] })
+      void queryClient.invalidateQueries({ queryKey: ['overview'] })
+    },
+    onError: () => setScanResult(null),
+  })
+
   return (
     <>
-      <PageHeader title="시크릿 보안" description="노출 가능성이 있는 인증정보와 사용처를 확인하세요." />
+      <PageHeader
+        title="시크릿 보안"
+        description="노출 가능성이 있는 인증정보와 사용처를 확인하세요."
+        actions={
+          <button className="btn primary" onClick={() => scan.mutate()} disabled={scan.isPending}>
+            <Icon name="search" />
+            {scan.isPending ? '스캔 중…' : '지금 스캔'}
+          </button>
+        }
+      />
       <div className="scope-bar">
-        <span />
-        <span className="caption">샘플 데이터 · 화면 검토용</span>
+        <span className="caption">스캔 대상: 수집기에 연결된 Notion 페이지</span>
+        <span className="caption">샘플 데이터 + Notion 테스트 페이지</span>
       </div>
+      {scan.isError && <p className="notice error page-notice">스캔을 요청하지 못했어요. 로그인 상태를 확인해 주세요.</p>}
+      {scanResult && (
+        <p className={`notice page-notice ${scanResult.status === 'COMPLETED' ? '' : 'error'}`.trim()} role="status">
+          {scanResult.message}
+        </p>
+      )}
 
       <div className="stack">
         <div className="metric-grid">

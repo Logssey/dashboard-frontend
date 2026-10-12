@@ -16,3 +16,4 @@
 .check input { width: 16px; height: 16px; accent-color: var(--primary); }
 .key-name { font-weight: 600; color: var(--text-body); }
 .risk-cell { gap: 6px; flex-wrap: nowrap; }
+.page-notice { margin-bottom: var(--space-6); }

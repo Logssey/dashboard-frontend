@@ -105,3 +105,14 @@ export interface CredentialListResponse {
   }
   items: CredentialItem[]
 }
+
+// 키 스캔 실행 (API 명세: 키 스캔 실행)
+export interface ScanResult {
+  status: 'COMPLETED' | 'NOT_CONFIGURED' | 'FAILED'
+  scannedPages: number
+  foundKeys: number
+  newKeys: number
+  newEvents: number
+  message: string
+  scannedAt: string
+}
