@@ -44,12 +44,21 @@ export function SecretDetailDrawer({ secretId, onClose }: { secretId: number | n
             {detail.data.validatedAt && <><dt>검증 기록 시각</dt><dd>{koreaDate.format(new Date(detail.data.validatedAt))}</dd></>}
             {detail.data.validationReasonCode && <><dt>검증 근거</dt><dd>{secretValidationReasonLabel(detail.data.validationReasonCode)}</dd></>}
             <dt>발견 위치</dt><dd>{detail.data.occurrenceCount}곳</dd>
+            {detail.data.iamMetadata && <>
+              <dt>IAM 키 상태</dt><dd>{{ ACTIVE: '활성', INACTIVE: '비활성', EXPIRED: '만료', UNKNOWN: '미확인' }[detail.data.iamMetadata.keyStatus]}</dd>
+              {detail.data.iamMetadata.issuedAt && <><dt>발급 시각</dt><dd>{koreaDate.format(new Date(detail.data.iamMetadata.issuedAt))}</dd></>}
+              <dt>최근 사용</dt><dd>{detail.data.iamMetadata.lastUsedAt
+                ? koreaDate.format(new Date(detail.data.iamMetadata.lastUsedAt)) : '기록 없음'}</dd>
+              {detail.data.iamMetadata.lastUsedService && <><dt>사용 서비스</dt><dd>{detail.data.iamMetadata.lastUsedService}</dd></>}
+              {detail.data.iamMetadata.lastUsedRegion && <><dt>사용 리전</dt><dd>{detail.data.iamMetadata.lastUsedRegion}</dd></>}
+              <dt>메타데이터 확인</dt><dd>{koreaDate.format(new Date(detail.data.iamMetadata.observedAt))}</dd>
+            </>}
           </dl>
           <section><h3>발견 위치</h3>
             {detail.data.occurrences.length ? <ul className="secret-occurrences">
               {detail.data.occurrences.map((occurrence) => <li key={occurrence.id}>
-                <strong>{occurrence.sourceObjectRef}</strong>
-                <span className="caption">{occurrence.locationKey || '위치 미확인'} · {secretEnvironmentLabel[occurrence.environment]}</span>
+                <strong>{detail.data.componentState === 'METADATA_ONLY' ? 'AWS IAM 접근키' : occurrence.sourceObjectRef}</strong>
+                <span className="caption">{detail.data.componentState === 'METADATA_ONLY' ? '계정 내 접근키' : occurrence.locationKey || '위치 미확인'} · {secretEnvironmentLabel[occurrence.environment]}</span>
                 <span className="caption">마지막 발견 {koreaDate.format(new Date(occurrence.lastSeenAt))}</span>
               </li>)}
             </ul> : <p className="muted">확인된 발견 위치가 없어요.</p>}

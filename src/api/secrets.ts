@@ -45,6 +45,14 @@ export interface SecretDetail extends SecretItem {
   expiresAt: string | null
   lifecycleStatus: string | null
   occurrences: SecretOccurrence[]
+  iamMetadata: {
+    keyStatus: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'UNKNOWN'
+    issuedAt: string | null
+    lastUsedAt: string | null
+    lastUsedService: string | null
+    lastUsedRegion: string | null
+    observedAt: string
+  } | null
 }
 
 export interface SecretFilter {
