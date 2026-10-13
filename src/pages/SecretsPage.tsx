@@ -47,6 +47,9 @@ function scopeLabel(type: string): string {
     case 'AWS_SECRETS_MANAGER_METADATA': return 'Secrets Manager 목록'
     case 'AWS_SSM_PARAMETER_METADATA': return 'SSM Parameter 목록'
     case 'AWS_S3_BUCKET_METADATA': return 'S3 버킷 목록'
+    case 'AWS_SECRETS_MANAGER_VALUE': return 'Secrets Manager 값'
+    case 'AWS_SSM_PARAMETER_VALUE': return 'SSM Parameter 값'
+    case 'AWS_S3_OBJECT_CONTENT': return 'S3 객체 내용'
     case 'GITHUB_REPOSITORY_FILES': return 'GitHub 파일'
     default: return '미지원 범위'
   }
