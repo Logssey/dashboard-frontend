@@ -1,7 +1,7 @@
 import { apiRequest } from './client'
 
 export type SecretIssuer = 'AWS' | 'GITHUB' | 'NOTION'
-export type SecretComponentState = 'CONFIRMED' | 'CANDIDATE'
+export type SecretComponentState = 'CONFIRMED' | 'CANDIDATE' | 'METADATA_ONLY'
 export type SecretRunStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'CANCELLED' | 'UNKNOWN'
 
 export interface SecretConnection {
@@ -45,6 +45,14 @@ export interface SecretDetail extends SecretItem {
   expiresAt: string | null
   lifecycleStatus: string | null
   occurrences: SecretOccurrence[]
+  iamMetadata: {
+    keyStatus: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'UNKNOWN'
+    issuedAt: string | null
+    lastUsedAt: string | null
+    lastUsedService: string | null
+    lastUsedRegion: string | null
+    observedAt: string
+  } | null
 }
 
 export interface SecretFilter {

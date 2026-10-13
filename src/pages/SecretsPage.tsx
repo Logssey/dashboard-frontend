@@ -149,7 +149,7 @@ export function SecretsPage() {
             </select>
             <select className="select" aria-label="키 구성" value={filter.componentState}
               onChange={(event) => setFilter({ ...filter, componentState: event.target.value as SecretFilter['componentState'], page: 0 })}>
-              <option value="ALL">전체 구성</option><option value="CONFIRMED">구성요소 확인</option><option value="CANDIDATE">일부만 발견</option>
+              <option value="ALL">전체 구성</option><option value="CONFIRMED">구성요소 확인</option><option value="CANDIDATE">일부만 발견</option><option value="METADATA_ONLY">메타데이터만</option>
             </select>
           </div></div>
           {secrets.isPending ? <div style={{ padding: '0 28px' }}><div className="skeleton" /></div>
