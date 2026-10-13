@@ -57,11 +57,15 @@ export function SecretDetailDrawer({ secretId, onClose }: { secretId: number | n
           <section><h3>{detail.data.componentState === 'METADATA_ONLY' ? '확인 위치' : '발견 위치'}</h3>
             {detail.data.occurrences.length ? <ul className="secret-occurrences">
               {detail.data.occurrences.map((occurrence) => <li key={occurrence.id}>
-                <strong>{detail.data.componentState === 'METADATA_ONLY' ? 'AWS IAM 접근키' : occurrence.sourceObjectRef}</strong>
+                <strong>{detail.data.componentState === 'METADATA_ONLY' ? 'AWS IAM 접근키'
+                  : occurrence.sourceObjectRef.startsWith('aws-content-scope:') ? 'AWS 승인 보관소 값'
+                    : occurrence.sourceObjectRef}</strong>
                 <span className="caption">{detail.data.componentState === 'METADATA_ONLY' ? '계정 내 접근키' : occurrence.locationKey || '위치 미확인'} · {secretEnvironmentLabel[occurrence.environment]}</span>
                 <span className="caption">{detail.data.componentState === 'METADATA_ONLY' ? '마지막 확인' : '마지막 발견'} {koreaDate.format(new Date(occurrence.lastSeenAt))}</span>
               </li>)}
             </ul> : <p className="muted">확인된 발견 위치가 없어요.</p>}
+            {detail.data.occurrences.some((occurrence) => occurrence.sourceObjectRef.startsWith('aws-content-scope:'))
+              && <p className="muted">승인된 AWS 보관소에서 형식을 찾은 것만으로 외부 노출이 확인된 것은 아니에요.</p>}
           </section>
           <p className="notice">{detail.data.componentState === 'METADATA_ONLY'
             ? '접근키의 존재 정보만 확인했어요. 비밀 값 노출이나 현재 유효성을 뜻하지 않아요.'
