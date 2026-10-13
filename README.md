@@ -20,6 +20,8 @@ npm run dev
 | --- | --- |
 | `src/api` | 백엔드 호출 (API 응답 이름 그대로 사용, CSRF 헤더 자동 첨부) |
 | `src/layout` | 사이드바·상단 바, 로그인 확인 |
-| `src/pages` | 로그인, 통합 현황, 준비 중 탭 |
+| `src/pages` | 로그인, 통합 현황, 시크릿 보안, 준비 중 탭 |
 | `src/components` | 템플릿을 React로 옮긴 공통 화면 조각 |
 | `src/styles` | 진호 님 UI 템플릿 스타일 (`tokens.css`, `ui.css`) + 템플릿에 없는 화면용 `app.css` |
+
+시크릿 보안 화면은 관리자 세션으로 승인된 활성 연결을 조회하고 `POST /api/v1/secrets/runs`에 수동 검사를 등록한다. 반환된 실행 ID를 주소의 `run` 파라미터에 두고 상태를 조회하므로 새로고침 후에도 진행 상황을 볼 수 있다. 키 목록·발견 위치는 `/api/v1/secrets`에서 읽는다. 화면에는 마스킹된 키만 표시한다.
