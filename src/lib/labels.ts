@@ -1,5 +1,14 @@
 // 화면에 보이는 글자는 템플릿 디자인을 따른다 (02 기능 설계 3.5, API 명세 0.6)
-import type { CredentialIssuer, CredentialStatus, Domain, Environment, Provider, Severity } from '@/api/types'
+import type {
+  ComponentState,
+  CredentialIssuer,
+  CredentialStatus,
+  Domain,
+  Environment,
+  MissingReason,
+  Provider,
+  Severity,
+} from '@/api/types'
 
 export const severityLabel: Record<Severity, string> = {
   CRITICAL: 'Critical',
@@ -63,4 +72,24 @@ const credentialTypeNames: Record<string, string> = {
 
 export function credentialTypeLabel(type: string): string {
   return credentialTypeNames[type] ?? type
+}
+
+/** 키 구성요소 상태 (Secret 기준 문서의 component_state) */
+export const componentStateLabel: Record<ComponentState, string> = {
+  CONFIRMED: '키 전체 노출',
+  CANDIDATE: '일부만 노출 (후보)',
+  METADATA_ONLY: '목록 정보',
+}
+
+/** 미평가 사유. 등급을 아직 매기지 않은 이유를 사람 말로 */
+export const missingReasonLabel: Record<MissingReason, string> = {
+  CREDENTIAL_UNCONFIRMED: '키 조각이 모자라 실제 키인지 확인 전',
+  EXPOSURE_UNKNOWN: '누가 볼 수 있는 문서인지 확인 전',
+}
+
+/** 환경. 모르면 미확인 (운영으로 가정하지 않음) */
+export const secretEnvironmentLabel: Record<'PROD' | 'DEV' | 'UNKNOWN', string> = {
+  PROD: '운영',
+  DEV: '개발',
+  UNKNOWN: '미확인',
 }
