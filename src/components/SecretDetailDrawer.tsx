@@ -54,7 +54,9 @@ export function SecretDetailDrawer({ secretId, onClose }: { secretId: number | n
               </li>)}
             </ul> : <p className="muted">확인된 발견 위치가 없어요.</p>}
           </section>
-          <p className="notice">형식 탐지 결과는 미평가예요. 유효성·권한·노출 범위 확인 뒤 심각도를 정해요.</p>
+          <p className="notice">{detail.data.componentState === 'METADATA_ONLY'
+            ? '접근키의 존재 정보만 확인했어요. 비밀 값 노출이나 현재 유효성을 뜻하지 않아요.'
+            : '형식 탐지 결과는 미평가예요. 유효성·권한·노출 범위 확인 뒤 심각도를 정해요.'}</p>
         </>}
       </div>
       <div className="drawer-foot"><button className="btn outline" onClick={onClose}>닫기</button></div>

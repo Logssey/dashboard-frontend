@@ -61,6 +61,7 @@ const credentialTypeNames: Record<string, string> = {
   AWS_TEMPORARY_CREDENTIALS: 'AWS 임시 자격 증명',
   GITHUB_CLASSIC_PAT: 'GitHub PAT',
   NOTION_CONNECTION_TOKEN: 'Notion 연결 토큰',
+  AWS_IAM_ACCESS_KEY: 'AWS IAM 접근키',
 }
 
 export function credentialTypeLabel(type: string): string {
@@ -71,6 +72,7 @@ export function credentialTypeLabel(type: string): string {
 export const componentStateLabel: Record<SecretComponentState, string> = {
   CONFIRMED: '키 전체 노출',
   CANDIDATE: '일부만 노출 (후보)',
+  METADATA_ONLY: '메타데이터만 확인',
 }
 
 export function secretValidationLabel(status: string): string {

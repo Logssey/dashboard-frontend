@@ -1,7 +1,7 @@
 import { apiRequest } from './client'
 
 export type SecretIssuer = 'AWS' | 'GITHUB' | 'NOTION'
-export type SecretComponentState = 'CONFIRMED' | 'CANDIDATE'
+export type SecretComponentState = 'CONFIRMED' | 'CANDIDATE' | 'METADATA_ONLY'
 export type SecretRunStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'CANCELLED' | 'UNKNOWN'
 
 export interface SecretConnection {
