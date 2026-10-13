@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSecretDetail } from '@/api/secrets'
-import { componentStateLabel, credentialTypeLabel, issuerLabel, secretEnvironmentLabel, secretValidationLabel } from '@/lib/labels'
+import { componentStateLabel, credentialTypeLabel, issuerLabel, secretEnvironmentLabel, secretValidationLabel, secretValidationReasonLabel } from '@/lib/labels'
 import { Badge } from './Badge'
 import { Icon } from './Icon'
 
@@ -41,8 +41,8 @@ export function SecretDetailDrawer({ secretId, onClose }: { secretId: number | n
             <dt>발급자</dt><dd>{issuerLabel[detail.data.issuer]}</dd>
             <dt>키 종류</dt><dd>{credentialTypeLabel(detail.data.credentialType)}</dd>
             <dt>검증</dt><dd>{secretValidationLabel(detail.data.validationStatus)}</dd>
-            {detail.data.validatedAt && <><dt>검증 시각</dt><dd>{koreaDate.format(new Date(detail.data.validatedAt))}</dd></>}
-            {detail.data.validationReasonCode && <><dt>검증 근거</dt><dd>{detail.data.validationReasonCode}</dd></>}
+            {detail.data.validatedAt && <><dt>검증 기록 시각</dt><dd>{koreaDate.format(new Date(detail.data.validatedAt))}</dd></>}
+            {detail.data.validationReasonCode && <><dt>검증 근거</dt><dd>{secretValidationReasonLabel(detail.data.validationReasonCode)}</dd></>}
             <dt>발견 위치</dt><dd>{detail.data.occurrenceCount}곳</dd>
           </dl>
           <section><h3>발견 위치</h3>
