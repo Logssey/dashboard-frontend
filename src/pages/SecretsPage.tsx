@@ -41,6 +41,17 @@ function stageText(status: string): string {
   }
 }
 
+function scopeLabel(type: string): string {
+  switch (type) {
+    case 'IAM_ACCESS_KEY_METADATA': return 'IAM 접근키 메타데이터'
+    case 'AWS_SECRETS_MANAGER_METADATA': return 'Secrets Manager 목록'
+    case 'AWS_SSM_PARAMETER_METADATA': return 'SSM Parameter 목록'
+    case 'AWS_S3_BUCKET_METADATA': return 'S3 버킷 목록'
+    case 'GITHUB_REPOSITORY_FILES': return 'GitHub 파일'
+    default: return '미지원 범위'
+  }
+}
+
 /** Secret 전용 목록과 비동기 실행 상태. 키 원문은 사용하지 않는다. */
 export function SecretsPage() {
   const queryClient = useQueryClient()
@@ -84,7 +95,7 @@ export function SecretsPage() {
 
   return (
     <>
-      <PageHeader title="시크릿 보안" description="발견한 키와 위치, 검증 상태를 확인하세요." actions={
+      <PageHeader title="시크릿 보안" description="키 후보와 접근키 메타데이터, 검증 상태를 확인하세요." actions={
         <button className="btn primary" onClick={() => selectedConnection && startRun.mutate(selectedConnection.connectionId)}
           disabled={!selectedConnection || startRun.isPending || isRunning}>
           <Icon name="search" />{startRun.isPending ? '등록 중…' : isRunning ? '검사 진행 중' : '지금 검사'}
@@ -128,20 +139,31 @@ export function SecretsPage() {
         </p>
           : run.data ? <>
             <p>수집 {stageText(run.data.collectionStatus)} · 탐지 {stageText(run.data.detectionStatus)} · 검증 {stageText(run.data.validationStatus)}</p>
-            <p>승인 범위 {run.data.scopeCount}개 중 완료 {run.data.completedScopeCount}개, 미완료 {run.data.incompleteScopeCount}개 · 읽은 항목 {run.data.collectedObjectCount}개</p>
+            <p>승인 범위 {run.data.scopeCount}개 중 완료 {run.data.completedScopeCount}개, 미완료 {run.data.incompleteScopeCount}개 · 확인한 항목 {run.data.collectedObjectCount}개</p>
             {run.data.failureCode && <p>실패 코드: {run.data.failureCode}</p>}
+            {run.data.scopeResults?.length > 0 && <details className="secret-run-scopes">
+              <summary>범위별 수집 결과 {run.data.scopeResults.length}개</summary>
+              <ul>
+                {run.data.scopeResults.map((scope) => <li key={scope.runScopeId}>
+                  {scopeLabel(scope.contentType)}{scope.region ? ` · ${scope.region}` : ''}
+                  {' · '}{stageText(scope.collectionStatus)}
+                  {scope.objectCount !== null ? ` · ${scope.objectCount}개` : ''}
+                  {scope.gapCode ? ` · 확인 필요 (${scope.gapCode})` : ''}
+                </li>)}
+              </ul>
+            </details>}
           </> : <p>실행 상태를 확인하는 중이에요.</p>}
         <button className="btn outline" onClick={() => setSearchParams({}, { replace: true })}>상태 표시 닫기</button>
       </section>}
 
       <div className="stack">
         <div className="metric-grid">
-          <MetricCard label="조건에 맞는 키" value={secrets.data?.total ?? '—'} unit="개" description="현재 필터 기준" />
-          <MetricCard label="현재 페이지" value={secrets.data?.items.length ?? '—'} unit="개" description="키 하나에 발견 위치는 여러 개일 수 있어요" />
-          <MetricCard label="선택한 실행에서 읽은 항목" value={run.data?.collectedObjectCount ?? '—'} unit="개" description="현재 화면에서 조회한 실행 기준" />
+          <MetricCard label="키·메타데이터 기록" value={secrets.data?.total ?? '—'} unit="개" description="현재 필터 기준" />
+          <MetricCard label="현재 페이지" value={secrets.data?.items.length ?? '—'} unit="개" description="기록 하나에 확인 위치는 여러 개일 수 있어요" />
+          <MetricCard label="선택한 실행에서 확인한 항목" value={run.data?.collectedObjectCount ?? '—'} unit="개" description="현재 화면에서 조회한 실행 기준" />
         </div>
         <section className="card list-card">
-          <div className="card-head"><h2>발견한 키</h2><span className="caption">마지막 발견 순</span></div>
+          <div className="card-head"><h2>키·메타데이터</h2><span className="caption">마지막 확인 순</span></div>
           <div className="toolbar"><div className="row">
             <select className="select" aria-label="발급자" value={filter.issuer}
               onChange={(event) => setFilter({ ...filter, issuer: event.target.value as SecretFilter['issuer'], page: 0 })}>
@@ -155,7 +177,7 @@ export function SecretsPage() {
           {secrets.isPending ? <div style={{ padding: '0 28px' }}><div className="skeleton" /></div>
             : secrets.isError ? <div style={{ padding: '0 28px 20px' }}><p className="notice error">키 목록을 불러오지 못했어요.</p></div>
               : secrets.data.items.length ? <SecretTable items={secrets.data.items} onSelect={setSelectedId} />
-                : <EmptyState title={filter.issuer === 'ALL' && filter.componentState === 'ALL' ? '아직 발견한 키가 없어요' : '조건에 맞는 키가 없어요'}
+                : <EmptyState title={filter.issuer === 'ALL' && filter.componentState === 'ALL' ? '아직 확인된 기록이 없어요' : '조건에 맞는 기록이 없어요'}
                     description="필터를 바꾸거나 승인된 연결을 검사해 보세요." />}
           <div className="table-foot secret-table-foot" role="status">
             <span>{secrets.data?.total ?? 0}개 중 {secrets.data?.items.length ?? 0}개 표시 · 키 원문은 화면에 표시하지 않아요.</span>
@@ -173,9 +195,9 @@ export function SecretsPage() {
 }
 
 function SecretTable({ items, onSelect }: { items: SecretItem[]; onSelect: (id: number) => void }) {
-  return <div className="table-scroll" tabIndex={0} role="region" aria-label="발견한 키 목록. 좁은 화면에서는 가로로 스크롤하세요.">
+  return <div className="table-scroll" tabIndex={0} role="region" aria-label="키와 메타데이터 목록. 좁은 화면에서는 가로로 스크롤하세요.">
     <table><thead><tr>
-      <th scope="col">판정</th><th scope="col">키</th><th scope="col">구성</th><th scope="col">검증</th><th scope="col">발견 위치</th><th scope="col">마지막 발견</th>
+      <th scope="col">판정</th><th scope="col">키</th><th scope="col">구성</th><th scope="col">검증</th><th scope="col">확인 위치</th><th scope="col">마지막 확인</th>
     </tr></thead><tbody>
       {items.map((item) => <tr key={item.id}>
         <td><Badge label="미평가" /></td>

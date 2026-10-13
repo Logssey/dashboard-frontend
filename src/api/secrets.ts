@@ -91,6 +91,14 @@ export interface SecretRunDetail extends SecretRunAccepted {
   finishedAt: string | null
   availableAt: string | null
   failureCode: string | null
+  scopeResults: {
+    runScopeId: number
+    contentType: string
+    region: string | null
+    collectionStatus: string
+    objectCount: number | null
+    gapCode: string | null
+  }[]
 }
 
 export const fetchSecretConnections = () =>

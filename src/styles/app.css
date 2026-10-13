@@ -13,6 +13,10 @@
 
 /* 시크릿 보안 탭 */
 .page-notice { margin-bottom: var(--space-6); }
+.secret-run-scopes { margin-top: 12px; }
+.secret-run-scopes summary { cursor: pointer; font-weight: 600; }
+.secret-run-scopes ul { margin: 8px 0 0; padding-left: 20px; }
+.secret-run-scopes li { margin: 4px 0; }
 .secret-scope-bar .select { max-width: min(70vw, 520px); }
 .secret-table-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .secret-occurrences { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 12px; }
