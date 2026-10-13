@@ -11,9 +11,10 @@
 
 .page-loading { padding: 40px; }
 
-/* 시크릿 보안 탭 (템플릿에 없는 체크박스·키 이름 칸) */
-.check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-body); cursor: pointer; }
-.check input { width: 16px; height: 16px; accent-color: var(--primary); }
-.key-name { font-weight: 600; color: var(--text-body); }
-.risk-cell { gap: 6px; flex-wrap: nowrap; }
+/* 시크릿 보안 탭 */
 .page-notice { margin-bottom: var(--space-6); }
+.secret-scope-bar .select { max-width: min(70vw, 520px); }
+.secret-table-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.secret-occurrences { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 12px; }
+.secret-occurrences li { padding: 14px; border: 1px solid var(--divider); border-radius: 10px; overflow-wrap: anywhere; }
+.secret-occurrences .caption { display: block; margin-top: 5px; }

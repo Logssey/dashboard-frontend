@@ -1,14 +1,11 @@
 // 화면에 보이는 글자는 템플릿 디자인을 따른다 (02 기능 설계 3.5, API 명세 0.6)
 import type {
-  ComponentState,
-  CredentialIssuer,
-  CredentialStatus,
   Domain,
   Environment,
-  MissingReason,
   Provider,
   Severity,
 } from '@/api/types'
+import type { SecretComponentState, SecretIssuer } from '@/api/secrets'
 
 export const severityLabel: Record<Severity, string> = {
   CRITICAL: 'Critical',
@@ -47,18 +44,10 @@ export const domainLabel: Record<Domain, string> = {
 export const COMING_SOON_MESSAGE = '준비 중인 기능이에요.'
 
 // 시크릿 보안 탭 (02 기능 설계 4)
-export const issuerLabel: Record<CredentialIssuer, string> = {
+export const issuerLabel: Record<SecretIssuer, string> = {
   AWS: 'AWS',
   GITHUB: 'GitHub',
   NOTION: 'Notion',
-}
-
-export const credentialStatusLabel: Record<CredentialStatus, string> = {
-  ACTIVE: '활성',
-  INACTIVE: '비활성',
-  EXPIRED: '만료',
-  REVOKED: '폐기',
-  UNKNOWN: '미확인',
 }
 
 /** 키 종류 표시 이름. 목록에 없는 종류는 받은 값 그대로 보여준다 */
@@ -68,6 +57,10 @@ const credentialTypeNames: Record<string, string> = {
   AWS_ACCESS_KEY: 'AWS Access Key',
   GITHUB_FINE_GRAINED_PAT: 'GitHub Fine-grained PAT',
   NOTION_TOKEN: 'Notion 토큰',
+  AWS_ACCESS_KEY_PAIR: 'AWS 액세스 키',
+  AWS_TEMPORARY_CREDENTIALS: 'AWS 임시 자격 증명',
+  GITHUB_CLASSIC_PAT: 'GitHub PAT',
+  NOTION_CONNECTION_TOKEN: 'Notion 연결 토큰',
 }
 
 export function credentialTypeLabel(type: string): string {
@@ -75,16 +68,40 @@ export function credentialTypeLabel(type: string): string {
 }
 
 /** 키 구성요소 상태 (Secret 기준 문서의 component_state) */
-export const componentStateLabel: Record<ComponentState, string> = {
+export const componentStateLabel: Record<SecretComponentState, string> = {
   CONFIRMED: '키 전체 노출',
   CANDIDATE: '일부만 노출 (후보)',
-  METADATA_ONLY: '목록 정보',
 }
 
-/** 미평가 사유. 등급을 아직 매기지 않은 이유를 사람 말로 */
-export const missingReasonLabel: Record<MissingReason, string> = {
-  CREDENTIAL_UNCONFIRMED: '키 조각이 모자라 실제 키인지 확인 전',
-  EXPOSURE_UNKNOWN: '누가 볼 수 있는 문서인지 확인 전',
+export function secretValidationLabel(status: string): string {
+  switch (status) {
+    case 'VALID': return '유효'
+    case 'INVALID': return '무효'
+    case 'UNKNOWN': return '확인 불가'
+    case 'UNCHECKED':
+    case 'UNVERIFIED': return '미검증'
+    default: return '미확인'
+  }
+}
+
+const validationReasons: Record<string, string> = {
+  AUTHENTICATED: 'AWS 인증 확인',
+  INVALID_ACCESS_KEY: 'AWS가 키 ID를 인정하지 않음',
+  SIGNATURE_AMBIGUOUS: '서명 오류의 원인 확인 필요',
+  EXPIRED_SESSION: '임시 세션 만료',
+  DISABLED: '검증 기능이 꺼져 있음',
+  INCOMPLETE_PAIR: '키 구성 요소가 부족함',
+  MISSING_SESSION_TOKEN: '임시 키의 세션 토큰이 없음',
+  ACCESS_AMBIGUOUS: '접근 오류의 원인 확인 필요',
+  RATE_LIMITED: 'AWS 호출 제한',
+  PROVIDER_UNAVAILABLE: 'AWS 응답 확인 불가',
+  CLIENT_FAILURE: '검증 연결 오류',
+  SYNTHETIC_FIXTURE: '합성 테스트 데이터',
+  UNSPECIFIED_REASON: '사유 확인 필요',
+}
+
+export function secretValidationReasonLabel(reason: string): string {
+  return validationReasons[reason] ?? '사유 확인 필요'
 }
 
 /** 환경. 모르면 미확인 (운영으로 가정하지 않음) */
