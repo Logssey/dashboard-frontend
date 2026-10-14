@@ -6,6 +6,7 @@ import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { OverviewPage } from '@/pages/OverviewPage'
 import { SecretsPage } from '@/pages/SecretsPage'
+import { RuntimePage } from '@/pages/RuntimePage'
 
 export function App() {
   return (
@@ -15,8 +16,9 @@ export function App() {
         <Route element={<AppLayout />}>
           <Route path={OVERVIEW_PATH} element={<OverviewPage />} />
           <Route path="/secrets" element={<SecretsPage />} />
+          <Route path="/runtime" element={<RuntimePage />} />
           {sectionPages
-            .filter((page) => page.path !== '/secrets')
+            .filter((page) => page.path !== '/secrets' && page.path !== '/runtime')
             .map((page) => (
               <Route key={page.path} path={page.path} element={<ComingSoonPage page={page} />} />
             ))}

@@ -8,6 +8,12 @@ import type {
   MissingReason,
   Provider,
   Severity,
+  RuntimeActionStatus,
+  RuntimeCollectionState,
+  RuntimeDisposition,
+  RuntimeEvaluationStatus,
+  RuntimeReviewStatus,
+  RuntimeSourcePriority,
 } from '@/api/types'
 
 export const severityLabel: Record<Severity, string> = {
@@ -92,4 +98,50 @@ export const secretEnvironmentLabel: Record<'PROD' | 'DEV' | 'UNKNOWN', string> 
   PROD: '운영',
   DEV: '개발',
   UNKNOWN: '미확인',
+}
+
+export const runtimeReviewLabel: Record<RuntimeReviewStatus, string> = {
+  UNREVIEWED: '미확인',
+  REVIEWED: '확인함',
+}
+
+export const runtimeActionLabel: Record<RuntimeActionStatus, string> = {
+  OPEN: '미조치',
+  IN_PROGRESS: '조치 중',
+  RESOLVED: '해결됨',
+  RISK_ACCEPTED: '위험 수용',
+}
+
+export const runtimeDispositionLabel: Record<RuntimeDisposition, string> = {
+  UNDECIDED: '판정 전',
+  EXPECTED: '정상 행위',
+  ACTION_REQUIRED: '조치 필요',
+}
+
+export const runtimeEvaluationLabel: Record<RuntimeEvaluationStatus, string> = {
+  PENDING_CONTEXT: 'Context 확인 중',
+  EVALUATED: '평가 완료',
+  INSUFFICIENT_CONTEXT: 'Context 부족',
+  EVALUATION_FAILED: '평가 실패',
+}
+
+export const runtimePriorityLabel: Record<RuntimeSourcePriority, string> = {
+  CRITICAL: 'Critical',
+  WARNING: 'Warning',
+  NOTICE: 'Notice',
+  INFORMATIONAL: 'Informational',
+}
+
+export const runtimePriorityTone: Record<RuntimeSourcePriority, string> = {
+  CRITICAL: 'critical',
+  WARNING: 'high',
+  NOTICE: 'medium',
+  INFORMATIONAL: '',
+}
+
+export const runtimeCollectionLabel: Record<RuntimeCollectionState, string> = {
+  NOT_INSTALLED: '센서 미설치',
+  HEALTHY: '수집 정상',
+  DEGRADED: '수집 지연',
+  OFFLINE: '수집 중단',
 }

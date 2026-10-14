@@ -17,3 +17,28 @@
 .key-name { font-weight: 600; color: var(--text-body); }
 .risk-cell { gap: 6px; flex-wrap: nowrap; }
 .page-notice { margin-bottom: var(--space-6); }
+
+/* 런타임 보안 */
+.runtime-mode-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; margin: -8px 0 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text-muted); font-size: 13px; }
+.runtime-mode-bar .badge { margin-left: auto; }
+.runtime-detect-only { color: var(--primary-text); font-weight: 600; }
+.runtime-sensor-notice { margin-bottom: 24px; background: var(--high-soft); color: var(--high); }
+.runtime-metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.runtime-toolbar { justify-content: flex-start; }
+.runtime-loading { padding: 0 28px 24px; }
+.runtime-drawer { z-index: 60; }
+.runtime-drawer-body { overflow-y: auto; max-height: calc(100dvh - 154px); }
+.runtime-detail-lead { display: grid; gap: 12px; padding: 18px; border-radius: 16px; background: var(--surface-subtle); }
+.runtime-process-line { font-size: 18px; font-weight: 600; color: var(--text-body); overflow-wrap: anywhere; }
+.runtime-facts { margin-top: 16px; grid-template-columns: 110px 1fr; }
+.runtime-investigation { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.runtime-investigation h3, .runtime-investigation .runtime-note, .runtime-investigation .notice { grid-column: 1 / -1; }
+.runtime-note { min-height: 112px; resize: vertical; }
+
+@media (max-width: 1100px) { .runtime-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .runtime-metric-grid { grid-template-columns: 1fr; }
+  .runtime-mode-bar .badge { margin-left: 0; }
+  .runtime-investigation { grid-template-columns: 1fr; }
+  .runtime-investigation h3, .runtime-investigation .runtime-note, .runtime-investigation .notice { grid-column: auto; }
+}
