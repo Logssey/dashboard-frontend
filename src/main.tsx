@@ -8,6 +8,7 @@ import { ME_QUERY_KEY } from '@/layout/useMe'
 import './styles/tokens.css'
 import './styles/ui.css'
 import './styles/app.css'
+import './styles/secrets.css'
 
 // 어떤 API에서든 401(로그인 풀림·세션 1시간 만료)이 오면 로그인 상태를 지워서 로그인 화면으로 보낸다
 const handleUnauthenticated = (error: Error) => {

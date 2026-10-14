@@ -13,6 +13,8 @@ import { MetricCard } from '@/components/MetricCard'
 import { PageHeader } from '@/components/PageHeader'
 import { SecretDetailDrawer } from '@/components/SecretDetailDrawer'
 import { componentStateLabel, credentialTypeLabel, issuerLabel, secretValidationLabel } from '@/lib/labels'
+import { buildMaskedSecretsCsv, loadAllSecretItems } from '@/lib/secretCsv'
+import './secret-csv.css'
 
 const koreaDate = new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Seoul' })
 const terminalStatuses = new Set<SecretRunStatus>(['SUCCEEDED', 'PARTIAL', 'FAILED', 'CANCELLED'])
@@ -85,11 +87,33 @@ export function SecretsPage() {
       setSearchParams({ run: String(accepted.runId) }, { replace: true })
     },
   })
+  const exportCsv = useMutation({
+    mutationFn: async (selection: Pick<SecretFilter, 'issuer' | 'componentState'>) =>
+      buildMaskedSecretsCsv(await loadAllSecretItems(fetchSecrets, selection)),
+    onSuccess: (csv) => {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(new Date())
+      const datePart = (type: string) => parts.find((part) => part.type === type)?.value ?? '00'
+      const name = `logssey-secrets-masked-${datePart('year')}-${datePart('month')}-${datePart('day')}.csv`
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = name
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    },
+  })
 
   useEffect(() => {
     if (runId !== null && run.data?.runId === runId && terminalStatuses.has(run.data.status)) {
       void queryClient.invalidateQueries({ queryKey: ['secrets'] })
       void queryClient.invalidateQueries({ queryKey: ['secret-detail'] })
+      void queryClient.invalidateQueries({ queryKey: ['secret-navigation-count'] })
+      void queryClient.invalidateQueries({ queryKey: ['secret-overview-inventory'] })
+      void queryClient.invalidateQueries({ queryKey: ['secret-runs'] })
     }
   }, [queryClient, runId, run.data?.runId, run.data?.status])
 
@@ -98,12 +122,27 @@ export function SecretsPage() {
 
   return (
     <>
-      <PageHeader title="시크릿 보안" description="키 후보와 접근키 메타데이터, 검증 상태를 확인하세요." actions={
+      <PageHeader title="탐지 목록" description="키 후보와 접근키 메타데이터, 검증 상태를 확인하세요." actions={<>
+        <button className="btn secret-export-button" type="button"
+          onClick={() => exportCsv.mutate({ issuer: filter.issuer, componentState: filter.componentState })}
+          disabled={exportCsv.isPending || secrets.isPending || secrets.isError || secrets.data?.total === 0}>
+          <Icon name="download" />{exportCsv.isPending ? 'CSV 준비 중…' : '마스킹 CSV 내보내기'}
+        </button>
         <button className="btn primary" onClick={() => selectedConnection && startRun.mutate(selectedConnection.connectionId)}
           disabled={!selectedConnection || startRun.isPending || isRunning}>
-          <Icon name="search" />{startRun.isPending ? '등록 중…' : isRunning ? '검사 진행 중' : '지금 검사'}
+          <Icon name="search" />{startRun.isPending ? '등록 중…' : isRunning ? '검사 진행 중' : '스캔 요청'}
         </button>
-      } />
+      </>} />
+
+      {exportCsv.isError && <p className="notice error page-notice" role="alert">
+        {exportCsv.error instanceof ApiError && exportCsv.error.status === 403
+          ? 'CSV 내보내기에는 관리자 권한이 필요해요.'
+          : exportCsv.error.message === 'SECRET_EXPORT_CHANGED'
+            ? '내보내는 동안 목록이 바뀌었어요. 다시 시도해 주세요.'
+            : exportCsv.error.message === 'SECRET_EXPORT_TOO_LARGE'
+              ? '내보낼 기록이 너무 많아요. 필터를 좁혀 다시 시도해 주세요.'
+              : 'CSV를 만들지 못했어요. 잠시 후 다시 시도해 주세요.'}
+      </p>}
 
       <div className="scope-bar secret-scope-bar">
         <label className="row" htmlFor="secret-connection">
