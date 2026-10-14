@@ -10,7 +10,10 @@ export const OVERVIEW_PATH = '/overview'
 export const LOGIN_PATH = '/login'
 
 export const sectionPages: SectionPage[] = [
-  { path: '/secrets', title: '시크릿 보안', description: '노출 가능성이 있는 인증정보와 사용처를 확인하세요.' },
+  { path: '/secrets', title: '시크릿 현황', description: '발견한 시크릿과 대응 현황을 확인하세요.' },
+  { path: '/secrets/findings', title: '탐지 목록', description: '발견한 키 후보와 검증 상태를 확인하세요.' },
+  { path: '/secrets/connections', title: '연결 관리', description: '승인된 수집 연결과 연결 상태를 확인하세요.' },
+  { path: '/secrets/history', title: '스캔 이력', description: '검사 실행과 부분 실패 범위를 확인하세요.' },
   { path: '/configuration', title: '보안 설정·컴플라이언스', description: '클라우드와 Kubernetes의 설정을 보안 기준에 따라 점검하세요.' },
   { path: '/identities', title: '신원·권한', description: '누가 무엇에 접근하는지 확인하고 필요한 권한을 검토하세요.' },
   { path: '/runtime', title: '런타임 보안', description: '실행 중인 워크로드의 이벤트와 조사 근거를 확인하세요.' },

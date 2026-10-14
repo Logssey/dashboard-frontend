@@ -14,6 +14,9 @@ const paths = {
   check: 'm5 12 4 4L19 6',
   code: 'm8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16',
   plus: 'M12 4v16M4 12h16',
+  list: 'M8 6h13M8 12h13M8 18h13|M3 6h.01M3 12h.01M3 18h.01',
+  plug: 'M8 3v5m8-5v5M6 8h12v4a6 6 0 0 1-6 6v3M8 21h8',
+  clock: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z|M12 7v5l3 2',
 } as const
 
 export type IconName = keyof typeof paths
