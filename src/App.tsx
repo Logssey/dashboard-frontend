@@ -9,6 +9,7 @@ import { SecretsPage } from '@/pages/SecretsPage'
 import { SecretOverviewPage } from '@/pages/SecretOverviewPage'
 import { SecretConnectionsPage } from '@/pages/SecretConnectionsPage'
 import { SecretHistoryPage } from '@/pages/SecretHistoryPage'
+import { SecretCasesPage } from '@/pages/SecretCasesPage'
 
 export function App() {
   return (
@@ -19,6 +20,7 @@ export function App() {
           <Route path={OVERVIEW_PATH} element={<OverviewPage />} />
           <Route path="/secrets" element={<SecretOverviewPage />} />
           <Route path="/secrets/findings" element={<SecretsPage />} />
+          <Route path="/secrets/cases" element={<SecretCasesPage />} />
           <Route path="/secrets/connections" element={<SecretConnectionsPage />} />
           <Route path="/secrets/history" element={<SecretHistoryPage />} />
           {sectionPages

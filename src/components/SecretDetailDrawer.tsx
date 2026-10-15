@@ -43,6 +43,9 @@ export function SecretDetailDrawer({ secretId, onClose }: { secretId: number | n
             <dt>검증</dt><dd>{secretValidationLabel(detail.data.validationStatus)}</dd>
             {detail.data.validatedAt && <><dt>검증 기록 시각</dt><dd>{koreaDate.format(new Date(detail.data.validatedAt))}</dd></>}
             {detail.data.validationReasonCode && <><dt>검증 근거</dt><dd>{secretValidationReasonLabel(detail.data.validationReasonCode)}</dd></>}
+            {!detail.data.validationReasonCode && !detail.data.validatedAt
+              && (detail.data.validationStatus === 'UNCHECKED' || detail.data.validationStatus === 'UNVERIFIED')
+              && <><dt>미검증 사유</dt><dd>검증 시도 기록 없음</dd></>}
             <dt>{detail.data.componentState === 'METADATA_ONLY' ? '확인 위치' : '발견 위치'}</dt><dd>{detail.data.occurrenceCount}곳</dd>
             {detail.data.iamMetadata && <>
               <dt>IAM 키 상태</dt><dd>{{ ACTIVE: '활성', INACTIVE: '비활성', EXPIRED: '만료', UNKNOWN: '미확인' }[detail.data.iamMetadata.keyStatus]}</dd>
