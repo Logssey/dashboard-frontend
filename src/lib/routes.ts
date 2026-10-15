@@ -12,6 +12,7 @@ export const LOGIN_PATH = '/login'
 export const sectionPages: SectionPage[] = [
   { path: '/secrets', title: '시크릿 현황', description: '발견한 시크릿과 대응 현황을 확인하세요.' },
   { path: '/secrets/findings', title: '탐지 목록', description: '발견한 키 후보와 검증 상태를 확인하세요.' },
+  { path: '/secrets/cases', title: '대응 관리', description: '시크릿 대응 건과 담당자 변경 이력을 확인하세요.' },
   { path: '/secrets/connections', title: '연결 관리', description: '승인된 수집 연결과 연결 상태를 확인하세요.' },
   { path: '/secrets/history', title: '스캔 이력', description: '검사 실행과 부분 실패 범위를 확인하세요.' },
   { path: '/configuration', title: '보안 설정·컴플라이언스', description: '클라우드와 Kubernetes의 설정을 보안 기준에 따라 점검하세요.' },

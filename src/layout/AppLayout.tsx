@@ -17,6 +17,7 @@ const navigation: Array<{ path: string; icon: IconName; label: string }> = [
 const secretNavigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: '/secrets', icon: 'key', label: '시크릿 현황' },
   { path: '/secrets/findings', icon: 'list', label: '탐지 목록' },
+  { path: '/secrets/cases', icon: 'shield', label: '대응 관리' },
   { path: '/secrets/connections', icon: 'plug', label: '연결 관리' },
   { path: '/secrets/history', icon: 'clock', label: '스캔 이력' },
 ]
