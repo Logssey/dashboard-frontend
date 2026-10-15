@@ -26,5 +26,7 @@ export const infrastructurePaths = ['/configuration', '/identities', '/runtime']
 
 export function pageTitle(pathname: string): string {
   if (pathname === OVERVIEW_PATH) return '통합 현황'
+  if (pathname === '/secrets/triage') return '수동 노출 판정'
+  if (pathname.startsWith('/secrets/triage/')) return '노출 판정'
   return sectionPages.find((page) => page.path === pathname)?.title ?? '통합 현황'
 }
