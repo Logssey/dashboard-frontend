@@ -41,7 +41,7 @@ export function AppLayout() {
   const secretCount = useQuery({
     queryKey: ['secret-navigation-count'],
     queryFn: () => fetchSecrets({ page: 0, size: 1, issuer: 'ALL', componentState: 'ALL' }),
-    enabled: inSecrets,
+    enabled: inSecrets && me?.role === 'ADMIN',
   })
 
   useEffect(() => {

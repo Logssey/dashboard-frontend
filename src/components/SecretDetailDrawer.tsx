@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { fetchSecretDetail } from '@/api/secrets'
 import { componentStateLabel, credentialTypeLabel, issuerLabel, secretEnvironmentLabel, secretValidationLabel, secretValidationReasonLabel } from '@/lib/labels'
 import { Badge } from './Badge'
@@ -75,7 +76,11 @@ export function SecretDetailDrawer({ secretId, onClose }: { secretId: number | n
             : '형식 탐지 결과는 미평가예요. 유효성·권한·노출 범위 확인 뒤 심각도를 정해요.'}</p>
         </>}
       </div>
-      <div className="drawer-foot"><button className="btn outline" onClick={onClose}>닫기</button></div>
+      <div className="drawer-foot">
+        {detail.isSuccess && detail.data.componentState === 'CONFIRMED' && detail.data.occurrences.length > 0
+          && <Link className="btn primary" to={`/secrets/triage/${detail.data.id}`}>보안 담당자 판정</Link>}
+        <button className="btn outline" onClick={onClose}>닫기</button>
+      </div>
     </>}
   </dialog>
 }

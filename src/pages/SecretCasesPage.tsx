@@ -8,7 +8,6 @@ import {
 } from '@/api/secretCases'
 import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
-import { SecretDetailDrawer } from '@/components/SecretDetailDrawer'
 import { credentialTypeLabel, issuerLabel } from '@/lib/labels'
 import './secret-cases.css'
 
@@ -57,7 +56,6 @@ export function SecretCasesPage() {
   const [selectedChoice, setSelectedChoice] = useState('UNASSIGNED')
   const [reason, setReason] = useState<SecretAssignmentReason | ''>('')
   const [message, setMessage] = useState<string | null>(null)
-  const [openSecretId, setOpenSecretId] = useState<number | null>(null)
   const origin: SecretCaseOrigin = searchParams.get('origin') === 'TEST' ? 'TEST' : 'PRODUCTION'
   const rawCaseId = searchParams.get('case')
   const parsedCaseId = rawCaseId && /^\d+$/.test(rawCaseId) ? Number(rawCaseId) : null
@@ -132,13 +130,11 @@ export function SecretCasesPage() {
     if (origin === 'TEST') params.set('origin', 'TEST')
     if (selectedCaseId !== null) params.set('case', String(selectedCaseId))
     setSearchParams(params)
-    setOpenSecretId(null)
     assignment.reset()
   }
 
   const switchOrigin = (nextOrigin: SecretCaseOrigin) => {
     setPage(0)
-    setOpenSecretId(null)
     setSearchParams(nextOrigin === 'TEST' ? { origin: 'TEST' } : {})
     assignment.reset()
   }
@@ -147,9 +143,12 @@ export function SecretCasesPage() {
 
   return <>
     <PageHeader title="대응 관리" description="노출 근거로 생성된 대응 건과 담당자 지정 이력을 확인해요." actions={
-      <div className="secret-case-origin-switch" role="group" aria-label="대응 건 구분">
-        <button className={`btn ${origin === 'PRODUCTION' ? 'primary' : 'outline'}`} type="button" aria-pressed={origin === 'PRODUCTION'} onClick={() => switchOrigin('PRODUCTION')}>운영 대응 건</button>
-        <button className={`btn ${origin === 'TEST' ? 'primary' : 'outline'}`} type="button" aria-pressed={origin === 'TEST'} onClick={() => switchOrigin('TEST')}>테스트 대응 건</button>
+      <div className="row secret-case-header-actions">
+        <Link className="btn outline" to="/secrets/triage">수동 노출 판정 · 보안 담당자</Link>
+        <div className="secret-case-origin-switch" role="group" aria-label="대응 건 구분">
+          <button className={`btn ${origin === 'PRODUCTION' ? 'primary' : 'outline'}`} type="button" aria-pressed={origin === 'PRODUCTION'} onClick={() => switchOrigin('PRODUCTION')}>운영 대응 건</button>
+          <button className={`btn ${origin === 'TEST' ? 'primary' : 'outline'}`} type="button" aria-pressed={origin === 'TEST'} onClick={() => switchOrigin('TEST')}>테스트 대응 건</button>
+        </div>
       </div>
     } />
     {origin === 'TEST' && <p className="secret-case-test-banner" role="note"><strong>TEST · 테스트 대응 건</strong><span>시험 데이터의 담당자 지정 흐름을 확인하는 화면이에요. 운영 대응 건 목록과 분리돼요.</span></p>}
@@ -217,7 +216,7 @@ export function SecretCasesPage() {
             </dl>
             <div className="secret-case-opening-evidence">
               <p><strong>대응 건 등록 근거</strong><span>발견 위치 #{detail.data.openingOccurrenceId} · {openingReasonLabel(detail.data.openingReason)}</span></p>
-              <button className="btn outline" type="button" onClick={() => setOpenSecretId(detail.data.secretId)}>발견 근거 보기</button>
+              <Link className="btn outline" to={`/secrets/triage/${detail.data.secretId}?occurrence=${detail.data.openingOccurrenceId}`}>판정 근거 보기 · 보안 담당자 전용</Link>
             </div>
 
             {detail.data.caseOrigin === origin && <form className="secret-case-assignment-form" onSubmit={submitAssignment}>
@@ -273,6 +272,5 @@ export function SecretCasesPage() {
             </div>
           </>}
     </section>}
-    <SecretDetailDrawer secretId={openSecretId} onClose={() => setOpenSecretId(null)} />
   </>
 }
