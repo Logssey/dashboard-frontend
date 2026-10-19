@@ -4,6 +4,10 @@ import type { SecretIssuer } from './secrets'
 export type SecretCaseStage = 'OPEN' | 'IN_PROGRESS' | 'REVALIDATION_PENDING' | 'RESOLVED'
 export type SecretCaseOrigin = 'PRODUCTION' | 'TEST'
 export type SecretAssignmentReason = 'INITIAL_ASSIGNMENT' | 'OWNERSHIP_CHANGE' | 'TEAM_TRANSFER' | 'UNASSIGNED' | 'OTHER'
+export type SecretReviewDecision = 'CONFIRMED' | 'NEEDS_MORE_INFO'
+export type SecretReviewReason = 'EVIDENCE_CONFIRMED' | 'INSUFFICIENT_EVIDENCE'
+export type SecretChecklistCode = 'IDENTIFY_OWNER' | 'ROTATE_OR_REVOKE' | 'REMOVE_EXPOSURE' | 'CHECK_ACCESS_LOGS'
+export type SecretActionType = 'ROTATED' | 'REVOKED' | 'REMOVED_FROM_SOURCE' | 'PERMISSION_REDUCED'
 
 export interface SecretCaseItem {
   caseId: number
@@ -38,6 +42,76 @@ export interface SecretCaseDetail extends SecretCaseItem {
   openingOccurrenceId: number
   openingReason: string
   assignmentHistory: SecretAssignmentHistoryItem[]
+  occurrences: SecretCaseOccurrence[]
+  reviewStatus: 'UNREVIEWED' | 'REVIEWED'
+  reviews: SecretCaseReview[]
+  checklist: SecretCaseChecklistItem[]
+  checklistHistory: SecretChecklistChange[]
+  actions: SecretCaseAction[]
+  stageHistory: SecretCaseStageChange[]
+  capabilities: {
+    canReview: boolean
+    canStart: boolean
+    canUpdateChecklist: boolean
+    canRecordAction: boolean
+  }
+}
+
+export interface SecretCaseOccurrence {
+  occurrenceId: number
+  responseStatus: 'OPEN' | 'IN_PROGRESS' | 'REVALIDATION_PENDING' | 'RESOLVED'
+}
+
+export interface SecretCaseReview {
+  reviewId: number
+  decision: SecretReviewDecision
+  reasonCode: SecretReviewReason
+  reviewedByUserId: number
+  reviewedByName: string
+  reviewedAt: string
+  caseVersion: number
+}
+
+export interface SecretCaseChecklistItem {
+  itemId: number
+  guideVersion: 'S2_V1'
+  itemCode: SecretChecklistCode
+  status: 'TODO' | 'DONE'
+  evidenceRef: string | null
+  completedAt: string | null
+  completedByUserId: number | null
+  updatedAt: string
+}
+
+export interface SecretCaseAction {
+  actionId: number
+  occurrenceId: number
+  actionType: SecretActionType
+  performedAt: string
+  recordedAt: string
+  recordedByUserId: number
+  recordedByName: string
+  evidenceRef: string
+  caseVersion: number
+}
+
+export interface SecretChecklistChange {
+  itemId: number
+  fromStatus: 'TODO' | 'DONE'
+  toStatus: 'TODO' | 'DONE'
+  evidenceRef: string | null
+  changedByUserId: number
+  changedAt: string
+  caseVersion: number
+}
+
+export interface SecretCaseStageChange {
+  fromStatus: SecretCaseStage
+  toStatus: SecretCaseStage
+  reasonCode: string
+  actorUserId: number
+  changedAt: string
+  caseVersion: number
 }
 
 export interface SecretAssignee {
@@ -74,3 +148,35 @@ export const assignSecretCase = (caseId: number, request: AssignSecretCaseReques
     method: 'PATCH',
     body: JSON.stringify(request),
   })
+
+export const reviewSecretCase = (caseId: number, request: {
+  decision: SecretReviewDecision
+  reasonCode: SecretReviewReason
+  expectedVersion: number
+}) => apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}/review`, {
+  method: 'POST', body: JSON.stringify(request),
+})
+
+export const startSecretCase = (caseId: number, expectedVersion: number) =>
+  apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}/start`, {
+    method: 'POST', body: JSON.stringify({ reasonCode: 'RESPONSE_STARTED', expectedVersion }),
+  })
+
+export const updateSecretCaseChecklist = (caseId: number, itemId: number, request: {
+  completed: boolean
+  guideVersion: 'S2_V1'
+  evidenceRef: string | null
+  expectedVersion: number
+}) => apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}/checklist/${itemId}`, {
+  method: 'PATCH', body: JSON.stringify(request),
+})
+
+export const recordSecretCaseAction = (caseId: number, request: {
+  actionType: SecretActionType
+  occurrenceId: number
+  performedAt: string
+  evidenceRef: string
+  expectedVersion: number
+}) => apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}/actions`, {
+  method: 'POST', body: JSON.stringify(request),
+})
