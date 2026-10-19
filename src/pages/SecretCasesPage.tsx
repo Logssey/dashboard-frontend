@@ -4,11 +4,13 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
 import {
   assignSecretCase, fetchSecretAssignees, fetchSecretCase, fetchSecretCases,
-  type SecretAssignmentReason, type SecretCaseOrigin, type SecretCaseStage,
+  type SecretAssignmentReason, type SecretCaseDetail, type SecretCaseOrigin, type SecretCaseStage,
 } from '@/api/secretCases'
 import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
 import { SecretCaseWorkflow } from '@/components/SecretCaseWorkflow'
+import { SecretCaseGuide } from '@/components/SecretCaseGuide'
+import { SecretCaseRevalidation } from '@/components/SecretCaseRevalidation'
 import { credentialTypeLabel, issuerLabel } from '@/lib/labels'
 import './secret-cases.css'
 
@@ -141,9 +143,17 @@ export function SecretCasesPage() {
   }
 
   const pageCount = cases.data ? Math.ceil(cases.data.total / pageSize) : 0
+  const acceptUpdatedCase = (updated: SecretCaseDetail) => {
+    queryClient.setQueryData(['secret-case', updated.caseId], updated)
+    void queryClient.invalidateQueries({ queryKey: ['secret-cases'] })
+  }
+  const refreshSelectedCase = () => {
+    void detail.refetch()
+    void queryClient.invalidateQueries({ queryKey: ['secret-cases'] })
+  }
 
   return <>
-    <PageHeader title="대응 관리" description="노출 근거 검토, 담당자 지정, 체크리스트와 외부 조치 이력을 확인해요." actions={
+    <PageHeader title="대응 관리" description="노출 근거 검토부터 외부 조치, 재검증과 해결까지 기록해요." actions={
       <div className="row secret-case-header-actions">
         <Link className="btn outline" to="/secrets/triage">수동 노출 판정 · 보안 담당자</Link>
         <div className="secret-case-origin-switch" role="group" aria-label="대응 건 구분">
@@ -262,13 +272,9 @@ export function SecretCasesPage() {
               }</p>}
             </form>}
 
-            {detail.data.caseOrigin === origin && <SecretCaseWorkflow key={detail.data.caseId} detail={detail.data} onUpdated={(updated) => {
-              queryClient.setQueryData(['secret-case', updated.caseId], updated)
-              void queryClient.invalidateQueries({ queryKey: ['secret-cases'] })
-            }} onConflict={() => {
-              void detail.refetch()
-              void queryClient.invalidateQueries({ queryKey: ['secret-cases'] })
-            }} />}
+            {detail.data.caseOrigin === origin && <SecretCaseGuide key={detail.data.caseId} detail={detail.data} />}
+            {detail.data.caseOrigin === origin && <SecretCaseWorkflow key={detail.data.caseId} detail={detail.data} onUpdated={acceptUpdatedCase} onConflict={refreshSelectedCase} />}
+            {detail.data.caseOrigin === origin && <SecretCaseRevalidation key={detail.data.caseId} detail={detail.data} onUpdated={acceptUpdatedCase} onRefresh={refreshSelectedCase} />}
 
             <div className="secret-case-audit">
               <h3>담당자 변경 이력</h3>

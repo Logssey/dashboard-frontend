@@ -54,12 +54,17 @@ export interface SecretCaseDetail extends SecretCaseItem {
     canStart: boolean
     canUpdateChecklist: boolean
     canRecordAction: boolean
+    canRequestRevalidation: boolean
+    canResolve: boolean
+    canResume: boolean
   }
 }
 
 export interface SecretCaseOccurrence {
   occurrenceId: number
   responseStatus: 'OPEN' | 'IN_PROGRESS' | 'REVALIDATION_PENDING' | 'RESOLVED'
+  canRequestRevalidation: boolean
+  canResume: boolean
 }
 
 export interface SecretCaseReview {
