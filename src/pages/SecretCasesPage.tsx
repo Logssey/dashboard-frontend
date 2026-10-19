@@ -8,6 +8,7 @@ import {
 } from '@/api/secretCases'
 import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
+import { SecretCaseWorkflow } from '@/components/SecretCaseWorkflow'
 import { credentialTypeLabel, issuerLabel } from '@/lib/labels'
 import './secret-cases.css'
 
@@ -142,7 +143,7 @@ export function SecretCasesPage() {
   const pageCount = cases.data ? Math.ceil(cases.data.total / pageSize) : 0
 
   return <>
-    <PageHeader title="대응 관리" description="노출 근거로 생성된 대응 건과 담당자 지정 이력을 확인해요." actions={
+    <PageHeader title="대응 관리" description="노출 근거 검토, 담당자 지정, 체크리스트와 외부 조치 이력을 확인해요." actions={
       <div className="row secret-case-header-actions">
         <Link className="btn outline" to="/secrets/triage">수동 노출 판정 · 보안 담당자</Link>
         <div className="secret-case-origin-switch" role="group" aria-label="대응 건 구분">
@@ -210,6 +211,7 @@ export function SecretCasesPage() {
               <dt>마스킹된 키</dt><dd>{detail.data.maskedLabel || '마스킹된 키'}</dd>
               <dt>발급자·유형</dt><dd>{issuerLabel[detail.data.issuer]} · {credentialTypeLabel(detail.data.credentialType)}</dd>
               <dt>대응 단계</dt><dd>{stageLabel(detail.data.stage)}</dd>
+              <dt>보안 검토</dt><dd>{detail.data.reviewStatus === 'REVIEWED' ? '검토 완료' : '검토 전'}</dd>
               <dt>현재 담당자</dt><dd>{assigneeLabel(detail.data.assigneeDisplayName, detail.data.assigneeTeam, detail.data.assigneeUserId)}</dd>
               <dt>등록 시각</dt><dd>{displayDate(detail.data.createdAt)}</dd>
               <dt>최근 변경</dt><dd>{displayDate(detail.data.updatedAt)}</dd>
@@ -259,6 +261,14 @@ export function SecretCasesPage() {
                     : '담당자 변경을 저장하지 못했어요. 선택한 담당자의 권한을 확인해 주세요.'
               }</p>}
             </form>}
+
+            {detail.data.caseOrigin === origin && <SecretCaseWorkflow key={detail.data.caseId} detail={detail.data} onUpdated={(updated) => {
+              queryClient.setQueryData(['secret-case', updated.caseId], updated)
+              void queryClient.invalidateQueries({ queryKey: ['secret-cases'] })
+            }} onConflict={() => {
+              void detail.refetch()
+              void queryClient.invalidateQueries({ queryKey: ['secret-cases'] })
+            }} />}
 
             <div className="secret-case-audit">
               <h3>담당자 변경 이력</h3>
