@@ -57,7 +57,7 @@ test('a remediator records actual work without a duplicate review or empty start
   assert.equal(locationNextAction({ ...location, assignedUserId: null, assignedTeam: null }), '담당자 지정')
 })
 test('manual lifecycle approval is visibly distinct from provider verification', () => {
-  const html = render(modules.lifecycle.SecretLifecycleEvidence, { detail }, [[['secret-case-lifecycle', 7], { items: [{ evidenceId: 8, kind: 'REVOKED', verificationLevel: 'APPROVED_MANUAL', reviewStatus: 'APPROVED', evidenceRef: 'CHANGE:SEC-123', performedAt: '2026-10-20T00:00:00Z', observedAt: null, version: 1, limitations: [], capabilities: { canReview: false } }], allowedKinds: [], allowedReviewReasonCodes: {}, capabilities: { canSubmit: false } }]])
+  const html = render(modules.lifecycle.SecretLifecycleEvidence, { detail }, [[['secret-case-lifecycle', 7], { caseId: 7, caseVersion: 3, items: [{ evidenceId: 8, kind: 'REVOKED', verificationLevel: 'APPROVED_MANUAL', reviewStatus: 'APPROVED', evidenceRef: 'CHANGE:SEC-123', performedAt: '2026-10-20T00:00:00Z', observedAt: null, version: 1, limitations: [], isCurrentlyApplicable: true, coverageLimit: 'LIMITED', capabilities: { canReview: false } }], allowedKinds: [], allowedReviewReasonCodes: {}, capabilities: { canSubmit: false } }]])
   assert.match(html, /수동 근거 승인/); assert.match(html, /공급자 상태를 자동 검증한 결과는 아니/)
   assert.doesNotMatch(html, /<summary>폐기·교체 근거 제출/)
 })

@@ -38,6 +38,11 @@ export function validActionTime(value: string | null, now = Date.now()): boolean
   const timestamp = value ? Date.parse(value) : NaN
   return Number.isFinite(timestamp) && timestamp >= now - 30 * 86400000 && timestamp <= now + 5 * 60000
 }
+export function validLifecycleTime(value: string | null, now = Date.now()): boolean {
+  const timestamp = value ? Date.parse(value) : NaN
+  return Number.isFinite(timestamp) && timestamp >= now - 90 * 86400000 && timestamp <= now
+}
+export const revalidationBlockLabel = (code: string | null | undefined) => ({ LOCATION_ASSIGNEE_REQUIRED: '이 위치의 조치 담당자만 재검사를 요청할 수 있어요.', CASE_NOT_ACTIVE: '현재 처리 중인 대응 건이 아니에요.', COMPLETE_ACTIONS_REQUIRED: '실제 조치를 기록하고 기록 마침을 진행하세요.', COMPLETE_IDENTITY_REQUIRED: '키의 완전한 구성이 확인돼야 비교할 수 있어요.', SOURCE_REVALIDATION_UNSUPPORTED: '이 소스의 동일 범위 재검사는 아직 지원하지 않아요.', SCOPE_UNAVAILABLE: '연결·승인 범위·출처를 확인해야 해요.', ACTIVE_JOB_EXISTS: '진행 중인 검사가 있어요. 완료 후 다시 확인하세요.', NO_CURRENT_CASE: '현재 대응 위치가 아니에요.' } as Record<string, string>)[code ?? ''] ?? '현재 조치·검사 근거를 확인해 주세요.'
 export function locationNextAction(location: SecretCaseOccurrence): string {
   if (location.responseStatus === 'RESOLVED') return '해결 이력 확인'
   if (!location.assignedTeam && !location.assignedUserId) return '담당자 지정'

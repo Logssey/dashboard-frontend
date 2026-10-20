@@ -68,6 +68,9 @@ export interface SecretCaseOccurrence {
   canCompleteActions: boolean
   canRequestRevalidation: boolean
   canResume: boolean
+  locationAbsenceCheck?: { status: string; reasonCode: string | null }
+  recentRevalidation?: { revalidationId: number; occurrenceId: number; runId: number; canViewRun?: boolean; jobStatus: string; result: string; failureCode: string | null; requestedAt: string; finishedAt: string | null } | null
+  revalidationBlockReasonCode?: string | null
 }
 export interface SecretCaseChecklistItem {
   itemId: number

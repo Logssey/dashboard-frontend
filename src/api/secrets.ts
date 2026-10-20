@@ -120,7 +120,7 @@ export interface KeyLocation {
   safeLocationLabel: string
   presence: 'PRESENT' | 'MISSING' | 'UNKNOWN'
   exposure: 'ABNORMAL' | 'NORMAL' | 'UNKNOWN'
-  validity: { result: string; reasonCode: string | null; observedAt: string | null }
+  validity: { result: string; reasonCode: string | null; observedAt: string | null; providerCheckedAt?: string | null; postActionAfterAt?: string | null; lastObservation?: { result: string; reasonCode: string | null; observedAt: string | null; providerCheckedAt: string | null } | null }
   storagePolicy: { result: string; reasonCode: string | null }
   coverage: ScopeCoverage
   fixtureStatus: string | null
@@ -134,7 +134,12 @@ export interface KeyLocation {
   whyHereCode: string
   nextActionCode: string
   locationAbsenceCheck: { status: string; reasonCode: string | null }
-  credentialLifecycleCheck: { status: string; reasonCode: string | null }
+  credentialLifecycleCheck: { status: string; reasonCode: string | null; verificationLevel?: string; evidenceId?: number; observedAt?: string | null; coverageLimit?: string }
+  lastMaterialActionAt?: string | null
+  actionCycle?: number | null
+  actionsCompletedAt?: string | null
+  recentRevalidation?: { revalidationId: number; runId: number; canViewRun?: boolean; result: string; finishedAt: string | null } | null
+  revalidationBlockReasonCode?: string | null
   coverageCheck: { status: string; reasonCode: string | null }
   firstSeenAt: string | null
   lastSeenAt: string | null

@@ -15,9 +15,9 @@ await writeFile(bundlePath, bundled.outputFiles[0].contents)
 const { SecretCaseRevalidation } = await import(pathToFileURL(bundlePath).href)
 after(() => unlink(bundlePath))
 const base = { caseId: 7, version: 3, stage: 'REVALIDATION_PENDING', occurrences: [{ occurrenceId: 11, safeLocationLabel: '위치 #11', version: 5, responseStatus: 'REVALIDATION_PENDING', canRequestRevalidation: true, canResume: false }], capabilities: { canResolve: true, canRequestRevalidation: true } }
-function renderFor(result, jobStatus = 'SUCCEEDED', occurrence = {}) {
+function renderFor(result, jobStatus = 'SUCCEEDED', occurrence = {}, canViewRun = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  client.setQueryData(['secret-case-revalidations', 7], [{ revalidationId: 21, occurrenceId: 11, runId: 8, jobStatus, result, failureCode: null, requestedAt: '2026-10-19T00:00:00Z', finishedAt: '2026-10-19T00:01:00Z' }])
+  client.setQueryData(['secret-case-revalidations', 7], [{ revalidationId: 21, occurrenceId: 11, runId: 8, canViewRun, jobStatus, result, failureCode: null, requestedAt: '2026-10-19T00:00:00Z', finishedAt: '2026-10-19T00:01:00Z' }])
   return renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, {}, createElement(SecretCaseRevalidation, { detail: { ...base, occurrences: [{ ...base.occurrences[0], ...occurrence }] }, onReload() {}, onStale() {}, disabled: false }))))
 }
 test('missing is a location observation and never a direct case resolution action', () => {
@@ -44,4 +44,9 @@ test('a case capability never overrides an ineligible location capability', () =
   const html = renderFor('UNKNOWN', 'SUCCEEDED', { canRequestRevalidation: false })
   assert.match(html, /현재 재검증 가능한 위치가 없어요/)
   assert.doesNotMatch(html, /<option value="11"/)
+})
+test('an assigned location reader can see its scan identifier without a full run detail link', () => {
+  const html = renderFor('MISSING', 'SUCCEEDED', {}, false)
+  assert.match(html, /SCAN-8/)
+  assert.doesNotMatch(html, /href="\/secrets\/history\/8"/)
 })
