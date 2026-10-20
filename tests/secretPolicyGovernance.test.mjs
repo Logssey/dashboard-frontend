@@ -76,4 +76,3 @@ test('policy writes send only IDs, controlled references and explicit versions',
     for (const call of calls) assert.doesNotMatch(JSON.stringify(call.body), /rawSecret|approvedRef|protectedPath/)
   } finally { globalThis.fetch = originalFetch; globalThis.document = originalDocument }
 })
-
