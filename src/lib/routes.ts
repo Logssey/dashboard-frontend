@@ -18,11 +18,12 @@ export const sectionPages: SectionPage[] = [
   { path: '/configuration', title: '보안 설정·컴플라이언스', description: '클라우드와 Kubernetes의 설정을 보안 기준에 따라 점검하세요.' },
   { path: '/identities', title: '신원·권한', description: '누가 무엇에 접근하는지 확인하고 필요한 권한을 검토하세요.' },
   { path: '/runtime', title: '런타임 보안', description: '실행 중인 워크로드의 이벤트와 조사 근거를 확인하세요.' },
+  { path: '/iac', title: 'IaC 보안', description: '인프라 코드 변경이 만드는 공격 경로와 State·드리프트를 확인하세요.' },
   { path: '/vulnerabilities', title: '취약점 관리', description: '업데이트가 필요한 이미지와 패키지를 확인하세요.' },
 ]
 
 /** 인프라 보안 메뉴 아래 하위 탭 3개 */
-export const infrastructurePaths = ['/configuration', '/identities', '/runtime']
+export const infrastructurePaths = ['/configuration', '/identities', '/runtime', '/iac']
 
 export function pageTitle(pathname: string): string {
   if (pathname === OVERVIEW_PATH) return '통합 현황'
