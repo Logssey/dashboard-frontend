@@ -64,7 +64,7 @@ export function scanDuration(start: string | null, end: string | null): string {
   return seconds < 60 ? `${seconds}초` : `${Math.floor(seconds / 60)}분 ${String(seconds % 60).padStart(2, '0')}초`
 }
 export function scanStatus(status: string): string {
-  return Object.hasOwn(scanStatuses, status) ? scanStatuses[status as keyof typeof scanStatuses] : status === 'SKIPPED' ? '건너뜀' : '미확인'
+  return Object.hasOwn(scanStatuses, status) ? scanStatuses[status as keyof typeof scanStatuses] : status === 'SKIPPED' ? '건너뜀' : status === 'LEASED' ? '진행 중' : '미확인'
 }
 /** datetime-local is explicitly KST, independent of the browser's local timezone. */
 export function kstInput(value: string | null): string {

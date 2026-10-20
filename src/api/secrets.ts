@@ -1,6 +1,8 @@
 import { apiRequest } from './client'
+import type { ScopeCoverage } from './secretConnections'
 
-export type SecretIssuer = 'AWS' | 'GITHUB' | 'NOTION'
+export type SecretIssuer = 'AWS' | 'GITHUB' | 'NOTION' | 'KUBERNETES'
+export type SecretOrigin = 'PRODUCTION' | 'TEST' | 'UNCLASSIFIED'
 export type SecretComponentState = 'CONFIRMED' | 'CANDIDATE' | 'METADATA_ONLY'
 export type SecretRunStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'CANCELLED' | 'UNKNOWN'
 
@@ -18,13 +20,24 @@ export interface SecretItem {
   credentialType: string
   componentState: SecretComponentState
   maskedLabel: string
-  severity: 'UNASSESSED'
+  severity: string
   validationStatus: string
   validationReasonCode: string | null
   validatedAt: string | null
   occurrenceCount: number
   firstSeenAt: string
   lastSeenAt: string
+  origin?: SecretOrigin
+  contentKind?: string
+  workBucket?: string
+  whyHereCode?: string
+  nextActionCode?: string
+  safeLocationLabel?: string
+  visibleLocationCount?: number
+  matchedLocationCount?: number
+  restrictedCoverage?: boolean
+  currentCaseId?: number | null
+  casesByOrigin?: { origin: SecretOrigin; caseId: number }[]
 }
 
 export interface SecretOccurrence {
@@ -60,6 +73,15 @@ export interface SecretFilter {
   size: number
   issuer: SecretIssuer | 'ALL'
   componentState: SecretComponentState | 'ALL'
+  origin?: SecretOrigin
+  source?: string
+  provider?: string
+  environment?: string
+  contentKind?: string
+  workBucket?: string
+  validity?: string
+  severity?: string
+  snapshotId?: string
 }
 
 export interface SecretListResponse {
@@ -67,6 +89,81 @@ export interface SecretListResponse {
   total: number
   page: number
   size: number
+  filters?: Record<string, string>
+  scope?: string
+  unit?: string
+  asOf?: string
+  snapshotId?: string
+  expiresAt?: string
+  restrictedCoverage?: boolean
+}
+
+export interface InventoryFilter extends SecretFilter {
+  origin: SecretOrigin
+  source: string
+  provider: string
+  environment: string
+  contentKind: string
+  workBucket: string
+  validity: string
+  severity: string
+  snapshotId: string
+}
+export interface KeyLocation {
+  occurrenceId: number
+  connectionId: number
+  scopeId: number
+  scopeRevision: number | null
+  source: SecretIssuer
+  environment: 'PROD' | 'DEV' | 'UNKNOWN'
+  origin: SecretOrigin
+  safeLocationLabel: string
+  presence: 'PRESENT' | 'MISSING' | 'UNKNOWN'
+  exposure: 'ABNORMAL' | 'NORMAL' | 'UNKNOWN'
+  validity: { result: string; reasonCode: string | null; observedAt: string | null }
+  storagePolicy: { result: string; reasonCode: string | null }
+  coverage: ScopeCoverage
+  fixtureStatus: string | null
+  fixtureReasonCode: string | null
+  caseId: number | null
+  actionStatus: string | null
+  assignedUserId: number | null
+  occurrenceVersion: number
+  caseVersion: number | null
+  caseLinkStatus: string
+  whyHereCode: string
+  nextActionCode: string
+  locationAbsenceCheck: { status: string; reasonCode: string | null }
+  credentialLifecycleCheck: { status: string; reasonCode: string | null }
+  coverageCheck: { status: string; reasonCode: string | null }
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  capabilities: { canReview: boolean; canViewCase: boolean; canRecordAction: boolean; canRequestRevalidation: boolean; canViewCoverage: boolean; canOpenSafeSource: boolean }
+}
+export interface LocationFilter {
+  origin: SecretOrigin
+  page: number
+  size: number
+  source: string
+  environment: string
+  presence: string
+  exposure: string
+  actionStatus: string
+  expectedDetailVersion?: string
+}
+export interface KeyLocationsResponse {
+  credentialSetId: number
+  credential: SecretItem
+  detailVersion: string
+  items: KeyLocation[]
+  total: number
+  visibleLocationCount: number
+  page: number
+  size: number
+  origin: SecretOrigin
+  locationStateCounts: { presence: Record<string, number>; exposure: Record<string, number> }
+  restrictedCoverage: boolean
+  readAt: string
 }
 
 export interface SecretRunAccepted {
@@ -111,10 +208,18 @@ export const fetchSecrets = (filter: SecretFilter) => {
     issuer: filter.issuer,
     componentState: filter.componentState,
   })
+  for (const key of ['origin', 'source', 'provider', 'environment', 'contentKind', 'workBucket', 'validity', 'severity', 'snapshotId'] as const) {
+    if (filter[key]) params.set(key, filter[key])
+  }
   return apiRequest<SecretListResponse>(`/api/v1/secrets?${params}`)
 }
 
-export const fetchSecretDetail = (id: number) => apiRequest<SecretDetail>(`/api/v1/secrets/${id}`)
+export const fetchSecretDetail = (id: number, origin: SecretOrigin = 'PRODUCTION') => apiRequest<SecretDetail>(`/api/v1/secrets/${id}?origin=${origin}`)
+export const fetchKeyLocations = (id: number, filters: LocationFilter) => {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(filters)) if (value !== '' && value != null) params.set(key, String(value))
+  return apiRequest<KeyLocationsResponse>(`/api/v1/secrets/${id}/locations?${params}`)
+}
 
 /** 등록만 수행한다. 수집과 탐지는 별도 워커가 실행한다. */
 export const startSecretRun = (connectionId: number) =>

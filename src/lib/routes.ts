@@ -31,5 +31,6 @@ export function pageTitle(pathname: string): string {
   if (pathname.startsWith('/secrets/triage/')) return '노출 판정'
   if (pathname.startsWith('/secrets/history/')) return '스캔 상세'
   if (pathname.startsWith('/secrets/connections/')) return '연결 범위'
+  if (/^\/secrets\/\d+$/.test(pathname)) return '키 상세'
   return sectionPages.find((page) => page.path === pathname)?.title ?? '통합 현황'
 }

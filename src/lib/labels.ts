@@ -48,6 +48,7 @@ export const issuerLabel: Record<SecretIssuer, string> = {
   AWS: 'AWS',
   GITHUB: 'GitHub',
   NOTION: 'Notion',
+  KUBERNETES: 'Kubernetes',
 }
 
 /** 키 종류 표시 이름. 목록에 없는 종류는 받은 값 그대로 보여준다 */
@@ -70,9 +71,9 @@ export function credentialTypeLabel(type: string): string {
 
 /** 키 구성요소 상태 (Secret 기준 문서의 component_state) */
 export const componentStateLabel: Record<SecretComponentState, string> = {
-  CONFIRMED: '키 전체 노출',
-  CANDIDATE: '일부만 노출 (후보)',
-  METADATA_ONLY: '메타데이터만 확인',
+  CONFIRMED: '구성 확인',
+  CANDIDATE: '일부 구성',
+  METADATA_ONLY: '메타데이터',
 }
 
 export function secretValidationLabel(status: string): string {
@@ -100,6 +101,7 @@ const validationReasons: Record<string, string> = {
   CLIENT_FAILURE: '검증 연결 오류',
   SYNTHETIC_FIXTURE: '합성 테스트 데이터',
   UNSPECIFIED_REASON: '사유 확인 필요',
+  NO_VERIFICATION_ATTEMPT: '검증 시도 기록 없음',
 }
 
 export function secretValidationReasonLabel(reason: string): string {

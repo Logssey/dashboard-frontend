@@ -6,6 +6,7 @@ import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { OverviewPage } from '@/pages/OverviewPage'
 import { SecretsPage } from '@/pages/SecretsPage'
+import { SecretKeyDetailPage } from '@/pages/SecretKeyDetailPage'
 import { SecretOverviewPage } from '@/pages/SecretOverviewPage'
 import { SecretConnectionsPage } from '@/pages/SecretConnectionsPage'
 import { SecretConnectionScopesPage } from '@/pages/SecretConnectionScopesPage'
@@ -26,6 +27,7 @@ export function App() {
           <Route path={OVERVIEW_PATH} element={<OverviewPage />} />
           <Route path="/secrets" element={<SecretOverviewPage />} />
           <Route path="/secrets/findings" element={<SecretsPage />} />
+          <Route path="/secrets/:secretId" element={<SecretPageBoundary returnTo="/secrets/findings"><SecretKeyDetailPage /></SecretPageBoundary>} />
           <Route path="/secrets/cases" element={<SecretCasesPage />} />
           <Route path="/secrets/triage" element={<SecretTriageCandidatesPage />} />
           <Route path="/secrets/triage/:secretId" element={<SecretTriagePage />} />

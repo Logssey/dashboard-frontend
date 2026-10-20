@@ -42,6 +42,9 @@ export function AppLayout() {
     queryKey: ['secret-navigation-count'],
     queryFn: () => fetchSecrets({ page: 0, size: 1, issuer: 'ALL', componentState: 'ALL' }),
     enabled: inSecrets && me?.role === 'ADMIN',
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
   useEffect(() => {
@@ -111,7 +114,7 @@ export function AppLayout() {
                         <Icon name={page.icon} />
                         <span>{page.label}</span>
                         {page.path === '/secrets/findings' && secretCount.isSuccess && (
-                          <span className="secret-nav-count" title="키·메타데이터 기록 수" aria-label={`키·메타데이터 기록 ${secretCount.data.total}개`}>{secretCount.data.total}</span>
+                          <span className="secret-nav-count" title="운영 값 후보 수" aria-label={`운영 값 후보 ${secretCount.data.total}개`}>{secretCount.data.total}</span>
                         )}
                       </NavLink>
                     ))}
