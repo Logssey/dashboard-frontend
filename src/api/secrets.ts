@@ -30,6 +30,7 @@ export interface SecretItem {
   origin?: SecretOrigin
   contentKind?: string
   workBucket?: string
+  inventorySubtype?: 'AUTHORIZED_STORAGE' | 'METADATA_ONLY' | 'RETIRED_HISTORY'
   whyHereCode?: string
   nextActionCode?: string
   safeLocationLabel?: string
@@ -82,6 +83,7 @@ export interface SecretFilter {
   validity?: string
   severity?: string
   snapshotId?: string
+  runId?: number | null
 }
 
 export interface SecretListResponse {
@@ -213,8 +215,8 @@ export const fetchSecrets = (filter: SecretFilter) => {
     issuer: filter.issuer,
     componentState: filter.componentState,
   })
-  for (const key of ['origin', 'source', 'provider', 'environment', 'contentKind', 'workBucket', 'validity', 'severity', 'snapshotId'] as const) {
-    if (filter[key]) params.set(key, filter[key])
+  for (const key of ['origin', 'source', 'provider', 'environment', 'contentKind', 'workBucket', 'validity', 'severity', 'snapshotId', 'runId'] as const) {
+    if (filter[key]) params.set(key, String(filter[key]))
   }
   return apiRequest<SecretListResponse>(`/api/v1/secrets?${params}`)
 }

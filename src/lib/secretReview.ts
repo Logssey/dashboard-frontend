@@ -1,5 +1,6 @@
 import type { ReviewContext, ReviewDecision } from '../api/secretTriage'
 import { futureEvidenceDeadline, validEvidenceRef } from './secretEvidence'
+import { safeWorkbenchReturn } from './secretWorkbench'
 
 export const reviewDecisionLabel: Record<ReviewDecision, string> = { ABNORMAL: '노출 확인 및 조치 요청', NORMAL: '보관 허용 확인', FALSE_POSITIVE: '선택 근거 오탐 교정', NEEDS_MORE_INFO: '추가 조사 요청' }
 export const decisionUnavailableLabel = (code: string) => ({ SECURITY_ROLE_REQUIRED: '보안 담당자의 확인이 필요해요.', METADATA_NOT_EXPOSURE: '접근키 정보에는 값 노출 판정을 적용하지 않아요.', CURRENT_PRESENCE_REQUIRED: '이 위치의 현재 존재를 먼저 확인해야 해요.', CURRENT_FINDING_REQUIRED: '현재 적용 가능한 탐지 근거가 필요해요.', REAL_CREDENTIAL_CONFIRMED: '실제 키 근거가 있어 오탐으로 교정할 수 없어요.', INCOMPLETE_CREDENTIAL: '부족한 키 구성을 먼저 확인해야 해요.', SOURCE_CLASSIFICATION_REQUIRED: '운영·시험 출처 승인을 먼저 확인해야 해요.', EXPLICIT_ALLOW_REQUIRED: '유효한 보관 허용 정책이 필요해요.', STORAGE_ALLOWED: '현재 적용 정책에서 보관을 허용하고 있어요.' } as Record<string, string>)[code] ?? '현재 적용 가능한 판단 근거를 확인해 주세요.'
@@ -37,17 +38,9 @@ export function reviewInputErrors(context: ReviewContext, input: ReviewInput, no
   }
   return errors
 }
-export function reviewReturnPath(params: URLSearchParams, secretId?: number | null, occurrenceId?: number | null): string {
-  const query = new URLSearchParams(params.get('returnQuery') ?? '')
-  const bucket = query.get('bucket') ?? 'NEEDS_DECISION'
-  const origin = query.get('origin') ?? 'PRODUCTION'
-  const result = new URLSearchParams()
-  if (Object.hasOwn(reviewBuckets, bucket)) result.set('bucket', bucket)
-  if (['PRODUCTION', 'TEST', 'UNCLASSIFIED'].includes(origin)) result.set('origin', origin)
-  if (/^[1-9]\d{0,5}$/.test(query.get('page') ?? '')) result.set('page', query.get('page')!)
-  if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(query.get('snapshotId') ?? '')) result.set('snapshotId', query.get('snapshotId')!)
-  if (secretId && occurrenceId) result.set('focus', `${secretId}:${occurrenceId}`)
-  return `/secrets/triage?${result}`
+export function reviewReturnPath(params: URLSearchParams, secretId?: number | null, occurrenceId?: number | null, actualOrigin?: string): string {
+  const directOrigin = ['PRODUCTION', 'TEST'].includes(actualOrigin ?? '') ? actualOrigin : 'PRODUCTION'
+  return safeWorkbenchReturn(params.get('returnQuery') || `origin=${directOrigin}&bucket=NEEDS_DECISION`, secretId && occurrenceId ? `${secretId}:${occurrenceId}` : undefined)
 }
 export function reviewDetailPath(secretId: number, occurrenceId: number, listParams: URLSearchParams): string {
   return `/secrets/triage/${secretId}?${new URLSearchParams({ occurrence: String(occurrenceId), returnQuery: listParams.toString() })}`

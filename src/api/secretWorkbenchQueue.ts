@@ -1,0 +1,31 @@
+import { apiRequest } from './client'
+import type { WorkbenchFilters } from './secretSummary'
+import type { ScopeCoverage } from './secretConnections'
+
+export interface WorkbenchQueueItem {
+  credentialSetId?: number; secretId?: number; occurrenceId?: number | null; caseId?: number | null
+  scopeId?: number; connectionId?: number
+  maskedLabel?: string; safeLocationLabel?: string; safeDisplayAlias?: string
+  componentState?: string; presence?: string; exposure?: string; exposureStatus?: string
+  source?: string; provider?: string; origin?: string; environment?: string
+  whyHereCode?: string; whyHere?: string; nextActionCode?: string
+  inventorySubtype?: string; stage?: string
+  assigneeDisplayName?: string | null; assigneeTeam?: string | null; assigneeUserId?: number | null
+  contentType?: string; coverage?: ScopeCoverage
+  classificationStatus?: string; approvalStatus?: string; policyStatus?: string
+}
+export interface WorkbenchQueuePage {
+  items: WorkbenchQueueItem[]; total: number; page: number; size: number
+  unit: 'Occurrence' | 'ResponseCase' | 'CredentialSet' | 'Scope'
+  scope: string; asOf: string; snapshotId: string; expiresAt: string
+  restrictedCoverage: boolean; partialCoverage: boolean | null
+  filters: Record<string, string>
+}
+export const fetchWorkbenchQueue = (filters: WorkbenchFilters, bucket: string, stages: string, page: number) => {
+  const params = new URLSearchParams({ origin: filters.origin, source: filters.source, provider: filters.provider, environment: filters.environment, bucket, page: String(page), size: '20' })
+  if (filters.connectionId) params.set('connectionId', String(filters.connectionId))
+  if (filters.assignee) params.set('assignee', filters.assignee)
+  if (filters.snapshotId) params.set('snapshotId', filters.snapshotId)
+  if (stages) params.set('stages', stages)
+  return apiRequest<WorkbenchQueuePage>(`/api/v1/secrets/review-queue?${params}`)
+}

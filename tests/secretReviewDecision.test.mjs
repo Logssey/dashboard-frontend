@@ -99,3 +99,10 @@ test('one exposure submission uses the atomic decision endpoint and separate sco
     assert.doesNotMatch(JSON.stringify(requests), /rawSecret|approvedRef|assessments|triage-candidates/)
   } finally { globalThis.fetch = originalFetch; globalThis.document = originalDocument }
 })
+
+test('a direct legacy review link returns to its verified origin without treating an unchecked sample as proof', () => {
+  const back = new URL(api.reviewReturnPath(new URLSearchParams(), 12, 8, 'TEST'), 'http://localhost')
+  assert.equal(back.searchParams.get('origin'), 'TEST'); assert.equal(back.searchParams.get('focus'), '12:8')
+  const html = renderContext({ ...context, origin: 'TEST', validity: { result: 'UNCHECKED', reasonCode: 'SYNTHETIC_FIXTURE', observedAt: '2026-10-19T00:00:00Z' } })
+  assert.match(html, /표본 분류로 검증 생략/); assert.match(html, /검증 기록 시각/)
+})

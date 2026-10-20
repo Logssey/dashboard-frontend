@@ -29,6 +29,7 @@ const SecretTriagePage = lazy(() => import('@/pages/SecretTriagePage').then((mod
 const SecretTriageCandidatesPage = lazy(() => import('@/pages/SecretTriageCandidatesPage').then((module) => ({ default: module.SecretTriageCandidatesPage })))
 const SecretCasesPage = lazy(() => import('@/pages/SecretCasesPage').then((module) => ({ default: module.SecretCasesPage })))
 const SecretCaseDetailPage = lazy(() => import('@/pages/SecretCaseDetailPage').then((module) => ({ default: module.SecretCaseDetailPage })))
+const SecretRunFindingsPage = lazy(() => import('@/pages/SecretRunFindingsPage').then((module) => ({ default: module.SecretRunFindingsPage })))
 
 export function App() {
   return (
@@ -57,6 +58,7 @@ export function App() {
           <Route path="/secrets/connections/:connectionId/scopes" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretConnectionScopesPage /></SecretPageBoundary>} />
           <Route path="/secrets/history" element={<SecretHistoryPage />} />
           <Route path="/secrets/history/:runId" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunDetailPage /></SecretPageBoundary>} />
+          <Route path="/secrets/history/:runId/findings" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunFindingsPage /></SecretPageBoundary>} />
           <Route path="/iac" element={<IacPage />} />
           {sectionPages
             .filter((page) => !page.path.startsWith('/secrets'))

@@ -1,5 +1,6 @@
 import type { CaseFilters, SecretCaseDetail, SecretCaseOccurrence } from '../api/secretCases'
 import { positiveId } from './secretScan'
+import { safeWorkbenchReturn } from './secretWorkbench'
 
 export const caseStageLabels: Record<string, string> = { OPEN: '신규 및 분석', IN_PROGRESS: '조치 중', REVALIDATION_PENDING: '재검사 대기', RESOLVED: '해결' }
 export const caseActionLabels = { ROTATED: '키 교체', REVOKED: '키 폐기', REMOVED_FROM_SOURCE: '노출 위치에서 제거', PERMISSION_REDUCED: '권한 축소' } as const
@@ -27,6 +28,7 @@ export function caseDetailPath(caseId: number, filters?: CaseFilters, occurrence
   return `/secrets/cases/${caseId}${params.size ? `?${params}` : ''}`
 }
 export function caseReturnPath(params: URLSearchParams, caseId: number | null): string {
+  if (params.get('return') === 'workbench') return safeWorkbenchReturn(params.get('returnQuery'), caseId ? String(caseId) : undefined)
   const parsed = parseCaseFilters(new URLSearchParams(params.get('returnQuery') ?? ''))
   const search = caseSearch(parsed.valid ? parsed.filters : parseCaseFilters(new URLSearchParams()).filters)
   if (caseId) search.set('focus', String(caseId))

@@ -51,7 +51,11 @@ export interface ManagedScope {
   region?: string | null
   classificationStatus?: string
   coverage: ScopeCoverage
+  aliasVersion?: number | null
+  customSafeDisplayAlias?: string | null
+  capabilities?: { canEditAlias: boolean }
 }
+export const updateScopeDisplayAlias = (scopeId: number, request: { safeDisplayAlias: string | null; expectedScopeRevision: number; expectedAliasVersion: number }) => apiRequest<{ scopeId: number; safeDisplayAlias: string | null; scopeRevision: number; aliasVersion: number; requiresSnapshotRefresh: boolean }>(`/api/v1/secrets/scopes/${scopeId}/display-alias`, { method: 'PATCH', body: JSON.stringify(request) })
 export interface ConnectionPage {
   items: ManagedSecretConnection[]
   total: number

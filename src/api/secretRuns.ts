@@ -12,6 +12,7 @@ export interface RunFilters {
   connectionId: number | null
   from: string
   to: string
+  snapshotId?: string
 }
 export interface ScanStage {
   status: string
@@ -82,6 +83,7 @@ export interface SecretScanRun extends SecretRunListItem {
   occurrenceId?: number | null
   revalidation?: { caseId: number; occurrenceId: number } | null
   newCredentialCountReason?: string | null
+  capabilities?: { canViewFindings: boolean }
 }
 
 export interface SecretRunListResponse {
@@ -91,15 +93,20 @@ export interface SecretRunListResponse {
   size: number
   filters: Record<string, unknown>
   asOf: string | null
+  snapshotId?: string
+  expiresAt?: string
 }
 
 export function fetchSecretRuns(filter: RunFilters): Promise<SecretRunListResponse> {
   const params = new URLSearchParams({ page: String(filter.page), size: String(filter.size), type: filter.type })
-  for (const key of ['status', 'provider', 'from', 'to'] as const) if (filter[key]) params.set(key, filter[key])
+  for (const key of ['status', 'provider', 'from', 'to', 'snapshotId'] as const) if (filter[key]) params.set(key, filter[key]!)
   if (filter.connectionId) params.set('connectionId', String(filter.connectionId))
   return apiRequest(`/api/v1/secrets/runs?${params}`)
 }
 export const fetchSecretScanRun = (runId: number) => apiRequest<SecretScanRun>(`/api/v1/secrets/runs/${runId}`)
+export interface RunFinding { findingId: number; occurrenceId: number; credentialSetId: number; secretId: number; maskedLabel: string; componentState: string; ruleId: string; ruleVersion: string | null; origin: string }
+export interface RunFindings { items: RunFinding[]; total: number; unit: 'Finding'; page: number; size: number; runId: number; asOf: string }
+export const fetchRunFindings = (runId: number, page: number) => apiRequest<RunFindings>(`/api/v1/secrets/runs/${runId}/findings?page=${page}&size=20`)
 export const requestSecretScan = (request: { connectionId: number; idempotencyKey: string }) =>
   apiRequest<{ runId: number; status: SecretRunStatus }>('/api/v1/secrets/runs', {
     method: 'POST', body: JSON.stringify(request),
