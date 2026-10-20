@@ -12,6 +12,7 @@ import { SecretHistoryPage } from '@/pages/SecretHistoryPage'
 import { SecretCasesPage } from '@/pages/SecretCasesPage'
 import { SecretTriagePage } from '@/pages/SecretTriagePage'
 import { SecretTriageCandidatesPage } from '@/pages/SecretTriageCandidatesPage'
+import { IacPage } from '@/iac/IacPage'
 
 export function App() {
   return (
@@ -27,6 +28,7 @@ export function App() {
           <Route path="/secrets/triage/:secretId" element={<SecretTriagePage />} />
           <Route path="/secrets/connections" element={<SecretConnectionsPage />} />
           <Route path="/secrets/history" element={<SecretHistoryPage />} />
+          <Route path="/iac" element={<IacPage />} />
           {sectionPages
             .filter((page) => !page.path.startsWith('/secrets'))
             .map((page) => (
