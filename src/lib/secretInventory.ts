@@ -55,7 +55,8 @@ export function inventoryReturnPath(params: URLSearchParams, id: number | null):
   if (id) safe.set('focus', String(id))
   return `/secrets/findings?${safe}`
 }
-export const whyLabel = (code: string | undefined): string => ({ ACCESS_KEY_METADATA: '접근키 존재 정보', INCOMPLETE_CREDENTIAL: '키 구성 보완 필요', CASE_LINK_REQUIRED: '노출 확인 · 건 연결 필요', EXPOSURE_CONFIRMED: '노출 확인', COVERAGE_GAP: '현재 존재 확인 필요', APPROVED_STORAGE: '정책에 따른 보관', STORAGE_POLICY_REQUIRED: '보관 정책 확인 필요' } as Record<string, string>)[code ?? ''] ?? '근거 확인 필요'
+export const inventorySubtypeLabel = (code: string | undefined): string => ({ AUTHORIZED_STORAGE: '승인된 보관', METADATA_ONLY: '메타데이터만 확인', RETIRED_HISTORY: '공급자 확인 폐기 이력' } as Record<string, string>)[code ?? ''] ?? '분류 확인 필요'
+export const whyLabel = (code: string | undefined): string => ({ ACCESS_KEY_METADATA: '접근키 존재 정보', INCOMPLETE_CREDENTIAL: '키 구성 보완 필요', CASE_LINK_REQUIRED: '노출 확인 · 건 연결 필요', EXPOSURE_CONFIRMED: '노출 확인', COVERAGE_GAP: '현재 존재 확인 필요', APPROVED_STORAGE: '정책에 따른 보관', PROVIDER_RETIREMENT_CONFIRMED: '공급자가 확인한 사용 종료', STORAGE_POLICY_REQUIRED: '보관 정책 확인 필요' } as Record<string, string>)[code ?? ''] ?? '근거 확인 필요'
 export const nextLabel = (code: string | undefined): string => ({ VIEW_METADATA: '키 정보', VIEW_CASE: '대응 건', LINK_CASE: '연결 근거 확인', REVIEW_EVIDENCE: '근거 확인', VIEW_DETAIL: '키 상세' } as Record<string, string>)[code ?? ''] ?? '키 상세'
 export const presenceLabels: Record<string, string> = { PRESENT: '현재 발견', MISSING: '재검사에서 미발견', UNKNOWN: '현재 확인 불가' }
 export const exposureLabels: Record<string, string> = { ABNORMAL: '노출 확인', NORMAL: '보관 허용', UNKNOWN: '노출 미확인' }

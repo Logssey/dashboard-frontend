@@ -30,6 +30,7 @@ export interface SecretItem {
   origin?: SecretOrigin
   contentKind?: string
   workBucket?: string
+  inventorySubtype?: 'AUTHORIZED_STORAGE' | 'METADATA_ONLY' | 'RETIRED_HISTORY'
   whyHereCode?: string
   nextActionCode?: string
   safeLocationLabel?: string

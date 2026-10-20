@@ -78,6 +78,12 @@ test('case and key details return to the workbench list with its origin, filters
   assert.equal(modules.lib.parseWorkbenchFilters(new URLSearchParams('source=__proto__')).valid, false)
   assert.equal(modules.lib.safeWorkbenchReturn('bucket=EVIL'), '/secrets/triage')
 })
+test('inventory distinguishes provider-confirmed retirement from allowed storage and metadata', () => {
+  const data = { items: ['AUTHORIZED_STORAGE', 'METADATA_ONLY', 'RETIRED_HISTORY'].map((inventorySubtype, index) => ({ secretId: index + 1, maskedLabel: `키 #${index + 1}`, inventorySubtype, whyHereCode: index === 2 ? 'PROVIDER_RETIREMENT_CONFIRMED' : 'APPROVED_STORAGE' })), total: 3, size: 20, page: 0, unit: 'CredentialSet', asOf: summary.asOf, snapshotId, restrictedCoverage: true }
+  const html = render(modules.queue.SecretTriageCandidatesPage, `/secrets/triage?${query}&bucket=NORMAL_INVENTORY`, [[['secret-review-queue', filters, 'NORMAL_INVENTORY', '', 0, 0], data]])
+  assert.match(html, /승인된 보관/); assert.match(html, /메타데이터만 확인/); assert.match(html, /공급자 확인 폐기 이력/)
+  assert.match(html, /공급자가 확인한 사용 종료/); assert.doesNotMatch(html, /RETIRED_HISTORY/)
+})
 test('summary and queue requests share normalized filters rather than calling inventory for totals', async () => {
   const originalFetch = globalThis.fetch, calls = []
   globalThis.fetch = async (path) => { calls.push(new URL(path, 'http://local')); return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }) }

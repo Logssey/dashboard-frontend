@@ -80,5 +80,5 @@ export function safeWorkbenchReturn(query: string | null, focus?: string): strin
   return `/secrets/triage?${result}`
 }
 export function workbenchWhyLabel(code: string | undefined): string {
-  return ({ NEEDS_REVIEW: '위치·보관 근거 확인 필요', ACTIVE_RESPONSE: '확인된 노출의 대응 진행', CASE_LINK_REQUIRED: '노출 확인 · 대응 연결 필요', ACCESS_KEY_METADATA: '접근키 존재 정보', APPROVED_STORAGE: '정책에 따른 보관', POLICY_PENDING: '보관 정책 확인 필요' } as Record<string, string>)[code ?? ''] ?? '현재 근거 확인 필요'
+  return ({ NEEDS_REVIEW: '위치·보관 근거 확인 필요', ACTIVE_RESPONSE: '확인된 노출의 대응 진행', CASE_LINK_REQUIRED: '노출 확인 · 대응 연결 필요', ACCESS_KEY_METADATA: '접근키 존재 정보', APPROVED_STORAGE: '정책에 따른 보관', PROVIDER_RETIREMENT_CONFIRMED: '공급자가 확인한 사용 종료', POLICY_PENDING: '보관 정책 확인 필요' } as Record<string, string>)[code ?? ''] ?? '현재 근거 확인 필요'
 }
