@@ -14,8 +14,6 @@ import { SecretConnectionScopesPage } from '@/pages/SecretConnectionScopesPage'
 import { SecretHistoryPage } from '@/pages/SecretHistoryPage'
 import { SecretRunDetailPage } from '@/pages/SecretRunDetailPage'
 import { SecretCasesPage } from '@/pages/SecretCasesPage'
-import { SecretTriagePage } from '@/pages/SecretTriagePage'
-import { SecretTriageCandidatesPage } from '@/pages/SecretTriageCandidatesPage'
 import { SecretPageBoundary } from '@/components/SecretPageBoundary'
 import { IacPage } from '@/iac/IacPage'
 
@@ -23,6 +21,13 @@ const SecretClassificationQueuePage = lazy(() => import('@/pages/SecretScopeClas
 const SecretScopeClassificationPage = lazy(() => import('@/pages/SecretScopeClassificationPage').then((module) => ({ default: module.SecretScopeClassificationPage })))
 const SecretPolicyListPage = lazy(() => import('@/pages/SecretPolicyPages').then((module) => ({ default: module.SecretPolicyListPage })))
 const SecretPolicyDetailPage = lazy(() => import('@/pages/SecretPolicyPages').then((module) => ({ default: module.SecretPolicyDetailPage })))
+const SecretInvestigationListPage = lazy(() => import('@/pages/SecretInvestigationPages').then((module) => ({ default: module.SecretInvestigationListPage })))
+const SecretInvestigationDetailPage = lazy(() => import('@/pages/SecretInvestigationPages').then((module) => ({ default: module.SecretInvestigationDetailPage })))
+const SecretFixtureAttestationsPage = lazy(() => import('@/pages/SecretFixtureAttestationsPage').then((module) => ({ default: module.SecretFixtureAttestationsPage })))
+const SecretAlertListPage = lazy(() => import('@/pages/SecretAlertPages').then((module) => ({ default: module.SecretAlertListPage })))
+const SecretAlertDetailPage = lazy(() => import('@/pages/SecretAlertPages').then((module) => ({ default: module.SecretAlertDetailPage })))
+const SecretTriagePage = lazy(() => import('@/pages/SecretTriagePage').then((module) => ({ default: module.SecretTriagePage })))
+const SecretTriageCandidatesPage = lazy(() => import('@/pages/SecretTriageCandidatesPage').then((module) => ({ default: module.SecretTriageCandidatesPage })))
 
 export function App() {
   return (
@@ -34,9 +39,14 @@ export function App() {
           <Route path="/secrets" element={<SecretOverviewPage />} />
           <Route path="/secrets/findings" element={<SecretsPage />} />
           <Route path="/secrets/:secretId" element={<SecretPageBoundary returnTo="/secrets/findings"><SecretKeyDetailPage /></SecretPageBoundary>} />
+          <Route path="/secrets/:secretId/fixture-attestations" element={<SecretPageBoundary returnTo="/secrets/findings"><SecretFixtureAttestationsPage /></SecretPageBoundary>} />
           <Route path="/secrets/cases" element={<SecretCasesPage />} />
-          <Route path="/secrets/triage" element={<SecretTriageCandidatesPage />} />
-          <Route path="/secrets/triage/:secretId" element={<SecretTriagePage />} />
+          <Route path="/secrets/triage" element={<SecretPageBoundary returnTo="/secrets"><SecretTriageCandidatesPage /></SecretPageBoundary>} />
+          <Route path="/secrets/triage/investigations" element={<SecretPageBoundary returnTo="/secrets/triage"><SecretInvestigationListPage /></SecretPageBoundary>} />
+          <Route path="/secrets/triage/investigations/:taskId" element={<SecretPageBoundary returnTo="/secrets/triage/investigations"><SecretInvestigationDetailPage /></SecretPageBoundary>} />
+          <Route path="/secrets/triage/alerts" element={<SecretPageBoundary returnTo="/secrets/triage"><SecretAlertListPage /></SecretPageBoundary>} />
+          <Route path="/secrets/triage/alerts/:alertId" element={<SecretPageBoundary returnTo="/secrets/triage/alerts"><SecretAlertDetailPage /></SecretPageBoundary>} />
+          <Route path="/secrets/triage/:secretId" element={<SecretPageBoundary returnTo="/secrets/triage"><SecretTriagePage /></SecretPageBoundary>} />
           <Route path="/secrets/connections" element={<SecretConnectionsPage />} />
           <Route path="/secrets/connections/review" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretClassificationQueuePage /></SecretPageBoundary>} />
           <Route path="/secrets/connections/policies" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretPolicyListPage /></SecretPageBoundary>} />

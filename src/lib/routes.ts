@@ -27,7 +27,10 @@ export const infrastructurePaths = ['/configuration', '/identities', '/runtime',
 
 export function pageTitle(pathname: string): string {
   if (pathname === OVERVIEW_PATH) return '통합 현황'
-  if (pathname === '/secrets/triage') return '수동 노출 판정'
+  if (pathname === '/secrets/triage') return '확인 대기열'
+  if (pathname.startsWith('/secrets/triage/investigations')) return '추가 조사'
+  if (pathname.startsWith('/secrets/triage/alerts')) return '실키 경고'
+  if (pathname.endsWith('/fixture-attestations')) return '합성 표본 근거'
   if (pathname.startsWith('/secrets/triage/')) return '노출 판정'
   if (pathname.startsWith('/secrets/history/')) return '스캔 상세'
   if (pathname.startsWith('/secrets/connections/')) return '연결 범위'

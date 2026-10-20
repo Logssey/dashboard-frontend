@@ -16,6 +16,11 @@ export function idempotencyFor(ref: { current: { payload: string; key: string } 
   if (ref.current.payload !== serialized || !ref.current.key) ref.current = { payload: serialized, key: crypto.randomUUID() }
   return ref.current.key
 }
+export function futureEvidenceDeadline(value: string | null, now = Date.now()): boolean {
+  if (!value) return false
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) && timestamp > now && timestamp <= now + 90 * 24 * 60 * 60 * 1000
+}
 export const missingEvidenceLabel = (code: string | undefined) => ({ OWNER_UNKNOWN: '소유자 확인', POLICY_UNKNOWN: '보관 정책 확인', SOURCE_PERMISSION: '원천 접근 복구', VALIDATION_UNSUPPORTED: '검증 방법 확인', FIXTURE_UNCONFIRMED: '합성 표본 확인', EVIDENCE_INCOMPLETE: '근거 보완' } as Record<string, string>)[code ?? ''] ?? '추가 근거 확인'
 export const assignmentReasonLabel = (code: string) => ({ INITIAL_ASSIGNMENT: '최초 지정', OWNERSHIP_CHANGE: '담당자 변경', DUE_DATE_CHANGE: '확인 기한 변경', UNASSIGNED: '담당 미정으로 변경' } as Record<string, string>)[code] ?? '사유 확인 필요'
 export const evidenceKindLabel = (code: string) => ({ OWNER_CONFIRMATION: '소유자 확인 근거', POLICY_REFERENCE: '정책 근거', SOURCE_ACCESS_RESTORED: '원천 접근 복구 근거', PROVIDER_REFERENCE: '발급자 근거', FIXTURE_REFERENCE: '합성 표본 근거' } as Record<string, string>)[code] ?? '기타 근거'
