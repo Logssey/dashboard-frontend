@@ -5,7 +5,7 @@ export function useSecretReadRefresh() {
   const client = useQueryClient()
   return () => {
     for (const query of client.getQueryCache().findAll()) {
-      if (!['secret-inventory', 'secret-summary'].includes(String(query.queryKey[0]))) continue
+      if (!['secret-inventory', 'secret-summary', 'secret-review-queue'].includes(String(query.queryKey[0]))) continue
       const data = query.state.data as { snapshotId?: string } | undefined
       invalidateSecretSnapshot(data?.snapshotId)
     }
