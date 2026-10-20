@@ -13,7 +13,6 @@ import { SecretConnectionsPage } from '@/pages/SecretConnectionsPage'
 import { SecretConnectionScopesPage } from '@/pages/SecretConnectionScopesPage'
 import { SecretHistoryPage } from '@/pages/SecretHistoryPage'
 import { SecretRunDetailPage } from '@/pages/SecretRunDetailPage'
-import { SecretCasesPage } from '@/pages/SecretCasesPage'
 import { SecretPageBoundary } from '@/components/SecretPageBoundary'
 import { IacPage } from '@/iac/IacPage'
 
@@ -28,6 +27,8 @@ const SecretAlertListPage = lazy(() => import('@/pages/SecretAlertPages').then((
 const SecretAlertDetailPage = lazy(() => import('@/pages/SecretAlertPages').then((module) => ({ default: module.SecretAlertDetailPage })))
 const SecretTriagePage = lazy(() => import('@/pages/SecretTriagePage').then((module) => ({ default: module.SecretTriagePage })))
 const SecretTriageCandidatesPage = lazy(() => import('@/pages/SecretTriageCandidatesPage').then((module) => ({ default: module.SecretTriageCandidatesPage })))
+const SecretCasesPage = lazy(() => import('@/pages/SecretCasesPage').then((module) => ({ default: module.SecretCasesPage })))
+const SecretCaseDetailPage = lazy(() => import('@/pages/SecretCaseDetailPage').then((module) => ({ default: module.SecretCaseDetailPage })))
 
 export function App() {
   return (
@@ -40,7 +41,8 @@ export function App() {
           <Route path="/secrets/findings" element={<SecretsPage />} />
           <Route path="/secrets/:secretId" element={<SecretPageBoundary returnTo="/secrets/findings"><SecretKeyDetailPage /></SecretPageBoundary>} />
           <Route path="/secrets/:secretId/fixture-attestations" element={<SecretPageBoundary returnTo="/secrets/findings"><SecretFixtureAttestationsPage /></SecretPageBoundary>} />
-          <Route path="/secrets/cases" element={<SecretCasesPage />} />
+          <Route path="/secrets/cases" element={<SecretPageBoundary returnTo="/secrets"><SecretCasesPage /></SecretPageBoundary>} />
+          <Route path="/secrets/cases/:caseId" element={<SecretPageBoundary returnTo="/secrets/cases"><SecretCaseDetailPage /></SecretPageBoundary>} />
           <Route path="/secrets/triage" element={<SecretPageBoundary returnTo="/secrets"><SecretTriageCandidatesPage /></SecretPageBoundary>} />
           <Route path="/secrets/triage/investigations" element={<SecretPageBoundary returnTo="/secrets/triage"><SecretInvestigationListPage /></SecretPageBoundary>} />
           <Route path="/secrets/triage/investigations/:taskId" element={<SecretPageBoundary returnTo="/secrets/triage/investigations"><SecretInvestigationDetailPage /></SecretPageBoundary>} />

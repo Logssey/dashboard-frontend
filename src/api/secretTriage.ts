@@ -25,6 +25,8 @@ export interface ReviewContext {
   allowedMissingReasonCodes: string[]
   eligibleInvestigationAssignees: { userId: number; displayName: string }[]
   caseLinkData: { caseId: number | null; caseVersion: number | null; caseOrigin: SecretOrigin | null; caseLinkStatus: string; canRepair: boolean; decisionId: number | null; decisionVersion: number | null }
+  corrections?: { correctionId: number; findingId: number; decisionId: number; source: 'HUMAN' | 'EXACT_EVIDENCE_REUSE'; expiresAt: string | null; currentlyApplicable: boolean; recheckReason: string | null }[]
+  decisionUnavailableReasons?: Record<string, string>
 }
 export interface ReviewQueueItem {
   credentialSetId: number
@@ -42,7 +44,7 @@ export interface ReviewQueueItem {
   inventorySubtype?: string | null
   safeLocationLabel?: string | null
 }
-export interface ReviewQueuePage { items: ReviewQueueItem[]; total: number; page: number; size: number; unit: string; asOf: string; partialCoverage: boolean | null; snapshotId?: string; expiresAt?: string }
+export interface ReviewQueuePage { items: ReviewQueueItem[]; total: number; page: number; size: number; unit: string; asOf: string; partialCoverage: boolean | null; restrictedCoverage?: boolean; snapshotId?: string; expiresAt?: string }
 export interface ReviewRequest {
   decision: ReviewDecision
   reasonCode: string

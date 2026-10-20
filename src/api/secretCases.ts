@@ -4,11 +4,17 @@ import type { SecretIssuer } from './secrets'
 export type SecretCaseStage = 'OPEN' | 'IN_PROGRESS' | 'REVALIDATION_PENDING' | 'RESOLVED'
 export type SecretCaseOrigin = 'PRODUCTION' | 'TEST'
 export type SecretAssignmentReason = 'INITIAL_ASSIGNMENT' | 'OWNERSHIP_CHANGE' | 'TEAM_TRANSFER' | 'UNASSIGNED' | 'OTHER'
-export type SecretReviewDecision = 'CONFIRMED' | 'NEEDS_MORE_INFO'
-export type SecretReviewReason = 'EVIDENCE_CONFIRMED' | 'INSUFFICIENT_EVIDENCE'
 export type SecretChecklistCode = 'IDENTIFY_OWNER' | 'ROTATE_OR_REVOKE' | 'REMOVE_EXPOSURE' | 'CHECK_ACCESS_LOGS'
 export type SecretActionType = 'ROTATED' | 'REVOKED' | 'REMOVED_FROM_SOURCE' | 'PERMISSION_REDUCED'
-
+export interface CaseFilters {
+  origin: SecretCaseOrigin
+  scope: 'currentCases' | 'history'
+  stages: string
+  assignmentStatus: string
+  assignee: string
+  page: number
+  size: number
+}
 export interface SecretCaseItem {
   caseId: number
   caseOrigin: SecretCaseOrigin
@@ -19,169 +25,97 @@ export interface SecretCaseItem {
   stage: SecretCaseStage
   assigneeTeam: string | null
   assigneeUserId: number | null
-  assigneeDisplayName: string | null
+  assigneeDisplayName?: string | null
   version: number
   createdAt: string
-  updatedAt: string
+  updatedAt: string | null
+  visibleOccurrenceCount: number
+  restrictedCoverage: boolean
 }
-
-export interface SecretAssignmentHistoryItem {
-  changedAt: string
-  changedByUserId: number
-  changedByDisplayName: string
-  previousTeam: string | null
-  previousUserId: number | null
-  previousAssigneeDisplayName: string | null
-  newTeam: string | null
-  newUserId: number | null
-  newAssigneeDisplayName: string | null
-  reason: SecretAssignmentReason
-}
-
 export interface SecretCaseDetail extends SecretCaseItem {
-  openingOccurrenceId: number
-  openingReason: string
-  assignmentHistory: SecretAssignmentHistoryItem[]
+  disposition: string
+  isCurrent: boolean
+  openingDecisionId: number | string | null
   occurrences: SecretCaseOccurrence[]
-  reviewStatus: 'UNREVIEWED' | 'REVIEWED'
-  reviews: SecretCaseReview[]
   checklist: SecretCaseChecklistItem[]
-  checklistHistory: SecretChecklistChange[]
-  actions: SecretCaseAction[]
-  stageHistory: SecretCaseStageChange[]
+  readAt: string
+  changedSinceSnapshot: boolean
   capabilities: {
-    canReview: boolean
-    canStart: boolean
+    canAssign: boolean
     canUpdateChecklist: boolean
     canRecordAction: boolean
     canRequestRevalidation: boolean
     canResolve: boolean
-    canResume: boolean
   }
 }
-
 export interface SecretCaseOccurrence {
   occurrenceId: number
-  responseStatus: 'OPEN' | 'IN_PROGRESS' | 'REVALIDATION_PENDING' | 'RESOLVED'
+  safeLocationLabel: string
+  source: SecretIssuer
+  environment: string
+  exposure: string
+  presence: string
+  responseStatus: SecretCaseStage
+  version: number
+  assignedTeam: string | null
+  assignedUserId: number | null
+  assigneeDisplayName: string | null
+  actionCycle: number
+  lastMaterialActionAt: string | null
+  actionsCompletedAt: string | null
+  canAssign: boolean
+  canRecordAction: boolean
+  canCompleteActions: boolean
   canRequestRevalidation: boolean
   canResume: boolean
+  locationAbsenceCheck?: { status: string; reasonCode: string | null }
+  recentRevalidation?: { revalidationId: number; occurrenceId: number; runId: number; canViewRun?: boolean; jobStatus: string; result: string; failureCode: string | null; requestedAt: string; finishedAt: string | null } | null
+  revalidationBlockReasonCode?: string | null
 }
-
-export interface SecretCaseReview {
-  reviewId: number
-  decision: SecretReviewDecision
-  reasonCode: SecretReviewReason
-  reviewedByUserId: number
-  reviewedByName: string
-  reviewedAt: string
-  caseVersion: number
-}
-
 export interface SecretCaseChecklistItem {
   itemId: number
+  occurrenceId: number
   guideVersion: 'S2_V1'
-  itemCode: SecretChecklistCode
+  code: SecretChecklistCode
   status: 'TODO' | 'DONE'
   evidenceRef: string | null
-  completedAt: string | null
-  completedByUserId: number | null
-  updatedAt: string
 }
-
-export interface SecretCaseAction {
-  actionId: number
-  occurrenceId: number
-  actionType: SecretActionType
-  performedAt: string
-  recordedAt: string
-  recordedByUserId: number
-  recordedByName: string
-  evidenceRef: string
-  caseVersion: number
-}
-
-export interface SecretChecklistChange {
-  itemId: number
-  fromStatus: 'TODO' | 'DONE'
-  toStatus: 'TODO' | 'DONE'
-  evidenceRef: string | null
-  changedByUserId: number
-  changedAt: string
-  caseVersion: number
-}
-
-export interface SecretCaseStageChange {
-  fromStatus: SecretCaseStage
-  toStatus: SecretCaseStage
-  reasonCode: string
-  actorUserId: number
-  changedAt: string
-  caseVersion: number
-}
-
-export interface SecretAssignee {
-  userId: number
-  displayName: string
-  team: string | null
-}
-
+export interface SecretAssignee { userId: number; displayName: string; team: string | null }
 export interface SecretCaseListResponse {
-  items: SecretCaseItem[]
-  total: number
-  page: number
-  size: number
+  items: SecretCaseItem[]; total: number; page: number; size: number
+  scope: 'currentCases' | 'history'; unit: 'ResponseCase'; asOf: string
 }
-
+export interface SecretCaseActivity {
+  activityId: number
+  occurrenceId: number | null
+  type: string
+  actorUserId: number
+  referenceId: number | null
+  reasonCode: string | null
+  happenedAt: string
+  actionType?: SecretActionType | null
+  performedAt?: string | null
+  evidenceRef?: string | null
+}
+export interface SecretCaseActivities {
+  items: SecretCaseActivity[]; total: number; page: number; size: number
+  historyComplete: boolean; reasonCode: string | null
+}
+export interface CaseCommandResult { targetId: number; version: number; status: string; requiresSnapshotRefresh?: boolean }
 export interface AssignSecretCaseRequest {
-  team: string | null
-  assigneeUserId: number | null
-  reason: SecretAssignmentReason
-  expectedVersion: number
+  team: string | null; assigneeUserId: number | null; reasonCode: SecretAssignmentReason; expectedVersion: number
 }
-
-export const fetchSecretCases = (page: number, size = 20, origin: SecretCaseOrigin = 'PRODUCTION') =>
-  apiRequest<SecretCaseListResponse>(`/api/v1/secrets/cases?page=${page}&size=${size}&origin=${origin}`)
-
-export const fetchSecretCase = (caseId: number) =>
-  apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}`)
-
-export const fetchSecretAssignees = (caseId: number) =>
-  apiRequest<{ items: SecretAssignee[] }>(`/api/v1/secrets/assignees?caseId=${caseId}`)
-
-export const assignSecretCase = (caseId: number, request: AssignSecretCaseRequest) =>
-  apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}/assignment`, {
-    method: 'PATCH',
-    body: JSON.stringify(request),
-  })
-
-export const reviewSecretCase = (caseId: number, request: {
-  decision: SecretReviewDecision
-  reasonCode: SecretReviewReason
-  expectedVersion: number
-}) => apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}/review`, {
-  method: 'POST', body: JSON.stringify(request),
-})
-
-export const startSecretCase = (caseId: number, expectedVersion: number) =>
-  apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}/start`, {
-    method: 'POST', body: JSON.stringify({ reasonCode: 'RESPONSE_STARTED', expectedVersion }),
-  })
-
-export const updateSecretCaseChecklist = (caseId: number, itemId: number, request: {
-  completed: boolean
-  guideVersion: 'S2_V1'
-  evidenceRef: string | null
-  expectedVersion: number
-}) => apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}/checklist/${itemId}`, {
-  method: 'PATCH', body: JSON.stringify(request),
-})
-
-export const recordSecretCaseAction = (caseId: number, request: {
-  actionType: SecretActionType
-  occurrenceId: number
-  performedAt: string
-  evidenceRef: string
-  expectedVersion: number
-}) => apiRequest<SecretCaseDetail>(`/api/v1/secrets/cases/${caseId}/actions`, {
-  method: 'POST', body: JSON.stringify(request),
-})
+const base = '/api/v1/secrets'
+export const fetchSecretCases = (filters: CaseFilters) => {
+  const params = new URLSearchParams({ origin: filters.origin, scope: filters.scope, page: String(filters.page), size: String(filters.size) })
+  for (const key of ['stages', 'assignmentStatus', 'assignee'] as const) if (filters[key]) params.set(key, filters[key])
+  return apiRequest<SecretCaseListResponse>(`${base}/cases?${params}`)
+}
+export const fetchSecretCase = (id: number) => apiRequest<SecretCaseDetail>(`${base}/cases/${id}`)
+export const fetchSecretCaseActivities = (id: number, page: number) => apiRequest<SecretCaseActivities>(`${base}/cases/${id}/activities?page=${page}&size=20`)
+export const fetchSecretAssignees = (id: number, occurrenceId?: number) => apiRequest<{ items: SecretAssignee[] }>(`${base}/assignees?caseId=${id}${occurrenceId ? `&occurrenceId=${occurrenceId}` : ''}`)
+export const assignSecretCase = (id: number, request: AssignSecretCaseRequest) => apiRequest<SecretCaseDetail>(`${base}/cases/${id}/assignment`, { method: 'PATCH', body: JSON.stringify(request) })
+export const assignSecretLocation = (id: number, occurrenceId: number, request: Omit<AssignSecretCaseRequest, 'expectedVersion'> & { expectedCaseVersion: number; expectedOccurrenceVersion: number }) => apiRequest<SecretCaseDetail>(`${base}/cases/${id}/occurrences/${occurrenceId}/assignment`, { method: 'PATCH', body: JSON.stringify(request) })
+export const updateSecretCaseChecklist = (id: number, itemId: number, request: { completed: boolean; guideVersion: 'S2_V1'; evidenceRef: string | null; expectedCaseVersion: number }) => apiRequest<SecretCaseDetail>(`${base}/cases/${id}/checklist/${itemId}`, { method: 'PATCH', body: JSON.stringify(request) })
+export const recordSecretCaseAction = (id: number, request: { actionType: SecretActionType; occurrenceId: number; performedAt: string; evidenceRef: string; expectedCaseVersion: number; expectedOccurrenceVersion: number; idempotencyKey: string }) => apiRequest<CaseCommandResult>(`${base}/cases/${id}/actions`, { method: 'POST', body: JSON.stringify(request) })
+export const completeSecretLocationActions = (id: number, occurrenceId: number, request: { expectedCaseVersion: number; expectedOccurrenceVersion: number; idempotencyKey: string }) => apiRequest<CaseCommandResult>(`${base}/cases/${id}/occurrences/${occurrenceId}/complete-actions`, { method: 'POST', body: JSON.stringify(request) })
