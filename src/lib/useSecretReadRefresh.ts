@@ -9,6 +9,6 @@ export function useSecretReadRefresh() {
       const data = query.state.data as { snapshotId?: string } | undefined
       invalidateSecretSnapshot(data?.snapshotId)
     }
-    for (const key of ['secret-inventory', 'secret-key-locations', 'secret-detail', 'secret-review-queue', 'secret-review-context', 'secret-investigations', 'secret-investigation', 'secret-fixture-attestations', 'secret-cross-environment-alerts', 'secret-summary', 'secret-cases', 'secret-case', 'secret-classification', 'secret-classification-queue', 'secret-policies', 'secret-connections-manage', 'secret-connection-scopes', 'secret-navigation-count']) void client.invalidateQueries({ queryKey: [key] })
+    for (const key of ['secret-inventory', 'secret-key-locations', 'secret-detail', 'secret-review-queue', 'secret-review-context', 'secret-investigations', 'secret-investigation', 'secret-fixture-attestations', 'secret-cross-environment-alerts', 'secret-key-alert', 'secret-summary', 'secret-cases', 'secret-case', 'secret-case-activities', 'secret-case-assignees', 'secret-case-revalidations', 'secret-case-lifecycle', 'secret-case-closure', 'secret-classification', 'secret-classification-queue', 'secret-policies', 'secret-connections-manage', 'secret-connection-scopes', 'secret-navigation-count']) void client.invalidateQueries({ queryKey: [key] })
   }
 }
