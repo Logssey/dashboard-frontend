@@ -8,10 +8,13 @@ import { OverviewPage } from '@/pages/OverviewPage'
 import { SecretsPage } from '@/pages/SecretsPage'
 import { SecretOverviewPage } from '@/pages/SecretOverviewPage'
 import { SecretConnectionsPage } from '@/pages/SecretConnectionsPage'
+import { SecretConnectionScopesPage } from '@/pages/SecretConnectionScopesPage'
 import { SecretHistoryPage } from '@/pages/SecretHistoryPage'
+import { SecretRunDetailPage } from '@/pages/SecretRunDetailPage'
 import { SecretCasesPage } from '@/pages/SecretCasesPage'
 import { SecretTriagePage } from '@/pages/SecretTriagePage'
 import { SecretTriageCandidatesPage } from '@/pages/SecretTriageCandidatesPage'
+import { SecretPageBoundary } from '@/components/SecretPageBoundary'
 import { IacPage } from '@/iac/IacPage'
 
 export function App() {
@@ -27,7 +30,9 @@ export function App() {
           <Route path="/secrets/triage" element={<SecretTriageCandidatesPage />} />
           <Route path="/secrets/triage/:secretId" element={<SecretTriagePage />} />
           <Route path="/secrets/connections" element={<SecretConnectionsPage />} />
+          <Route path="/secrets/connections/:connectionId/scopes" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretConnectionScopesPage /></SecretPageBoundary>} />
           <Route path="/secrets/history" element={<SecretHistoryPage />} />
+          <Route path="/secrets/history/:runId" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunDetailPage /></SecretPageBoundary>} />
           <Route path="/iac" element={<IacPage />} />
           {sectionPages
             .filter((page) => !page.path.startsWith('/secrets'))
