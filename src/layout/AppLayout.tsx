@@ -104,7 +104,7 @@ export function AppLayout() {
                     {secretNavigation.map((page) => (
                       <NavLink
                         key={page.path}
-                        className={`nav-link secret-sub ${location.pathname === page.path ? 'active' : ''}`.trim()}
+                        className={`nav-link secret-sub ${location.pathname === page.path || (page.path !== '/secrets' && location.pathname.startsWith(`${page.path}/`)) ? 'active' : ''}`.trim()}
                         to={page.path}
                         end
                       >
