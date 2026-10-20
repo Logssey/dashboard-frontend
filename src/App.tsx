@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/layout/AppLayout'
 import { RequireAuth } from '@/layout/RequireAuth'
@@ -18,6 +19,11 @@ import { SecretTriageCandidatesPage } from '@/pages/SecretTriageCandidatesPage'
 import { SecretPageBoundary } from '@/components/SecretPageBoundary'
 import { IacPage } from '@/iac/IacPage'
 
+const SecretClassificationQueuePage = lazy(() => import('@/pages/SecretScopeClassificationPage').then((module) => ({ default: module.SecretClassificationQueuePage })))
+const SecretScopeClassificationPage = lazy(() => import('@/pages/SecretScopeClassificationPage').then((module) => ({ default: module.SecretScopeClassificationPage })))
+const SecretPolicyListPage = lazy(() => import('@/pages/SecretPolicyPages').then((module) => ({ default: module.SecretPolicyListPage })))
+const SecretPolicyDetailPage = lazy(() => import('@/pages/SecretPolicyPages').then((module) => ({ default: module.SecretPolicyDetailPage })))
+
 export function App() {
   return (
     <Routes>
@@ -32,6 +38,10 @@ export function App() {
           <Route path="/secrets/triage" element={<SecretTriageCandidatesPage />} />
           <Route path="/secrets/triage/:secretId" element={<SecretTriagePage />} />
           <Route path="/secrets/connections" element={<SecretConnectionsPage />} />
+          <Route path="/secrets/connections/review" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretClassificationQueuePage /></SecretPageBoundary>} />
+          <Route path="/secrets/connections/policies" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretPolicyListPage /></SecretPageBoundary>} />
+          <Route path="/secrets/connections/policies/:policyId/versions/:version" element={<SecretPageBoundary returnTo="/secrets/connections/policies"><SecretPolicyDetailPage /></SecretPageBoundary>} />
+          <Route path="/secrets/connections/:connectionId/scopes/:scopeId" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretScopeClassificationPage /></SecretPageBoundary>} />
           <Route path="/secrets/connections/:connectionId/scopes" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretConnectionScopesPage /></SecretPageBoundary>} />
           <Route path="/secrets/history" element={<SecretHistoryPage />} />
           <Route path="/secrets/history/:runId" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunDetailPage /></SecretPageBoundary>} />
