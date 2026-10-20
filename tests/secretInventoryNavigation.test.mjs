@@ -74,6 +74,25 @@ test('inventory makes metadata and value candidate filters explicit and uses saf
   assert.match(html, /실제 키일 수 있으며/)
   assert.doesNotMatch(html, /키 전체 노출|dialog|secret-history-detail-title/)
 })
+
+test('a failed latest scope scan preserves earlier success without claiming current complete coverage', () => {
+  const params = new URLSearchParams('origin=TEST&occurrence=1')
+  const { filters } = parseLocationFilters(params)
+  const row = { ...location(1, 'UNKNOWN'), coverage: { scopeRevision: 2,
+    lastAttempt: { runId: 9, requestedAt: '2026-10-21T01:00:00Z', finishedAt: '2026-10-21T01:01:00Z', scopeOutcome: 'PARTIAL' },
+    lastSuccessfulScan: { runId: 8, requestedAt: '2026-10-20T01:00:00Z', finishedAt: '2026-10-20T01:01:00Z' },
+    gapReasonCodes: ['LAST_ATTEMPT_INCOMPLETE'], freshness: 'CURRENT', isPaused: false, isRunning: false } }
+  const html = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [
+    [['secret-detail', 12, 'TEST'], item], [['secret-key-locations', 12, filters, 0], {
+      credentialSetId: 12, credential: item, items: [row], total: 1, visibleLocationCount: 1, detailVersion: 'v1',
+      locationStateCounts: { presence: { PRESENT: 0, MISSING: 0, UNKNOWN: 1 } }, restrictedCoverage: true,
+    }],
+  ])
+  assert.match(html, /최근 검사 시도/)
+  assert.match(html, /마지막 검사 성공/)
+  assert.match(html, /최근 검사 일부 누락/)
+  assert.doesNotMatch(html, /기록된 승인 범위 확인|확인된 누락 없음/)
+})
 test('initial loading and malformed key links do not invent zero counts', () => {
   const loading = renderPage(SecretsPage, '/secrets/findings', '/secrets/findings')
   assert.match(loading, /키 목록을 불러오는 중/)
