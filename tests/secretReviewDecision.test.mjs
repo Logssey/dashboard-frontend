@@ -67,6 +67,16 @@ test('valid existing exposure repairs the case link without a repeated exposure 
   assert.match(html, /같은 판단을 다시 승인하지 않아요/)
   assert.doesNotMatch(html, /가능한 결정 선택|노출 판정 저장|대응 건 생성 확인/)
 })
+
+test('expired correction evidence stays historical and unavailable decisions explain the missing fact', () => {
+  const html = renderContext({ ...context, allowedDecisions: ['NEEDS_MORE_INFO'], decisionUnavailableReasons: { ABNORMAL: 'CURRENT_PRESENCE_REQUIRED', NORMAL: 'EXPLICIT_ALLOW_REQUIRED', FALSE_POSITIVE: 'REAL_CREDENTIAL_CONFIRMED' }, corrections: [{ correctionId: 4, findingId: 90, decisionId: 15, source: 'EXACT_EVIDENCE_REUSE', expiresAt: '2026-10-20T00:00:00Z', currentlyApplicable: false, recheckReason: 'APPROVAL_EXPIRED' }] })
+  assert.match(html, /현재 존재를 먼저 확인/)
+  assert.match(html, /유효한 보관 허용 정책/)
+  assert.match(html, /실제 키 근거가 있어 오탐으로 교정할 수 없어요/)
+  assert.match(html, /과거 교정 근거/)
+  assert.match(html, /오탐 근거 유효 기간 만료/)
+  assert.doesNotMatch(html, /탐지 #90 · 현재 적용 중/)
+})
 test('review return navigation preserves allowlisted origin, bucket, page and snapshot only', () => {
   const params = new URLSearchParams({ returnQuery: 'origin=TEST&bucket=NEEDS_CASE_LINK&page=3&snapshotId=11111111-1111-1111-1111-111111111111&returnTo=https://example.invalid' })
   const back = new URL(api.reviewReturnPath(params, 12, 8), 'http://localhost')
