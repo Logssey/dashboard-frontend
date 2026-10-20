@@ -99,7 +99,7 @@ const validationReasons: Record<string, string> = {
   RATE_LIMITED: 'AWS 호출 제한',
   PROVIDER_UNAVAILABLE: 'AWS 응답 확인 불가',
   CLIENT_FAILURE: '검증 연결 오류',
-  SYNTHETIC_FIXTURE: '합성 표본',
+  SYNTHETIC_FIXTURE: '표본 분류로 검증 생략',
   POST_ACTION_VALIDATION_REQUIRED: '조치 이후 미검증',
   UNSPECIFIED_REASON: '사유 확인 필요',
   NO_VERIFICATION_ATTEMPT: '검증 시도 기록 없음',

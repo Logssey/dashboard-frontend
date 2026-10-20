@@ -38,8 +38,9 @@ export function reviewInputErrors(context: ReviewContext, input: ReviewInput, no
   }
   return errors
 }
-export function reviewReturnPath(params: URLSearchParams, secretId?: number | null, occurrenceId?: number | null): string {
-  return safeWorkbenchReturn(params.get('returnQuery'), secretId && occurrenceId ? `${secretId}:${occurrenceId}` : undefined)
+export function reviewReturnPath(params: URLSearchParams, secretId?: number | null, occurrenceId?: number | null, actualOrigin?: string): string {
+  const directOrigin = ['PRODUCTION', 'TEST'].includes(actualOrigin ?? '') ? actualOrigin : 'PRODUCTION'
+  return safeWorkbenchReturn(params.get('returnQuery') || `origin=${directOrigin}&bucket=NEEDS_DECISION`, secretId && occurrenceId ? `${secretId}:${occurrenceId}` : undefined)
 }
 export function reviewDetailPath(secretId: number, occurrenceId: number, listParams: URLSearchParams): string {
   return `/secrets/triage/${secretId}?${new URLSearchParams({ occurrence: String(occurrenceId), returnQuery: listParams.toString() })}`
