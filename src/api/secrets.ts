@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import type { ScopeCoverage } from './secretConnections'
 
 export type SecretIssuer = 'AWS' | 'GITHUB' | 'NOTION' | 'KUBERNETES'
 export type SecretOrigin = 'PRODUCTION' | 'TEST' | 'UNCLASSIFIED'
@@ -121,7 +122,7 @@ export interface KeyLocation {
   exposure: 'ABNORMAL' | 'NORMAL' | 'UNKNOWN'
   validity: { result: string; reasonCode: string | null; observedAt: string | null }
   storagePolicy: { result: string; reasonCode: string | null }
-  coverage: { status: string; reasonCode: string | null; legacyLastCompleteCoverageAt: string | null }
+  coverage: ScopeCoverage
   fixtureStatus: string | null
   fixtureReasonCode: string | null
   caseId: number | null
