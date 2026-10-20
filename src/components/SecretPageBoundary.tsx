@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react'
+import { Component, Suspense, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 class DetailBoundary extends Component<{ children: ReactNode; returnTo: string }, { failed: boolean }> {
@@ -13,5 +13,5 @@ class DetailBoundary extends Component<{ children: ReactNode; returnTo: string }
 /** A broken detail must leave the authenticated application shell and a safe return path available. */
 export function SecretPageBoundary({ children, returnTo }: { children: ReactNode; returnTo: string }) {
   const location = useLocation()
-  return <DetailBoundary key={location.pathname} returnTo={returnTo}>{children}</DetailBoundary>
+  return <DetailBoundary key={location.pathname} returnTo={returnTo}><Suspense fallback={<p className="card secret-scan-message" role="status">화면을 불러오는 중이에요.</p>}>{children}</Suspense></DetailBoundary>
 }

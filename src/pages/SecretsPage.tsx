@@ -11,6 +11,7 @@ import { componentStateLabel, credentialTypeLabel, issuerLabel, secretValidation
 import { buildMaskedSecretsCsv, loadAllSecretItems } from '@/lib/secretCsv'
 import { inventoryOptions, inventorySearch, keyDetailPath, nextLabel, parseInventoryFilters, whyLabel } from '@/lib/secretInventory'
 import { positiveId, scanDate, scanDetailPath } from '@/lib/secretScan'
+import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
 import './secret-csv.css'
 import './secret-inventory.css'
 import './secret-scan.css'
@@ -22,7 +23,8 @@ export function SecretsPage() {
   const [showMore, setShowMore] = useState(false)
   const restored = useRef('')
   const legacyRun = positiveId(params.get('run'))
-  const inventory = useQuery({ queryKey: ['secret-inventory', filters, refreshVersion], queryFn: () => fetchSecrets(filters), enabled: !errors.length && !legacyRun,
+  const locallyInvalidated = isSecretSnapshotInvalidated(filters.snapshotId)
+  const inventory = useQuery({ queryKey: ['secret-inventory', filters, refreshVersion], queryFn: () => fetchSecrets(filters), enabled: !errors.length && !legacyRun && !locallyInvalidated,
     retry: (count, error) => !(error instanceof ApiError && [400, 403, 404, 409].includes(error.status)) && count < 1,
     refetchOnWindowFocus: false, refetchOnReconnect: false,
   })
@@ -59,7 +61,7 @@ export function SecretsPage() {
   const refreshRequired = error instanceof ApiError && [404, 409].includes(error.status) && Boolean(filters.snapshotId)
   return <>
     <PageHeader title="탐지 목록" description="고유 키별로 발견 위치와 확인할 이유를 살펴보세요." actions={<>
-      <button className="btn secret-export-button" disabled={download.isPending || !inventory.isSuccess || !snapshot || !inventory.data?.asOf || !filters.snapshotId || inventory.data.total === 0} onClick={() => snapshot && inventory.data?.asOf && download.mutate({ filters: { ...filters, snapshotId: snapshot }, asOf: inventory.data.asOf })}><Icon name="download" />{download.isPending ? 'CSV 준비 중…' : '마스킹 CSV 내보내기'}</button>
+      <button className="btn secret-export-button" disabled={download.isPending || locallyInvalidated || !inventory.isSuccess || !snapshot || !inventory.data?.asOf || !filters.snapshotId || inventory.data.total === 0} onClick={() => snapshot && inventory.data?.asOf && download.mutate({ filters: { ...filters, snapshotId: snapshot }, asOf: inventory.data.asOf })}><Icon name="download" />{download.isPending ? 'CSV 준비 중…' : '마스킹 CSV 내보내기'}</button>
       <Link className="btn primary" to="/secrets/history"><Icon name="search" /> 스캔 요청</Link>
     </>} />
     <section className="card secret-scan-filters" aria-label="키 인벤토리 필터">
@@ -75,12 +77,13 @@ export function SecretsPage() {
     {inventory.data?.restrictedCoverage && inventory.isSuccess && <p className="notice secret-inventory-origin">열람 가능한 위치 기준이에요. 전체 범위에 대한 결론은 내릴 수 없어요.</p>}
     <section className="card list-card secret-inventory-list" aria-labelledby="inventory-title" aria-busy={inventory.isFetching}>
       <div className="card-head"><div><h2 id="inventory-title">{inventoryOptions.contentKind[filters.contentKind as keyof typeof inventoryOptions.contentKind]}</h2><p className="caption">단위: 고유 키 · {inventoryOptions.origin[filters.origin]}{inventory.data?.asOf && inventory.isSuccess ? ` · 기준 ${scanDate(inventory.data.asOf)}` : ''}</p></div></div>
-      {errors.length ? null : inventory.isPending ? <p className="secret-scan-message" role="status">키 목록을 불러오는 중이에요.</p> : inventory.isError ? <div className="secret-scan-message" role="alert"><h3>{refreshRequired ? '조회 기준을 갱신해 주세요' : error instanceof ApiError && error.status === 403 ? '키 목록을 조회할 권한이 없어요' : '키 목록을 불러오지 못했어요'}</h3><p>{refreshRequired ? '이전 목록을 현재 상태로 표시하지 않아요.' : '조회 실패는 탐지 결과 0개를 의미하지 않아요.'}</p><button className="btn outline" onClick={() => refreshRequired ? refresh() : void inventory.refetch()}>{refreshRequired ? '새 기준으로 조회' : '다시 조회'}</button></div> : !inventory.data.items.length ? <EmptyState title="조건에 맞는 키가 없어요" description="필터를 변경하거나 승인된 연결의 검사 이력을 확인하세요." /> : <div className="table-scroll" tabIndex={0} role="region" aria-label="고유 키 인벤토리. 좁은 화면에서는 가로로 스크롤하세요."><table><thead><tr><th scope="col">키</th><th scope="col">확인할 이유</th><th scope="col">구성·검증</th><th scope="col">열람 위치</th><th scope="col">최근 발견</th><th scope="col">다음 행동</th></tr></thead><tbody>{inventory.data.items.map((item) => {
+      {errors.length ? null : locallyInvalidated ? <div className="secret-scan-message notice" role="status"><p>보안 판단 또는 정책이 변경됐어요. 최신 기준으로 목록을 갱신해 주세요.</p><button className="btn primary" onClick={refresh}>새 기준으로 조회</button></div> : inventory.isPending ? <p className="secret-scan-message" role="status">키 목록을 불러오는 중이에요.</p> : inventory.isError ? <div className="secret-scan-message" role="alert"><h3>{refreshRequired ? '조회 기준을 갱신해 주세요' : error instanceof ApiError && error.status === 403 ? '키 목록을 조회할 권한이 없어요' : '키 목록을 불러오지 못했어요'}</h3><p>{refreshRequired ? '이전 목록을 현재 상태로 표시하지 않아요.' : '조회 실패는 탐지 결과 0개를 의미하지 않아요.'}</p><button className="btn outline" onClick={() => refreshRequired ? refresh() : void inventory.refetch()}>{refreshRequired ? '새 기준으로 조회' : '다시 조회'}</button></div> : !inventory.data.items.length ? <EmptyState title="조건에 맞는 키가 없어요" description="필터를 변경하거나 승인된 연결의 검사 이력을 확인하세요." /> : <div className="table-scroll" tabIndex={0} role="region" aria-label="고유 키 인벤토리. 좁은 화면에서는 가로로 스크롤하세요."><table><thead><tr><th scope="col">키</th><th scope="col">확인할 이유</th><th scope="col">구성·검증</th><th scope="col">열람 위치</th><th scope="col">최근 발견</th><th scope="col">다음 행동</th></tr></thead><tbody>{inventory.data.items.map((item) => {
         const href = keyDetailPath(item.id, { ...filters, snapshotId: snapshot ?? filters.snapshotId })
         const caseLink = item.nextActionCode === 'VIEW_CASE' && item.currentCaseId ? `/secrets/cases?case=${item.currentCaseId}&origin=${item.origin ?? filters.origin}` : null
         return <tr key={item.id}><td><Link className="finding-link" id={`key-link-${item.id}`} to={href} onClick={() => remember(item.id)}>{item.maskedLabel || `키 #${item.id}`}</Link><span className="asset">{issuerLabel[item.issuer] ?? '발급자 미확인'} · {credentialTypeLabel(item.credentialType)}</span></td><td><Badge label={whyLabel(item.whyHereCode)} /><span className="asset">{item.safeLocationLabel ?? '위치 상세에서 확인'}</span></td><td>{componentStateLabel[item.componentState]}<span className="asset">검증 {secretValidationLabel(item.validationStatus)}</span></td><td>{item.visibleLocationCount ?? item.occurrenceCount}곳<span className="asset">열람 가능한 위치</span></td><td>{scanDate(item.lastSeenAt)}</td><td><Link className="secret-history-detail-button" to={caseLink ?? href} onClick={() => !caseLink && remember(item.id)}>{nextLabel(item.nextActionCode)} <Icon name="chevron" /></Link></td></tr>
       })}</tbody></table></div>}
-      {inventory.isSuccess && !errors.length && <div className="table-foot secret-table-foot"><span>열람 가능한 고유 키 {inventory.data.total}개 · 현재 {inventory.data.items.length}개 표시</span><div className="row"><button className="btn outline" disabled={filters.page === 0} onClick={() => setParams(inventorySearch({ ...filters, page: filters.page - 1 }))}>이전</button><span>{filters.page + 1} / {Math.max(1, Math.ceil(inventory.data.total / filters.size))}</span><button className="btn outline" disabled={(filters.page + 1) * filters.size >= inventory.data.total} onClick={() => setParams(inventorySearch({ ...filters, page: filters.page + 1 }))}>다음</button></div></div>}
+      {inventory.isSuccess && !errors.length && !locallyInvalidated && <div className="table-foot secret-table-foot"><span>열람 가능한 고유 키 {inventory.data.total}개 · 현재 {inventory.data.items.length}개 표시</span><div className="row"><button className="btn outline" disabled={filters.page === 0} onClick={() => setParams(inventorySearch({ ...filters, page: filters.page - 1 }))}>이전</button><span>{filters.page + 1} / {Math.max(1, Math.ceil(inventory.data.total / filters.size))}</span><button className="btn outline" disabled={(filters.page + 1) * filters.size >= inventory.data.total} onClick={() => setParams(inventorySearch({ ...filters, page: filters.page + 1 }))}>다음</button></div></div>}
     </section>
   </>
 }
+
