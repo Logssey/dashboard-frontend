@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
-import { fetchSecrets } from '@/api/secrets'
+import { useSecretWorkbench } from '@/lib/useSecretWorkbench'
+import { availableMetric, parseWorkbenchFilters } from '@/lib/secretWorkbench'
+import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
 import { Icon, type IconName } from '@/components/Icon'
 import { infrastructurePaths, LOGIN_PATH, OVERVIEW_PATH, pageTitle, sectionPages } from '@/lib/routes'
 import { ME_QUERY_KEY, useMe } from './useMe'
@@ -17,6 +19,7 @@ const navigation: Array<{ path: string; icon: IconName; label: string }> = [
 const secretNavigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: '/secrets', icon: 'key', label: '시크릿 현황' },
   { path: '/secrets/findings', icon: 'list', label: '탐지 목록' },
+  { path: '/secrets/triage', icon: 'list', label: '확인 대기열' },
   { path: '/secrets/cases', icon: 'shield', label: '대응 관리' },
   { path: '/secrets/connections', icon: 'plug', label: '연결 관리' },
   { path: '/secrets/history', icon: 'clock', label: '스캔 이력' },
@@ -38,14 +41,11 @@ export function AppLayout() {
   const title = pageTitle(location.pathname)
   const inInfrastructure = infrastructurePaths.includes(location.pathname)
   const inSecrets = location.pathname === '/secrets' || location.pathname.startsWith('/secrets/')
-  const secretCount = useQuery({
-    queryKey: ['secret-navigation-count'],
-    queryFn: () => fetchSecrets({ page: 0, size: 1, issuer: 'ALL', componentState: 'ALL' }),
-    enabled: inSecrets && me?.role === 'ADMIN',
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  })
+  const sharedSummaryRoute = location.pathname === '/secrets' || location.pathname === '/secrets/triage'
+  const routeParams = new URLSearchParams(location.search)
+  const summarySelection = parseWorkbenchFilters(sharedSummaryRoute ? routeParams : new URLSearchParams({ origin: routeParams.get('origin') === 'TEST' ? 'TEST' : 'PRODUCTION' }))
+  const summary = useSecretWorkbench(summarySelection.filters, inSecrets && !!me && summarySelection.valid)
+  const decisionMetric = summary.data?.metrics.find((metric) => metric.key === 'needsDecisionLocations')
 
   useEffect(() => {
     document.title = `${title} · Logssey`
@@ -108,13 +108,13 @@ export function AppLayout() {
                       <NavLink
                         key={page.path}
                         className={`nav-link secret-sub ${location.pathname === page.path || (page.path !== '/secrets' && location.pathname.startsWith(`${page.path}/`)) ? 'active' : ''}`.trim()}
-                        to={page.path}
+                        to={routeParams.get('origin') === 'TEST' ? `${page.path}?origin=TEST` : page.path}
                         end
                       >
                         <Icon name={page.icon} />
                         <span>{page.label}</span>
-                        {page.path === '/secrets/findings' && secretCount.isSuccess && (
-                          <span className="secret-nav-count" title="운영 값 후보 수" aria-label={`운영 값 후보 ${secretCount.data.total}개`}>{secretCount.data.total}</span>
+                        {page.path === '/secrets/triage' && summary.isSuccess && !isSecretSnapshotInvalidated(summarySelection.filters.snapshotId) && availableMetric(decisionMetric) && (
+                          <span className="secret-nav-count" title="확인할 발견 위치" aria-label={`확인 필요 위치 ${decisionMetric!.value}곳`}>{decisionMetric!.value}</span>
                         )}
                       </NavLink>
                     ))}

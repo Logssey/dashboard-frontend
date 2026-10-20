@@ -1,5 +1,6 @@
 import type { InventoryFilter, LocationFilter } from '../api/secrets'
 import { positiveId } from './secretScan'
+import { safeWorkbenchReturn } from './secretWorkbench'
 
 export const inventoryOptions = {
   origin: { PRODUCTION: '운영', TEST: '시험', UNCLASSIFIED: '미분류' },
@@ -39,6 +40,7 @@ export function keyDetailPath(id: number, filter?: InventoryFilter): string {
   return `/secrets/${id}?${result}`
 }
 export function inventoryReturnPath(params: URLSearchParams, id: number | null): string {
+  if (params.get('return') === 'workbench') return safeWorkbenchReturn(params.get('returnQuery'), id ? String(id) : undefined)
   if (params.get('return') !== 'inventory') return '/secrets/findings'
   const parsed = parseInventoryFilters(new URLSearchParams(params.get('returnQuery') ?? ''))
   if (parsed.errors.length) return '/secrets/findings'

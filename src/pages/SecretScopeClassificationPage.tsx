@@ -9,6 +9,7 @@ import { inventoryOptions } from '@/lib/secretInventory'
 import { safeMutationMessage, validEvidenceRef } from '@/lib/secretEvidence'
 import { positiveId, scanDate, scopeTypeLabel } from '@/lib/secretScan'
 import { useSecretReadRefresh } from '@/lib/useSecretReadRefresh'
+import { safeWorkbenchReturn } from '@/lib/secretWorkbench'
 import './secret-governance.css'
 import './secret-scan.css'
 
@@ -72,6 +73,7 @@ function PendingClassification({ scope, onUpdated }: { scope: ScopeClassificatio
 
 export function SecretScopeClassificationPage() {
   const { connectionId: rawConnection, scopeId: rawScope } = useParams()
+  const [params] = useSearchParams()
   const connectionId = positiveId(rawConnection), scopeId = positiveId(rawScope)
   const heading = useRef<HTMLHeadingElement>(null)
   const [refreshVersion, setRefreshVersion] = useState(0)
@@ -79,7 +81,7 @@ export function SecretScopeClassificationPage() {
   const valid = classification.data?.connectionId === connectionId && classification.data.scopeId === scopeId ? classification.data : null
   useEffect(() => { heading.current?.focus(); window.scrollTo({ top: 0 }) }, [connectionId, scopeId])
   const reload = () => { void classification.refetch().then(() => setRefreshVersion((version) => version + 1)) }
-  return <><Link className="secret-scan-back" to={connectionId ? `/secrets/connections/${connectionId}/scopes` : '/secrets/connections'}>← 승인 범위로 돌아가기</Link><section className="page-head"><div><h1 ref={heading} tabIndex={-1}>범위 #{scopeId ?? '—'} 출처·보관 정책</h1><p className="subtitle">수집 허가·대응 출처·보관 허용을 구분해 관리하세요.</p></div><button className="btn outline" disabled={classification.isFetching || !scopeId} onClick={reload}>새로고침</button></section>
+  return <><Link className="secret-scan-back" to={params.get('return') === 'workbench' ? safeWorkbenchReturn(params.get('returnQuery'), scopeId ? String(scopeId) : undefined) : connectionId ? `/secrets/connections/${connectionId}/scopes` : '/secrets/connections'}>← 승인 범위로 돌아가기</Link><section className="page-head"><div><h1 ref={heading} tabIndex={-1}>범위 #{scopeId ?? '—'} 출처·보관 정책</h1><p className="subtitle">수집 허가·대응 출처·보관 허용을 구분해 관리하세요.</p></div><button className="btn outline" disabled={classification.isFetching || !scopeId} onClick={reload}>새로고침</button></section>
     {!connectionId || !scopeId ? <p className="card secret-scan-message" role="alert">범위 주소가 올바르지 않아요.</p> : classification.isPending ? <p className="card secret-scan-message" role="status">범위 승인 근거를 불러오는 중이에요.</p> : classification.isError ? <p className="card secret-scan-message" role="alert">{classification.error instanceof ApiError && classification.error.status === 403 ? '범위 승인 정보를 열람할 권한이 없어요.' : '범위 승인 정보를 불러오지 못했어요.'}</p> : !valid ? <p className="card secret-scan-message" role="alert">선택한 연결과 승인 범위가 일치하지 않아요. 변경 작업을 진행할 수 없어요.</p> : <>
       <section className="card secret-classification-current"><h2>현재 승인 내용</h2><dl className="secret-scan-facts"><div><dt>대응 출처</dt><dd>{inventoryOptions.origin[valid.origin] ?? '미분류'}</dd></div><div><dt>승인 범위</dt><dd>{scopeTypeLabel(valid.contentType)} · 버전 {valid.scopeRevision}</dd></div><div><dt>보관 정책</dt><dd>{valid.storagePolicy ? <Link to={`/secrets/connections/policies/${valid.storagePolicy.policyId}/versions/${valid.storagePolicy.version}`}>정책 #{valid.storagePolicy.policyId} · v{valid.storagePolicy.version}</Link> : policyStatusLabel[valid.policyStatus] ?? '보관 판단 미확인'}</dd></div><div><dt>승인 시각</dt><dd>{scanDate(valid.approvedAt)}</dd></div></dl><p className="caption">수집을 승인한 사실만으로 이 위치의 키 보관이 허용되지는 않아요.</p><details className="secret-classification-history"><summary>분류 변경 이력</summary>{valid.history.length ? <ul>{valid.history.map((entry) => <li key={entry.decisionId}>{inventoryOptions.origin[entry.fromOrigin as keyof typeof inventoryOptions.origin] ?? '미분류'} → {inventoryOptions.origin[entry.toOrigin as keyof typeof inventoryOptions.origin] ?? '미분류'} · {entry.evidenceRef} · {scanDate(entry.decidedAt)}</li>)}</ul> : <p className="caption">변경 이력이 없어요.</p>}</details></section>
       {valid.pendingProposal ? <PendingClassification key={`${valid.pendingProposal.proposalId}:${valid.pendingProposal.version}:${refreshVersion}`} scope={valid} onUpdated={reload} /> : <ClassificationForm key={`${valid.scopeVersion}:${refreshVersion}`} scope={valid} onUpdated={reload} />}

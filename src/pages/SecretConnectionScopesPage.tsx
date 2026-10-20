@@ -5,6 +5,7 @@ import { ApiError } from '@/api/client'
 import { fetchManagedScopes } from '@/api/secretConnections'
 import { AttemptLink } from './SecretConnectionsPage'
 import { positiveId, scanDate, scanReason, scopeTypeLabel } from '@/lib/secretScan'
+import { safeWorkbenchReturn } from '@/lib/secretWorkbench'
 import './secret-connections.css'
 import './secret-scan.css'
 
@@ -34,7 +35,7 @@ export function SecretConnectionScopesPage() {
   const change = (key: string, value: string) => { const next = new URLSearchParams(params); next.set('page', '1'); if (value) next.set(key, value); else next.delete(key); setParams(next) }
   const items = scopes.data?.items ?? []
   return <>
-    <Link className="secret-scan-back" to="/secrets/connections">← 연결 목록으로 돌아가기</Link>
+    <Link className="secret-scan-back" to={params.get('return') === 'workbench' ? safeWorkbenchReturn(params.get('returnQuery'), params.get('scopeId') ?? undefined) : '/secrets/connections'}>← 목록으로 돌아가기</Link>
     <section className="page-head"><div><h1 ref={title} tabIndex={-1}>연결 {connectionId ? `#${connectionId} ` : ''}승인 범위</h1><p className="subtitle">현재 승인 버전에서 실제로 어디까지 읽었는지 확인하세요.</p></div>{connectionId && <Link className="btn outline" to={`/secrets/history?connectionId=${connectionId}`}>연결의 실행 이력</Link>}</section>
     <div className="secret-connection-info"><span aria-hidden="true">ⓘ</span><span>인증 확인과 읽기 성공은 별개예요. 최근 시도와 마지막 완전 성공을 구분하며, 이전 버전의 성공을 현재 범위에 재사용하지 않아요.</span></div>
     <div className="card secret-scan-filters"><label>출처<select className="select" value={origin} onChange={(e) => change('origin', e.target.value)}><option value="">전체 출처</option>{Object.entries(originLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="secret-scope-gap-filter"><input type="checkbox" checked={gapOnly} onChange={(e) => change('gapOnly', e.target.checked ? 'true' : '')} /> 검사 누락만 보기</label></div>
