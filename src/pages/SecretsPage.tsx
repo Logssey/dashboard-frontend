@@ -29,12 +29,12 @@ export function SecretsPage() {
     refetchOnWindowFocus: false, refetchOnReconnect: false,
   })
   useEffect(() => {
-    if (!filters.snapshotId && inventory.data?.snapshotId) {
+    if (!filters.snapshotId && inventory.isSuccess && !inventory.isFetching && inventory.data?.snapshotId) {
       const next = inventorySearch({ ...filters, snapshotId: inventory.data.snapshotId })
       const focus = positiveId(params.get('focus')); if (focus) next.set('focus', String(focus))
       setParams(next, { replace: true })
     }
-  }, [inventory.data?.snapshotId, filters.snapshotId, filters, params, setParams])
+  }, [inventory.data?.snapshotId, inventory.isSuccess, inventory.isFetching, filters.snapshotId, filters, params, setParams])
   const focusKey = `secret-inventory-focus:${inventorySearch(filters)}`
   useEffect(() => {
     if (!inventory.isSuccess) return
@@ -45,7 +45,7 @@ export function SecretsPage() {
     if (link) { link.focus({ preventScroll: true }); link.scrollIntoView({ block: 'center' }); restored.current = `${focusKey}:${focus}`; try { sessionStorage.removeItem(focusKey) } catch { /* Storage may be unavailable. */ } }
   }, [inventory.isSuccess, inventory.data, params, focusKey])
   const download = useMutation({
-    mutationFn: async (selection: { filters: InventoryFilter; asOf: string }) => buildMaskedSecretsCsv(await loadAllSecretItems(fetchSecrets, selection.filters), { asOf: selection.asOf, origin: selection.filters.origin }),
+    mutationFn: async (selection: { filters: InventoryFilter; asOf: string }) => buildMaskedSecretsCsv(await loadAllSecretItems(fetchSecrets, selection.filters), { asOf: selection.asOf, origin: selection.filters.origin, runId: selection.filters.runId }),
     onSuccess: (csv) => {
       const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
       const link = document.createElement('a'); link.href = url; link.download = `logssey-secrets-masked-${new Date().toISOString().slice(0, 10)}.csv`; document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
@@ -72,6 +72,7 @@ export function SecretsPage() {
     </section>
     {filters.origin === 'TEST' && <p className="notice secret-inventory-origin">시험 출처의 기록이에요. 실제 키일 수 있으며, 합성 데이터 여부와 폐기 근거는 별도로 확인해야 해요.</p>}
     {filters.origin === 'UNCLASSIFIED' && <p className="notice secret-inventory-origin">출처가 아직 분류되지 않은 기록이에요. 운영·시험으로 추정하지 않아요.</p>}
+    {filters.runId && <p className="notice">SCAN-{filters.runId}에서 발견한 키를 현재 선택한 출처 기준으로 보고 있어요. 원래 탐지 근거와 현재 키 상태는 다를 수 있어요. <Link to={scanDetailPath(filters.runId)}>실행 상세</Link> <button className="btn outline" onClick={() => setParams(inventorySearch({ ...filters, runId: null, snapshotId: '', page: 0 }))}>실행 조건 해제</button></p>}
     {!!errors.length && <p className="notice error" role="alert">조회 조건이 올바르지 않아요. <button className="btn outline" onClick={() => setParams(new URLSearchParams())}>필터 초기화</button></p>}
     {download.isError && <p className="notice error" role="alert">{download.error.message === 'SECRET_EXPORT_TOO_LARGE' ? '한 번에 10,000개까지 내보낼 수 있어요. 조건을 좁혀 주세요.' : download.error instanceof ApiError && [404, 409].includes(download.error.status) ? '조회 기준이 만료되거나 권한이 바뀌었어요. 새로고침 후 다시 내보내 주세요.' : 'CSV를 완성하지 못했어요. 목록을 새로고침한 뒤 다시 시도해 주세요.'}</p>}
     {inventory.data?.restrictedCoverage && inventory.isSuccess && <p className="notice secret-inventory-origin">열람 가능한 위치 기준이에요. 전체 범위에 대한 결론은 내릴 수 없어요.</p>}

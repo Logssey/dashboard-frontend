@@ -44,16 +44,16 @@ function csvCell(value: string | number | null): string {
 }
 
 /** 목록 API의 마스킹 필드만 선택한다. 위치 식별자나 원문은 이 경로로 전달하지 않는다. */
-export function buildMaskedSecretsCsv(items: SecretItem[], context?: { asOf: string; origin: string }): string {
+export function buildMaskedSecretsCsv(items: SecretItem[], context?: { asOf: string; origin: string; runId?: number | null }): string {
   const header = [
     '기준 시각', '조회 출처', '단위', '기록 ID', '발급자', '키 유형', '마스킹 표시', '구성 상태', '심각도',
-    '검증 상태', '검증 사유 코드', '열람 위치 수', '첫 발견 시각', '마지막 확인 시각',
+    '검증 상태', '검증 사유 코드', '열람 위치 수', '첫 발견 시각', '마지막 확인 시각', '실행 필터',
   ]
   const rows = items.map((item) => [
     context?.asOf ?? '', context?.origin ?? item.origin ?? '', 'CredentialSet', item.id, item.issuer, item.credentialType, item.maskedLabel,
     item.componentState, item.severity, item.validationStatus,
     item.validationReasonCode, item.occurrenceCount,
-    item.firstSeenAt, item.lastSeenAt,
+    item.firstSeenAt, item.lastSeenAt, context?.runId ? `SCAN-${context.runId}` : '',
   ])
   return `\uFEFF${[header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}\r\n`
 }

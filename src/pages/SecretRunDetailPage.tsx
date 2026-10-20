@@ -58,6 +58,7 @@ function RunContent({ run }: { run: SecretScanRun }) {
         {resultAvailable ? <div className="secret-scan-counts"><div><span>탐지 근거 (Finding)</span><strong>{findingCountLabel(run.findingCount, run.coverageComplete).replace('개', '건')}</strong></div><div><span>고유 키 후보</span><strong>{findingCountLabel(run.distinctCredentialCount, run.coverageComplete)}</strong></div><div><span>처음 발견한 키 후보</span><strong>{findingCountLabel(run.newCredentialCount, run.coverageComplete)}</strong></div></div> : <p>결과 확인 불가 · 실행과 발견 결과의 연결 근거가 없거나 집계 대상이 아니에요.</p>}
         {run.coverageComplete === false && <p className="notice">확인된 범위의 결과예요. 누락된 범위의 후보 수는 확인할 수 없어요.</p>}
         {run.newCredentialCount == null && resultAvailable && <p className="caption">신규 후보 집계 근거가 없거나 적용되지 않아 숫자를 표시하지 않아요.</p>}
+        {run.capabilities?.canViewFindings && <div className="row"><Link className="btn primary" to={`/secrets/history/${run.runId}/findings`}>이 실행의 탐지 근거</Link><Link className="btn outline" to={`/secrets/findings?runId=${run.runId}&origin=PRODUCTION`}>실행 키 목록 · 출처별</Link></div>}
       </>}
     </section>
     <details className="card secret-scan-technical"><summary>기술 기록</summary><dl className="secret-scan-facts"><div><dt>집계 근거</dt><dd>{run.aggregationStatus ?? 'UNKNOWN'}</dd></div><div><dt>실행 시도</dt><dd>{run.attemptNo ?? '—'} / {run.maxAttempts ?? '—'}</dd></div><div><dt>실패 코드</dt><dd>{run.failureCode ?? '기록 없음'}</dd></div><div><dt>결과 집계</dt><dd>{run.resultAggregationStatus ?? '미기록'}</dd></div></dl></details>

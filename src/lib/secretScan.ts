@@ -24,9 +24,12 @@ export function parseRunFilters(params: URLSearchParams): { filters: RunFilters;
   if (params.has('connectionId') && params.get('connectionId') && !connectionId) errors.push('연결을 다시 선택해 주세요.')
   const from = params.get('from') ?? ''
   const to = params.get('to') ?? ''
+  if (Boolean(from) !== Boolean(to)) errors.push('조회 기간은 시작과 종료를 함께 지정해 주세요.')
   const isTimestamp = (value: string) => !value || (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)))
   if (!isTimestamp(from) || !isTimestamp(to) || (from && to && Date.parse(from) >= Date.parse(to))) errors.push('조회 기간의 시작은 종료보다 앞서야 해요.')
-  return { filters: { page: (positiveId(params.get('page')) ?? 1) - 1, size: 20, type: Object.hasOwn(scanTypes, type) ? type as RunFilters['type'] : 'ALL', status: Object.hasOwn(scanStatuses, status) ? status : '', provider: Object.hasOwn(scanPlatforms, provider) ? provider : '', connectionId, from, to }, errors }
+  const snapshotId = params.get('snapshotId') ?? ''
+  if (snapshotId && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(snapshotId)) errors.push('이력 조회 기준을 확인해 주세요.')
+  return { filters: { page: (positiveId(params.get('page')) ?? 1) - 1, size: 20, type: Object.hasOwn(scanTypes, type) ? type as RunFilters['type'] : 'ALL', status: Object.hasOwn(scanStatuses, status) ? status : '', provider: Object.hasOwn(scanPlatforms, provider) ? provider : '', connectionId, from, to, snapshotId }, errors }
 }
 
 export function runFilterSearch(filters: RunFilters): URLSearchParams {
@@ -37,6 +40,7 @@ export function runFilterSearch(filters: RunFilters): URLSearchParams {
   if (filters.connectionId) params.set('connectionId', String(filters.connectionId))
   if (filters.from) params.set('from', filters.from)
   if (filters.to) params.set('to', filters.to)
+  if (filters.snapshotId) params.set('snapshotId', filters.snapshotId)
   return params
 }
 export function scanDetailPath(runId: number, filters?: RunFilters): string {

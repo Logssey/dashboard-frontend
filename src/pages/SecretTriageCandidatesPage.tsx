@@ -32,12 +32,12 @@ export function SecretTriageCandidatesPage() {
   const key = ['secret-review-queue', filters, bucket, stages, page, refreshVersion]
   const queue = useQuery({ queryKey: key, queryFn: () => fetchWorkbenchQueue(filters, bucket, stages, page), enabled: valid && !invalidated, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false })
   useEffect(() => {
-    if (!queue.isSuccess || filters.snapshotId || !queue.data.snapshotId) return
+    if (!queue.isSuccess || queue.isFetching || filters.snapshotId || !queue.data.snapshotId) return
     const nextFilters = { ...filters, snapshotId: queue.data.snapshotId }
     client.setQueryData(['secret-review-queue', nextFilters, bucket, stages, page, refreshVersion], queue.data)
     const next = workbenchSearch(nextFilters); next.set('bucket', bucket); next.set('page', String(page + 1)); if (stages) next.set('stages', stages)
     setParams(next, { replace: true })
-  }, [queue.isSuccess, queue.data, filters, bucket, stages, page, refreshVersion, client, setParams])
+  }, [queue.isSuccess, queue.isFetching, queue.data, filters, bucket, stages, page, refreshVersion, client, setParams])
   useEffect(() => {
     const focus = params.get('focus'); if (!queue.isSuccess || !focus || !/^[1-9]\d*(?::[1-9]\d*)?$/.test(focus) || restored.current === focus) return
     const link = document.getElementById(`review-link-${focus.replace(':', '-')}`)

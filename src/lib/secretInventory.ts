@@ -5,7 +5,7 @@ import { safeWorkbenchReturn } from './secretWorkbench'
 export const inventoryOptions = {
   origin: { PRODUCTION: '운영', TEST: '시험', UNCLASSIFIED: '미분류' },
   contentKind: { VALUE_FINDINGS: '값 후보', METADATA: '메타데이터', ALL: '전체 기록' },
-  workBucket: { ALL: '전체 업무', NEEDS_DECISION: '확인 필요', ACTION_REQUIRED: '조치 필요', NORMAL_INVENTORY: '보관 허용', NEEDS_CASE_LINK: '건 연결 필요' },
+  workBucket: { ALL: '전체 업무', NEEDS_DECISION: '확인 필요', ACTION_REQUIRED: '조치 필요', NORMAL_INVENTORY: '보관 허용', NEEDS_CASE_LINK: '건 연결 필요', EXCLUDED_HISTORY: '오탐 교정 이력' },
   source: { ALL: '전체 소스', GITHUB: 'GitHub', AWS: 'AWS', NOTION: 'Notion', KUBERNETES: 'Kubernetes' },
   provider: { ALL: '전체 발급자', GITHUB: 'GitHub', AWS: 'AWS', NOTION: 'Notion', KUBERNETES: 'Kubernetes' },
   environment: { ALL: '전체 환경', PROD: '운영', DEV: '개발', UNKNOWN: '환경 미확인' },
@@ -24,13 +24,16 @@ export function parseInventoryFilters(params: URLSearchParams): { filters: Inven
   }
   const page = positiveId(params.get('page')) ?? 1
   const snapshotId = params.get('snapshotId') ?? ''
+  const runId = positiveId(params.get('runId'))
+  if (params.has('runId') && !runId) errors.push('실행 결과 조회 주소를 확인해 주세요.')
   if (snapshotId && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(snapshotId)) errors.push('조회 기준을 새로고침해 주세요.')
-  return { filters: { ...parsed, issuer: 'ALL', page: page - 1, size: 20, snapshotId } as InventoryFilter, errors }
+  return { filters: { ...parsed, issuer: 'ALL', page: page - 1, size: 20, snapshotId, runId } as InventoryFilter, errors }
 }
 export function inventorySearch(filter: InventoryFilter): URLSearchParams {
   const params = new URLSearchParams({ page: String(filter.page + 1) })
   for (const key of Object.keys(defaults) as (keyof typeof defaults)[]) if (filter[key] !== defaults[key]) params.set(key, filter[key])
   if (filter.snapshotId) params.set('snapshotId', filter.snapshotId)
+  if (filter.runId) params.set('runId', String(filter.runId))
   return params
 }
 export function keyDetailPath(id: number, filter?: InventoryFilter): string {
@@ -40,6 +43,10 @@ export function keyDetailPath(id: number, filter?: InventoryFilter): string {
   return `/secrets/${id}?${result}`
 }
 export function inventoryReturnPath(params: URLSearchParams, id: number | null): string {
+  if (params.get('return') === 'run-findings') {
+    const runId = positiveId(params.get('runId')), page = positiveId(params.get('returnPage'))
+    if (runId) return `/secrets/history/${runId}/findings${page ? `?page=${page}` : ''}`
+  }
   if (params.get('return') === 'workbench') return safeWorkbenchReturn(params.get('returnQuery'), id ? String(id) : undefined)
   if (params.get('return') !== 'inventory') return '/secrets/findings'
   const parsed = parseInventoryFilters(new URLSearchParams(params.get('returnQuery') ?? ''))
