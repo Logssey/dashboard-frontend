@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
 import { PageHeader } from '@/components/PageHeader'
 import { fetchIacPaths, fetchIacPullRequests, fetchIacSummary } from './api'
+import { GateSection } from './GateSection'
 import { PathDrawer } from './PathDrawer'
 import { PullRequestDrawer } from './PullRequestDrawer'
 import {
@@ -131,6 +132,9 @@ export function IacPage() {
             <PullRequestTable items={pullRequests.data} onSelect={setSelectedPr} />
           )}
         </section>
+
+        {/* E ② plan 전 검사 */}
+        <GateSection />
       </div>
       <PathDrawer pathId={selectedPathId} onClose={() => setSelectedPathId(null)} />
       <PullRequestDrawer number={selectedPr} onClose={() => setSelectedPr(null)} />

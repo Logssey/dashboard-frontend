@@ -104,3 +104,18 @@ export interface IacPullRequest {
   resources: { add: number; change: number; delete: number } | null
   state: { ruleId: string | null; severity: IacSeverity | null; readersBefore: number; readersAfter: number; secretsAdded: number } | null
 }
+
+/** S-01 E. 관문 순서는 infrastructure policy/gate.sh 와 같다 */
+export interface IacGateStage {
+  stage: string
+  name: string
+  ruleIds: string[]
+  mainOpen: number
+  prBlocked7d: number
+}
+
+export interface IacGates {
+  mainCheckedAt: string | null
+  stages: IacGateStage[]
+  supplyChain: { unpinnedProviders: number; unpinnedModules: number; changedModules: number; lockChanges: number }
+}
