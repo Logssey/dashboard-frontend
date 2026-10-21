@@ -8,19 +8,19 @@ import { idempotencyFor, safeMutationMessage } from '@/lib/secretEvidence'
 import { revalidationBlockLabel } from '@/lib/secretResponse'
 import { positiveId, scanDate, scanDetailPath, scanReason } from '@/lib/secretScan'
 
-interface Props { detail: SecretCaseDetail; onReload: () => void; onStale: () => void; disabled: boolean }
+interface Props { detail: SecretCaseDetail; onReload: () => void; onStale: () => void; disabled: boolean; onCompleted?: (kind: string, runId?: number, canViewRun?: boolean) => void }
 const resultLabels: Record<string, string> = { MISSING: '재검사에서 미발견', PRESENT: '다시 발견됨', UNKNOWN: '판정 불가', PENDING: '검사 대기' }
 const jobLabels: Record<string, string> = { PENDING: '대기 중', LEASED: '검사 중', SUCCEEDED: '실행 완료', FAILED: '실행 실패', CANCELLED: '취소' }
-export function SecretCaseRevalidation({ detail, onReload, onStale, disabled }: Props) {
+export function SecretCaseRevalidation({ detail, onReload, onStale, disabled, onCompleted }: Props) {
   const [selectedId, setSelectedId] = useState(''), [confirm, setConfirm] = useState(false), [recordPage, setRecordPage] = useState(0)
   const requestKey = useRef({ payload: '', key: '' }), resumeKey = useRef({ payload: '', key: '' })
-  const records = useQuery({ queryKey: ['secret-case-revalidations', detail.caseId], queryFn: () => fetchSecretCaseRevalidations(detail.caseId), retry: false, refetchOnWindowFocus: false })
+  const records = useQuery({ queryKey: ['secret-case-revalidations', detail.caseId], queryFn: () => fetchSecretCaseRevalidations(detail.caseId), retry: false, refetchOnWindowFocus: false, refetchInterval: (query) => query.state.data?.some((record) => ['PENDING', 'LEASED'].includes(record.jobStatus)) ? 5000 : false })
   const location = detail.occurrences.find((entry) => entry.occurrenceId === positiveId(selectedId))
   const eligible = detail.occurrences.filter((entry) => entry.canRequestRevalidation || entry.canResume)
   const error = (error: Error) => { if (error instanceof ApiError && [403, 409].includes(error.status)) onStale() }
   const success = () => { setConfirm(false); onReload() }
-  const request = useMutation({ mutationFn: () => { const body = { occurrenceId: location!.occurrenceId, expectedCaseVersion: detail.version, expectedOccurrenceVersion: location!.version }; return requestSecretCaseRevalidation(detail.caseId, { ...body, idempotencyKey: idempotencyFor(requestKey, body) }) }, onSuccess: success, onError: error })
-  const resume = useMutation({ mutationFn: () => { const body = { occurrenceId: location!.occurrenceId, expectedCaseVersion: detail.version, expectedOccurrenceVersion: location!.version, reasonCode: 'REVALIDATION_PRESENT' as const }; return resumeSecretCase(detail.caseId, { ...body, idempotencyKey: idempotencyFor(resumeKey, body) }) }, onSuccess: success, onError: error })
+  const request = useMutation({ mutationFn: () => { const body = { occurrenceId: location!.occurrenceId, expectedCaseVersion: detail.version, expectedOccurrenceVersion: location!.version }; return requestSecretCaseRevalidation(detail.caseId, { ...body, idempotencyKey: idempotencyFor(requestKey, body) }) }, onSuccess: (result) => { onCompleted?.('REVALIDATION_REQUESTED', result.runId, result.canViewRun); success() }, onError: error })
+  const resume = useMutation({ mutationFn: () => { const body = { occurrenceId: location!.occurrenceId, expectedCaseVersion: detail.version, expectedOccurrenceVersion: location!.version, reasonCode: 'REVALIDATION_PRESENT' as const }; return resumeSecretCase(detail.caseId, { ...body, idempotencyKey: idempotencyFor(resumeKey, body) }) }, onSuccess: () => { onCompleted?.('ACTION_RESUMED'); success() }, onError: error })
   const busy = disabled || request.isPending || resume.isPending
   const pending = records.data?.some((record) => record.occurrenceId === location?.occurrenceId && ['PENDING', 'LEASED'].includes(record.jobStatus))
   return <div><p className="notice">미발견은 검사한 위치의 현재 부재 근거예요. 키 폐기·교체 확인과 대응 건 해결은 별도로 판단해요.</p>

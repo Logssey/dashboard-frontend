@@ -7,7 +7,7 @@ import { closureCheckLabels, closureReasonLabel, closureStatusLabels, coverageLe
 import { idempotencyFor, safeMutationMessage } from '@/lib/secretEvidence'
 import { scanDate } from '@/lib/secretScan'
 
-export interface ResponsePanelProps { detail: SecretCaseDetail; onReload: () => void; onStale: () => void; disabled: boolean }
+export interface ResponsePanelProps { detail: SecretCaseDetail; onReload: () => void; onStale: () => void; disabled: boolean; onCompleted?: (kind: string, runId?: number, canViewRun?: boolean) => void }
 export function useResponseCommandFailure(onStale: () => void) {
   return (error: Error) => { if (error instanceof ApiError && [403, 409].includes(error.status)) onStale() }
 }

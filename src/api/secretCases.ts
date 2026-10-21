@@ -16,6 +16,8 @@ export interface CaseFilters {
   size: number
 }
 export interface SecretCaseItem {
+  taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
+  remediationSummary?: import('./secrets').RemediationSummary
   caseId: number
   caseOrigin: SecretCaseOrigin
   secretId: number
@@ -49,6 +51,9 @@ export interface SecretCaseDetail extends SecretCaseItem {
   }
 }
 export interface SecretCaseOccurrence {
+  requiredRemediation?: boolean
+  remediationPresence?: 'PRESENT' | 'MISSING' | 'UNKNOWN'
+  postActionRedetected?: boolean
   occurrenceId: number
   safeLocationLabel: string
   source: SecretIssuer

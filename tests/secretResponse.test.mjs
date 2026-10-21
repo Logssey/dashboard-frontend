@@ -20,6 +20,13 @@ const { parseCaseFilters, caseDetailPath, caseReturnPath, validActionReference, 
 const occurrence = { occurrenceId: 11, safeLocationLabel: '위치 #11', responseStatus: 'OPEN', version: 2, assignedTeam: 'Platform', assignedUserId: 4, canAssign: false, canRecordAction: false, canCompleteActions: false, lastMaterialActionAt: null }
 const detail = { caseId: 7, version: 3, isCurrent: true, stage: 'OPEN', occurrences: [occurrence], checklist: [], capabilities: { canRecordAction: true, canAssign: true, canUpdateChecklist: true } }
 const common = { onReload() {}, onStale() {}, disabled: false }
+test('response workflow uses four stages and recommends a visible location needing action', () => {
+  assert.deepEqual(Object.values(modules.response.caseStageLabels), ['신규', '조치 중', '재검사 대기', '해결'])
+  const other = { ...occurrence, occurrenceId: 12, postActionRedetected: true }
+  assert.equal(modules.response.recommendedCaseLocation({ ...detail, occurrences: [occurrence, other] }).occurrenceId, 12)
+  assert.equal(modules.response.recommendedCaseLocation({ ...detail, occurrences: [] }), undefined)
+  assert.equal(modules.response.suggestedCaseTab({ ...detail, taskGuidance: { nextActionCode: 'REQUEST_REVALIDATION' } }), 'verification')
+})
 function render(Component, props, seeds = []) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   for (const [key, data] of seeds) client.setQueryData(key, data)

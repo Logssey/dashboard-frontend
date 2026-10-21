@@ -2,7 +2,7 @@ import type { CaseFilters, SecretCaseDetail, SecretCaseOccurrence } from '../api
 import { positiveId } from './secretScan'
 import { safeWorkbenchReturn } from './secretWorkbench'
 
-export const caseStageLabels: Record<string, string> = { OPEN: '신규 및 분석', IN_PROGRESS: '조치 중', REVALIDATION_PENDING: '재검사 대기', RESOLVED: '해결' }
+export const caseStageLabels: Record<string, string> = { OPEN: '신규', IN_PROGRESS: '조치 중', REVALIDATION_PENDING: '재검사 대기', RESOLVED: '해결' }
 export const caseActionLabels = { ROTATED: '키 교체', REVOKED: '키 폐기', REMOVED_FROM_SOURCE: '노출 위치에서 제거', PERMISSION_REDUCED: '권한 축소' } as const
 export const caseReasonLabels = { INITIAL_ASSIGNMENT: '최초 지정', OWNERSHIP_CHANGE: '담당자 변경', TEAM_TRANSFER: '담당 팀 변경', UNASSIGNED: '지정 해제', OTHER: '운영 사유' } as const
 export const checklistLabels = { IDENTIFY_OWNER: '소유자 확인', ROTATE_OR_REVOKE: '키 교체·폐기 확인', REMOVE_EXPOSURE: '노출 위치 정리', CHECK_ACCESS_LOGS: '접근 기록 확인' } as const
@@ -59,4 +59,11 @@ export function responseNextAction(detail: SecretCaseDetail): string {
   if (detail.occurrences.some((o) => !o.assignedTeam && !o.assignedUserId)) return '위치별 담당자 지정'
   if (detail.occurrences.some((o) => o.responseStatus === 'OPEN' || o.responseStatus === 'IN_PROGRESS')) return '위치별 외부 조치'
   return '재검사·해결 근거 확인'
+}
+export function recommendedCaseLocation(detail: SecretCaseDetail): SecretCaseOccurrence | undefined {
+  const rank = (location: SecretCaseOccurrence) => location.responseStatus === 'RESOLVED' ? 9 : location.postActionRedetected ? 0 : !location.assignedTeam && !location.assignedUserId ? 1 : location.canCompleteActions ? 2 : location.canRecordAction ? 3 : location.canRequestRevalidation || location.canResume ? 4 : 5
+  return [...detail.occurrences].sort((a, b) => rank(a) - rank(b) || a.occurrenceId - b.occurrenceId)[0]
+}
+export function suggestedCaseTab(detail: SecretCaseDetail): string {
+  return ['REQUEST_REVALIDATION', 'REVIEW_CLOSURE'].includes(detail.taskGuidance?.nextActionCode ?? '') || detail.stage === 'RESOLVED' ? 'verification' : 'work'
 }
