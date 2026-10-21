@@ -35,7 +35,7 @@ function decodeLinks(html) { return [...html.matchAll(/href="([^"]+)"/g)].map((m
 test('work cards, stage bars and their lists retain every filter and the exact snapshot', () => {
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
   const links = decodeLinks(html).filter((url) => url.pathname === '/secrets/triage')
-  assert.equal(links.length, 12)
+  assert.equal(links.length, 13)
   for (const url of links) for (const [key, value] of new URLSearchParams(query)) assert.equal(url.searchParams.get(key), value)
   assert.ok(links.some((url) => url.searchParams.get('stages') === 'RESOLVED'))
   assert.ok(links.some((url) => url.searchParams.get('bucket') === 'UNCLASSIFIED'))
@@ -44,6 +44,17 @@ test('work cards, stage bars and their lists retain every filter and the exact s
   assert.match(html, /심각도 미평가/)
   assert.match(html, /경고 #77/)
   assert.doesNotMatch(html, /평균 위험|총 위험|높음 0|낮음 0/)
+})
+test('pending scope setup is visible before zero-count work cards without claiming a key count', () => {
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
+  assert.match(html, /출처·정책 확인이 남은 범위 5개/)
+  assert.ok(html.indexOf('setup-title') < html.indexOf('현황 조회 조건'))
+  const unclassified = decodeLinks(html).find((url) => url.pathname === '/secrets/findings' && url.searchParams.get('origin') === 'UNCLASSIFIED')
+  assert.ok(unclassified)
+  for (const key of ['source', 'provider', 'environment']) assert.equal(unclassified.searchParams.get(key), filters[key])
+  assert.equal(unclassified.searchParams.has('snapshotId'), false)
+  const noSetup = { ...summary, metrics: summary.metrics.map((metric) => metric.key === 'unclassifiedScopes' ? { ...metric, value: 0 } : metric) }
+  assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], noSetup]]), /setup-title/)
 })
 test('denied metrics are unavailable rather than a clickable zero', () => {
   const denied = { ...summary, metrics: [metric('needsDecisionLocations', 'Occurrence', null, 'NOT_AUTHORIZED')], normalInventory: { status: 'NOT_AUTHORIZED', value: null }, crossEnvironmentAlerts: { status: 'NOT_AUTHORIZED', value: null, items: [] }, caseSummary: { status: 'NOT_AUTHORIZED', actionCounts: null, severityStatus: 'LEGACY_UNAVAILABLE' } }
