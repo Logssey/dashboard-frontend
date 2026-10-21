@@ -5,7 +5,7 @@ import { ApiError } from '@/api/client'
 import { fetchSecretValidation, fetchValidationHistory, fetchValidationRequest, requestSecretValidation, type ValidationAttempt } from '@/api/secretValidation'
 import type { KeyLocation } from '@/api/secrets'
 import { SecretSourceCoordinates } from './SecretDiscoveryContext'
-import { activeRequest, requestStatusLabel, validationPresentation, validationReason } from '@/lib/secretValidation'
+import { activeRequest, completedRequest, requestStatusLabel, validationPresentation, validationReason } from '@/lib/secretValidation'
 import { idempotencyFor, safeMutationMessage } from '@/lib/secretEvidence'
 import { positiveId, scanDate } from '@/lib/secretScan'
 import './secret-validation-risk.css'
@@ -30,13 +30,14 @@ export function SecretValidationCard({ secretId, locations, metadataOnly = false
     return requestSecretValidation(secretId, { ...payload, idempotencyKey: idempotencyFor(requestKey, payload) })
   }, onSuccess: (accepted) => { setConfirm(false); setRequestId(accepted.requestId); void query.refetch() } })
   useEffect(() => {
-    if (!progress.data || activeRequest(progress.data.status) || processed.current === progress.data.requestId) return
+    if (!progress.data || !completedRequest(progress.data.status) || processed.current === progress.data.requestId) return
     processed.current = progress.data.requestId
+    requestKey.current = { payload: '', key: '' }
     void client.invalidateQueries({ queryKey: ['secret-validation', secretId] }); void client.invalidateQueries({ queryKey: ['secret-validation-history', secretId] })
     void client.invalidateQueries({ queryKey: ['secret-detail', secretId] })
   }, [progress.data, client, secretId])
   const presentation = query.data ? validationPresentation(query.data) : null
-  const pending = activeRequest(progress.data?.status) || activeRequest(query.data?.latestRequest?.status)
+  const pending = requestId != null && !completedRequest(progress.data?.status) || activeRequest(query.data?.latestRequest?.status)
   return <section className="card secret-validation-card" aria-labelledby="key-validation-title"><div className="card-head"><div><h2 id="key-validation-title">키 유효성</h2><p className="caption">공급자 인증 가능 여부를 확인해요. 노출·권한·악용 여부와 별개예요.</p></div></div>
     {metadataOnly ? <p>메타데이터만 확인한 항목이에요. 값 인증은 수행하지 않아요.</p> : !locations.length ? <p>인증 확인에 사용할 열람 가능한 발견 위치를 먼저 불러와 주세요.</p> : <>
       <label>확인할 발견 위치<select className="select" value={selectedId ?? ''} onChange={(event) => { const next = new URLSearchParams(params); next.set('validationOccurrence', event.target.value); setParams(next); setConfirm(false); setRequestId(null); mutation.reset() }}>{locations.map((item) => <option key={item.occurrenceId} value={item.occurrenceId}>{item.safeLocationLabel}</option>)}</select></label>
@@ -52,6 +53,7 @@ export function SecretValidationCard({ secretId, locations, metadataOnly = false
       </>}
       {(progress.data || query.data?.latestRequest) && <p role="status">요청 #{progress.data?.requestId ?? query.data?.latestRequest?.requestId} · {requestStatusLabel((progress.data ?? query.data!.latestRequest)!.status)}{(progress.data?.failureCode || progress.data?.reasonCode) && ` · ${validationReason(progress.data.failureCode ?? progress.data.reasonCode)}`}</p>}
       {progress.isError && <p role="alert" className="notice error">진행 상태를 읽지 못했어요. 새 요청을 보내기 전에 <button className="btn outline" onClick={() => void progress.refetch()}>기존 요청 다시 확인</button></p>}
+      {progress.data && !activeRequest(progress.data.status) && !completedRequest(progress.data.status) && <p role="alert">요청 종료 여부를 확인할 수 없어요. <button className="btn outline" onClick={() => void progress.refetch()}>기존 요청 상태 다시 조회</button></p>}
       {mutation.isError && <div className="notice error" role="alert"><p>{safeMutationMessage(mutation.error)}</p><button className="btn outline" onClick={() => { setConfirm(false); mutation.reset(); void query.refetch() }}>최신 확인 조건 다시 조회</button></div>}
     </>}
   </section>

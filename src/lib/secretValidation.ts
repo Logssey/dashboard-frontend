@@ -26,6 +26,7 @@ export const validationReasonLabels: Record<string, string> = {
 }
 export const validationReason = (code?: string | null) => code ? validationReasonLabels[code] ?? '확인 조건을 충족하지 못했어요. 담당자에게 사유 코드를 알려 주세요.' : '아직 인증을 확인하지 않았어요.'
 export const activeRequest = (status?: string | null) => status === 'PENDING' || status === 'LEASED' || status === 'RUNNING'
+export const completedRequest = (status?: string | null) => ['SUCCEEDED', 'FAILED', 'CANCELLED', 'SKIPPED'].includes(status ?? '')
 export const requestStatusLabel = (status: string) => ({ PENDING: '확인 대기', LEASED: '확인 중', RUNNING: '확인 중', SUCCEEDED: '요청 처리 완료', FAILED: '요청 실패', CANCELLED: '요청 취소', SKIPPED: '확인 생략' } as Record<string, string>)[status] ?? '진행 상태 확인 필요'
 export function validationPresentation(data: SecretValidation): { title: string; description: string } {
   const allReasons = [data.latestAttempt?.reasonCode, ...(data.capabilities.blockedReasonCodes ?? []), data.support.reasonCode, ...(data.support.reasonCodes ?? [])]

@@ -32,6 +32,7 @@ test('latest unknown and previous authentication time do not become a current va
   assert.match(html, /<h3>확인 불가<\/h3>/); assert.match(html, /실제 확인 시각<\/dt><dd>—/); assert.match(html, /최근 시도 시각/); assert.match(html, /마지막 인증 성공/); assert.match(html, /이전 확정 결과/)
 })
 test('pending requests and stale validation are not fresh authentication successes', () => {
+  assert.equal(api.completedRequest('PENDING'), false); assert.equal(api.completedRequest('UNRECOGNIZED'), false); assert.equal(api.completedRequest('SUCCEEDED'), true); assert.equal(api.completedRequest('FAILED'), true)
   assert.equal(api.validationPresentation({ ...data, latestRequest: { requestId: 4, status: 'PENDING' } }).title, '확인 대기')
   assert.equal(api.validationPresentation({ ...data, freshness: { status: 'STALE' } }).title, '다시 확인 필요')
   assert.equal(api.validationPresentation({ ...data, postActionValidationPending: true }).title, '조치 후 미검증')
