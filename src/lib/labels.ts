@@ -1,3 +1,4 @@
+import { validationReasonLabels } from './secretValidation'
 // 화면에 보이는 글자는 템플릿 디자인을 따른다 (02 기능 설계 3.5, API 명세 0.6)
 import type {
   Domain,
@@ -79,7 +80,7 @@ export const componentStateLabel: Record<SecretComponentState, string> = {
 export function secretValidationLabel(status: string): string {
   switch (status) {
     case 'VALID': return '유효'
-    case 'INVALID': return '무효'
+    case 'INVALID': return '사용 불가'
     case 'UNKNOWN': return '확인 불가'
     case 'UNCHECKED':
     case 'UNVERIFIED': return '미검증'
@@ -88,7 +89,7 @@ export function secretValidationLabel(status: string): string {
 }
 
 const validationReasons: Record<string, string> = {
-  AUTHENTICATED: 'AWS 인증 확인',
+  AUTHENTICATED: '공급자 인증 확인',
   INVALID_ACCESS_KEY: 'AWS가 키 ID를 인정하지 않음',
   SIGNATURE_AMBIGUOUS: '서명 오류의 원인 확인 필요',
   EXPIRED_SESSION: '임시 세션 만료',
@@ -96,17 +97,17 @@ const validationReasons: Record<string, string> = {
   INCOMPLETE_PAIR: '키 구성 요소가 부족함',
   MISSING_SESSION_TOKEN: '임시 키의 세션 토큰이 없음',
   ACCESS_AMBIGUOUS: '접근 오류의 원인 확인 필요',
-  RATE_LIMITED: 'AWS 호출 제한',
-  PROVIDER_UNAVAILABLE: 'AWS 응답 확인 불가',
+  RATE_LIMITED: '공급자 호출 제한',
+  PROVIDER_UNAVAILABLE: '공급자 응답 확인 불가',
   CLIENT_FAILURE: '검증 연결 오류',
   SYNTHETIC_FIXTURE: '표본 분류로 검증 생략',
   POST_ACTION_VALIDATION_REQUIRED: '조치 이후 미검증',
   UNSPECIFIED_REASON: '사유 확인 필요',
-  NO_VERIFICATION_ATTEMPT: '검증 시도 기록 없음',
+  NO_VERIFICATION_ATTEMPT: '아직 인증을 확인하지 않음',
 }
 
 export function secretValidationReasonLabel(reason: string): string {
-  return validationReasons[reason] ?? '사유 확인 필요'
+  return validationReasons[reason] ?? validationReasonLabels[reason] ?? '인증 확인 조건을 확인해 주세요'
 }
 
 /** 환경. 모르면 미확인 (운영으로 가정하지 않음) */
