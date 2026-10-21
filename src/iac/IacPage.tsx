@@ -4,10 +4,13 @@ import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
 import { PageHeader } from '@/components/PageHeader'
-import { fetchIacPaths, fetchIacSummary } from './api'
+import { fetchIacPaths, fetchIacPullRequests, fetchIacSummary } from './api'
 import { PathDrawer } from './PathDrawer'
-import { formatDateTime, hopLabel, severityLabel, severityTone, tierLabel } from './labels'
-import type { IacPath, IacSeverity } from './types'
+import { PullRequestDrawer } from './PullRequestDrawer'
+import {
+  formatDateTime, hopLabel, pullRequestBadge, pullRequestChanges, ruleTitle, severityLabel, severityTone, shortSha, tierLabel,
+} from './labels'
+import type { IacPath, IacPullRequestSummary, IacSeverity } from './types'
 import './iac.css'
 
 const severities: IacSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
@@ -32,6 +35,8 @@ export function IacPage() {
   })
   const openPaths = paths.data?.pages.flatMap((page) => page.items) ?? []
   const [selectedPathId, setSelectedPathId] = useState<number | null>(null)
+  const pullRequests = useQuery({ queryKey: ['iac', 'prs'], queryFn: fetchIacPullRequests })
+  const [selectedPr, setSelectedPr] = useState<number | null>(null)
 
   return (
     <>
@@ -109,8 +114,26 @@ export function IacPage() {
             </div>
           )}
         </section>
+
+        {/* D ① PR 경로 미리보기 */}
+        <section className="card list-card" aria-labelledby="iac-prs-title">
+          <div className="card-head">
+            <h2 id="iac-prs-title">PR 검사 결과</h2>
+            <span className="caption">PR 마다 최신 커밋 기준 · 최근 50개</span>
+          </div>
+          {pullRequests.isPending ? (
+            <div className="iac-card-body"><Loading /></div>
+          ) : pullRequests.isError ? (
+            <p className="notice error iac-card-body">PR 검사 결과를 불러오지 못했어요.</p>
+          ) : pullRequests.data.length === 0 ? (
+            <EmptyState title="검사한 PR 없음" description="인프라 레포에 PR 이 올라오면 여기에 판정이 보여요." />
+          ) : (
+            <PullRequestTable items={pullRequests.data} onSelect={setSelectedPr} />
+          )}
+        </section>
       </div>
       <PathDrawer pathId={selectedPathId} onClose={() => setSelectedPathId(null)} />
+      <PullRequestDrawer number={selectedPr} onClose={() => setSelectedPr(null)} />
     </>
   )
 }
@@ -162,6 +185,51 @@ function PathTable({ items, onSelect }: { items: IacPath[]; onSelect: (pathId: n
               </td>
             </tr>
           ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function PullRequestTable({ items, onSelect }: { items: IacPullRequestSummary[]; onSelect: (number: number) => void }) {
+  return (
+    <div className="table-scroll" tabIndex={0} role="region" aria-label="PR 검사 결과 표. 좁은 화면에서는 가로로 스크롤하세요.">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">판정</th>
+            <th scope="col">PR</th>
+            <th scope="col">변화</th>
+            <th scope="col">사유</th>
+            <th scope="col">검사 시각</th>
+            <th scope="col"><span className="sr-only">상세</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((pr) => {
+            const changes = pullRequestChanges(pr)
+            return (
+              <tr key={pr.number}>
+                <td>
+                  <div className="row">
+                    <Badge {...pullRequestBadge(pr)} />
+                    {pr.highestSeverity && <Badge label={severityLabel[pr.highestSeverity]} tone={severityTone[pr.highestSeverity]} />}
+                  </div>
+                </td>
+                <td>
+                  <strong>#{pr.number}</strong> <span className="caption"><code>{shortSha(pr.headSha)}</code></span>
+                </td>
+                <td>{changes.length > 0 ? changes.join(' · ') : <span className="muted">변화 없음</span>}</td>
+                <td>{pr.reason ? ruleTitle[pr.reason] ?? pr.reason : <span className="muted">—</span>}</td>
+                <td className="muted">{formatDateTime(pr.checkedAt)}</td>
+                <td>
+                  <button className="btn" onClick={() => onSelect(pr.number)} aria-label={`PR #${pr.number} 검사 결과 보기`}>
+                    상세
+                  </button>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

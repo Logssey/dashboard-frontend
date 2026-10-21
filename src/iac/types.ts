@@ -52,3 +52,55 @@ export interface IacPathDetail {
   path: IacPath
   cutPoints: IacCutPoint[]
 }
+
+export type IacVerdict = 'BLOCK' | 'WARN' | 'INFO' | 'PASS'
+export type IacRunStatus = 'QUEUED' | 'GATE_FAILED' | 'PLANNING' | 'ANALYZING' | 'DONE' | 'ERROR' | 'SUPERSEDED'
+
+/** S-01 D. PR 별 최신 판정 */
+export interface IacPullRequestSummary {
+  number: number
+  runId: number
+  headSha: string
+  status: IacRunStatus
+  verdict: IacVerdict | null
+  highestSeverity: IacSeverity | null
+  checkedAt: string | null
+  pathsAdded: number
+  pathsRemoved: number
+  removedRoutes: number
+  stateReaderIncrease: boolean
+  reason: string | null
+}
+
+export interface IacGateFinding {
+  ruleId: string
+  enforcement: string
+  severity: IacSeverity | null
+  address: string | null
+}
+
+export interface IacPathChange {
+  change: 'ADDED' | 'SHORTENED' | 'REMOVED'
+  tier: number
+  ruleId: string
+  severity: IacSeverity | null
+  hops: IacHop[]
+  cause: { address: string | null; action: string | null }
+  evidence: { simulator?: { before: string; after: string } } | null
+}
+
+/** S-02. plan 원문은 오지 않고 수만 온다 */
+export interface IacPullRequest {
+  number: number
+  title: string | null
+  runId: number
+  headSha: string
+  status: IacRunStatus
+  verdict: IacVerdict | null
+  highestSeverity: IacSeverity | null
+  checkedAt: string | null
+  gate: { status: 'BLOCK' | 'PASS'; findings: IacGateFinding[] }
+  paths: IacPathChange[]
+  resources: { add: number; change: number; delete: number } | null
+  state: { ruleId: string | null; severity: IacSeverity | null; readersBefore: number; readersAfter: number; secretsAdded: number } | null
+}

@@ -1,5 +1,5 @@
 import { apiRequest } from '@/api/client'
-import type { IacPathDetail, IacPathList, IacSummary } from './types'
+import type { IacPathDetail, IacPathList, IacPullRequest, IacPullRequestSummary, IacSummary } from './types'
 
 const base = '/api/v1/iac'
 
@@ -13,3 +13,7 @@ export const fetchIacPaths = (params: { status?: 'OPEN' | 'CLOSED'; tier?: numbe
 }
 
 export const fetchIacPath = (pathId: number) => apiRequest<IacPathDetail>(`${base}/paths/${pathId}`)
+
+export const fetchIacPullRequests = () => apiRequest<IacPullRequestSummary[]>(`${base}/prs`)
+
+export const fetchIacPullRequest = (number: number) => apiRequest<IacPullRequest>(`${base}/prs/${number}`)
