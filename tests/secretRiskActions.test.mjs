@@ -10,7 +10,7 @@ import { build } from 'esbuild'
 const bundle = await build({ stdin: { contents: "export * from './src/api/secretRisk'; export * from './src/lib/secretRiskForms'; export * from './src/lib/secretEvidence'; export * from './src/components/SecretRiskActions';", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
 const path = resolve('node_modules/.secret-risk-actions-test.mjs'); await writeFile(path, bundle.outputFiles[0].contents); const api = await import(pathToFileURL(path).href); after(() => unlink(path))
 const form = { evidenceType: 'ASSET_CLASSIFICATION', subject: 'OCCURRENCE', fields: [{ name: 'environment', type: 'ENUM', required: true, options: ['PROD', 'TEST', 'UNKNOWN'] }, ...['sensitive', 'important', 'testOnly'].map((name) => ({ name, type: 'BOOLEAN', required: true }))] }
-const risk = { latestAutomaticAssessment: { assessmentId: 1, assessmentStatus: 'NOT_APPLICABLE', severity: null, ruleId: 'R00' }, effectiveAssessment: { severity: 'HIGH', held: true }, evidenceRevision: 3, capabilities: {}, evidenceSummary: [], evidenceForms: [form], allowedOverrideReasonCodes: ['EXPOSURE_CORRECTED'] }
+const risk = { latestAutomaticAssessment: { assessmentId: 1, assessmentStatus: 'NOT_APPLICABLE', severity: null, ruleId: 'R00' }, effectiveAssessment: { severity: 'HIGH', held: true }, evidenceRevision: 3, capabilities: {}, evidenceSummary: [], evidenceForms: [form], allowedOverrideReasonCodes: ['EXPOSURE_CORRECTED'], allowedOverrideTargets: [{ assessmentStatus: 'NOT_APPLICABLE', severity: null, basisAssessmentId: 1 }], overrideMaxDurationDays: 7 }
 function render(data) { const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } }); const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(api.SecretRiskActions, { occurrenceId: 8, risk: data, onReload() {} }))); client.clear(); return html }
 test('closed registered facts preserve false and reject extra fields, arbitrary JSON and unknown enum values', () => {
   const input = { environment: 'TEST', sensitive: 'false', important: 'false', testOnly: 'true' }
@@ -49,4 +49,19 @@ test('risk command APIs retain expected revision, exact safe facts, nullable R00
 })
 test('version and permission failures never echo a provider error body', () => {
   assert.match(api.safeMutationMessage({ status: 409, message: 'secret-sentinel' }), /기준|버전/); assert.match(api.safeMutationMessage({ status: 403, message: 'secret-sentinel' }), /권한/); assert.doesNotMatch(api.safeMutationMessage({ status: 500, message: 'secret-sentinel' }), /secret-sentinel/)
+})
+test('override options follow server targets and never offer unsupported R99 grades or lower ranks', () => {
+  const unassessed = render({ ...risk, allowedOverrideTargets: [], capabilities: { canProposeOverride: true } })
+  assert.doesNotMatch(unassessed, /<option value="(CRITICAL|HIGH|MEDIUM|LOW)">/); assert.match(unassessed, /허용된 수동 판단 대상이 없어요/)
+  const assessed = render({ ...risk, allowedOverrideTargets: [{ assessmentStatus: 'ASSESSED', severity: 'HIGH', basisAssessmentId: 5 }], capabilities: { canProposeOverride: true } })
+  assert.match(assessed, /<option value="HIGH">/); assert.doesNotMatch(assessed, /<option value="(CRITICAL|MEDIUM|LOW|NOT_APPLICABLE)">/)
+  assert.equal(api.permittedOverrideTargets([{ assessmentStatus: 'UNASSESSED', severity: null, basisAssessmentId: 3 }]).length, 0)
+})
+test('override deadline is the earlier of seven days and every selected evidence expiry', () => {
+  const now = Date.parse('2026-10-22T00:00:00Z')
+  assert.equal(api.overrideDeadline(7, [{ validUntil: null }], now), '2026-10-29T00:00:00.000Z')
+  assert.equal(api.overrideDeadline(7, [{ validUntil: '2026-10-23T00:00:00Z' }, { validUntil: '2026-10-22T06:00:00Z' }], now), '2026-10-22T06:00:00.000Z')
+  assert.equal(api.overrideDeadline(7, [{ validUntil: '2026-10-21T00:00:00Z' }], now), null)
+  assert.equal(api.overrideDeadline(undefined, [{ validUntil: null }], now), null)
+  assert.equal(api.overrideDeadline(7, [{}], now), null)
 })

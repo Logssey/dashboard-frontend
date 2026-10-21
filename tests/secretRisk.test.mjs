@@ -33,3 +33,10 @@ test('assessment history follows the URL page instead of appending current panel
   const html = render(data, '/?occurrence=8&riskView=history&assessmentPage=2', { items: [{ assessmentId: 5, recordKind: 'REVIEW', decision: 'APPROVE', createdAt: '2026-10-22T00:00:00Z' }], total: 21, page: 1, size: 20 })
   assert.match(html, /독립 검토/); assert.doesNotMatch(html, /확인한 여섯 가지 사실|현재 적용 판단/)
 })
+test('rejected evidence and failed assessment have explicit states without claiming pending or success', () => {
+  assert.equal(api.riskEvidenceState('MANUAL_SUBMITTED', 'REJECTED'), '자료 거절 · 현재 근거로 사용하지 않음')
+  assert.match(api.assessmentFailureReason('ASSESSMENT_PROCESSING_FAILED'), /완료하지 못했어요/)
+  assert.doesNotMatch(api.assessmentFailureReason('secret-sentinel'), /secret-sentinel/)
+  const html = render({ ...data, evidenceSummary: [{ evidenceId: 9, type: 'ASSET_CLASSIFICATION', verificationLevel: 'MANUAL_SUBMITTED', status: 'REJECTED', observedAt: null }] })
+  assert.match(html, /자료 거절/); assert.doesNotMatch(html, /담당자 제출 · 수용 대기/)
+})

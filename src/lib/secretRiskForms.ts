@@ -1,4 +1,4 @@
-import type { RiskEvidenceForm } from '../api/secretRisk'
+import type { OverrideTarget, RiskEvidenceForm } from '../api/secretRisk'
 export const riskFieldLabels: Record<string, string> = {
   audienceClass: '읽을 수 있는 범위', coverageStatus: '확인 범위의 완전성', publicAccessConfirmed: '공개 접근 확인', boundedPrincipalCount: '식별한 접근 주체 수',
   identityBindingStatus: '발견 키와 권한 주체의 연결', support: '해당 유형의 영향 분석 지원', permissionCoverage: '권한 조회 완전성', targetCoverage: '전체 대상 조회 완전성', restrictionCoverage: '제한 통제 확인 완전성', classificationCoverage: '자산 분류 완전성', impact: '근거로 확인한 영향 범주',
@@ -41,3 +41,19 @@ export function validRiskEvidenceWindow(type: string, observedAt: string | null,
   return end > now && end > observed && end <= observed + (type === 'ACCESS_SCOPE' ? 6 : 24) * 3600000
 }
 export const riskFactText = (name: string, value: string | boolean | number) => typeof value === 'boolean' ? value ? '확인함' : ['sensitive', 'important', 'testOnly'].includes(name) ? '해당하지 않음을 확인' : '확인하지 못함' : typeof value === 'number' ? String(value) : controlledCode(value) ? riskOptionLabel(value) : '지원하지 않는 값'
+export function permittedOverrideTargets(targets?: OverrideTarget[]): OverrideTarget[] {
+  return (targets ?? []).filter((item) => Number.isSafeInteger(item.basisAssessmentId) && item.basisAssessmentId > 0 && (item.assessmentStatus === 'NOT_APPLICABLE' ? item.severity === null : item.assessmentStatus === 'ASSESSED' && ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(item.severity ?? '')))
+}
+export function overrideDeadline(maxDays: number | undefined, selected: { validUntil?: string | null; expiresAt?: string | null }[], now = Date.now()): string | null {
+  if (!Number.isInteger(maxDays) || maxDays! <= 0 || maxDays! > 365 || !selected.length) return null
+  let until = now + maxDays! * 86400000
+  for (const evidence of selected) {
+    const end = evidence.validUntil === undefined ? evidence.expiresAt : evidence.validUntil
+    if (end === undefined) return null
+    if (end === null) continue
+    const timestamp = Date.parse(end)
+    if (!Number.isFinite(timestamp)) return null
+    until = Math.min(until, timestamp)
+  }
+  return until > now ? new Date(until).toISOString() : null
+}

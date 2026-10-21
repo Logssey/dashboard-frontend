@@ -2,6 +2,7 @@ import { apiRequest } from './client'
 
 export type AssessmentStatus = 'ASSESSED' | 'UNASSESSED' | 'NOT_APPLICABLE'
 export type RiskSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+export interface OverrideTarget { assessmentStatus: 'ASSESSED' | 'NOT_APPLICABLE'; severity: RiskSeverity | null; basisAssessmentId: number }
 export interface RiskAssessment {
   assessmentId: number | null; assessmentStatus: AssessmentStatus; severity: RiskSeverity | null
   ruleId: string | null; policyVersion: string; assessedAt: string | null
@@ -24,13 +25,14 @@ export interface SecretRisk {
   capabilities: { canSubmitEvidence?: boolean; canRequestAssessment?: boolean; canProposeOverride?: boolean; canReviewOverrides?: boolean; blockedReasonCodes?: string[] }
   nextAction?: string | { code: string; canExecute?: boolean; target?: { kind?: string; id?: number }; label?: string }
   readAt: string; evidenceForms?: RiskEvidenceForm[]; overrideProposals?: RiskOverride[]; allowedOverrideReasonCodes?: string[]
+  allowedOverrideTargets?: OverrideTarget[]; overrideMaxDurationDays?: number
 }
 export interface AssessmentHistory { items: (Partial<RiskAssessment> & { assessmentId: number; recordKind?: string; decision?: string; reasonCode?: string; createdAt?: string; actorUserId?: number })[]; total: number; page: number; size: number }
 export const fetchOccurrenceRisk = (occurrenceId: number) => apiRequest<SecretRisk>(`/api/v1/secrets/occurrences/${occurrenceId}/risk`)
 export const fetchAssessmentHistory = (occurrenceId: number, page: number) => apiRequest<AssessmentHistory>(`/api/v1/secrets/occurrences/${occurrenceId}/assessment-history?page=${page}&size=20`)
 export interface RiskEvidenceRequest { expectedEvidenceRevision: number; idempotencyKey: string; evidenceType: string; subject: 'OCCURRENCE'; observedAt: string; validUntil: string | null; evidenceRef: string; facts: Record<string, string | number | boolean> }
 export interface RiskDecisionRequest { expectedEvidenceRevision: number; idempotencyKey: string; decision: string; reasonCode: string }
-export interface AssessmentRequest { requestId: number; jobId: number; status: string; reused?: boolean; runId?: null; assessmentId?: number | null; failureCode?: string | null }
+export interface AssessmentRequest { requestId: number; jobId: number; status: string; reused?: boolean; runId?: null; assessmentId?: number | null; failureCode?: string | null; reasonCode?: string | null }
 export interface SeverityOverrideRequest { expectedEvidenceRevision: number; idempotencyKey: string; targetAssessmentStatus: 'ASSESSED' | 'NOT_APPLICABLE'; targetSeverity: RiskSeverity | null; basisAssessmentId: number | null; reasonCode: string; evidenceIds: number[]; validUntil: string }
 export const submitRiskEvidence = (id: number, body: RiskEvidenceRequest) => apiRequest<{ evidenceId: number; status: string; evidenceRevision: number }>(`/api/v1/secrets/occurrences/${id}/risk-evidence`, { method: 'POST', body: JSON.stringify(body) })
 export const decideRiskEvidence = (id: number, evidenceId: number, body: RiskDecisionRequest) => apiRequest<{ evidenceId: number; status: string; evidenceRevision: number }>(`/api/v1/secrets/occurrences/${id}/risk-evidence/${evidenceId}/decisions`, { method: 'POST', body: JSON.stringify(body) })
