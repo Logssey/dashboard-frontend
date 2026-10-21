@@ -3,6 +3,8 @@ import type { SecretComponentState, SecretIssuer, SecretOrigin } from './secrets
 
 export type ReviewDecision = 'ABNORMAL' | 'NORMAL' | 'FALSE_POSITIVE' | 'NEEDS_MORE_INFO'
 export interface ReviewContext {
+  taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
+  canRequestAssistance?: boolean
   credentialSetId: number
   occurrenceId: number
   connectionId: number

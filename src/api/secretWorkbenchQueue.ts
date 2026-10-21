@@ -3,6 +3,8 @@ import type { WorkbenchFilters } from './secretSummary'
 import type { ScopeCoverage } from './secretConnections'
 
 export interface WorkbenchQueueItem {
+  taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
+  setupReasonCodes?: string[]
   credentialSetId?: number; secretId?: number; occurrenceId?: number | null; caseId?: number | null
   scopeId?: number; connectionId?: number
   maskedLabel?: string; safeLocationLabel?: string; safeDisplayAlias?: string

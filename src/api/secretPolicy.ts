@@ -45,6 +45,7 @@ export interface ClassificationProposal {
   capabilities: { canPropose: boolean; canApprove: boolean; canReject: boolean; canDraftPolicy: boolean; canAssignReviewer?: boolean }
 }
 export interface ScopeClassification {
+  taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
   scopeId: number
   connectionId: number
   contentType: string
