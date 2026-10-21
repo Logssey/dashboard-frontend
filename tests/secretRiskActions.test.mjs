@@ -19,6 +19,23 @@ test('closed registered facts preserve false and reject extra fields, arbitrary 
   assert.equal(api.closedRiskFacts(form, { ...input, sensitive: '' }), null)
   assert.equal(api.supportedEvidenceForm({ ...form, fields: [{ name: 'rawSecret', type: 'INTEGER', required: true }] }), false)
 })
+test('permission evidence records capability and target claims without allowing manual impact or identity values', () => {
+  const mapping = { evidenceType: 'PERMISSION_MAPPING', subject: 'OCCURRENCE', fields: [{ name: 'capability', type: 'ENUM', required: true, options: ['RESOURCE_READ'] }, { name: 'targetScope', type: 'ENUM', required: true, options: ['ASSET'] }, ...['permissionCoverage', 'targetCoverage', 'restrictionCoverage', 'classificationCoverage'].map((name) => ({ name, type: 'ENUM', required: true, options: ['COMPLETE', 'PARTIAL'] }))] }
+  const values = { capability: 'RESOURCE_READ', targetScope: 'ASSET', permissionCoverage: 'COMPLETE', targetCoverage: 'PARTIAL', restrictionCoverage: 'PARTIAL', classificationCoverage: 'PARTIAL' }
+  assert.ok(api.closedRiskFacts(mapping, values)); assert.equal(api.closedRiskFacts(mapping, { ...values, impact: 'ADMIN' }), null)
+  assert.equal(api.supportedEvidenceForm({ ...mapping, fields: [{ name: 'identityBindingStatus', type: 'ENUM', required: true, options: ['MATCHED'] }] }), false)
+})
+test('source reference selection uses current server-listed IDs and strips labels and observation metadata', () => {
+  const observed = { type: 'VALIDATION_ATTEMPT', id: 9, version: 1, role: 'BINDS_IDENTITY', labelCode: 'ACTUAL_IDENTITY_OBSERVATION', observedAt: '2026-10-22T00:00:00Z' }
+  assert.deepEqual(api.riskSourcePayload([observed], [api.riskSourceKey(observed)]), [{ type: 'VALIDATION_ATTEMPT', id: 9, version: 1, role: 'BINDS_IDENTITY' }])
+  assert.equal(api.riskSourcePayload([observed], ['VALIDATION_ATTEMPT:999:1:BINDS_IDENTITY']), null)
+  assert.equal(api.allowedRiskSources([{ ...observed, role: 'ASSERTS' }]).length, 0)
+  assert.deepEqual(api.riskSourcePayload([], []), [])
+})
+test('partial manual incident support is explained instead of claiming confirmed abuse', () => {
+  const html = render({ ...risk, capabilities: { canSubmitEvidence: true }, evidenceForms: [{ evidenceType: 'ABUSE_LINK', subject: 'OCCURRENCE', assessmentSupport: 'PARTIAL', reasonCode: 'ABUSE_LINKAGE_UNVERIFIED', fields: ['unauthorizedUseConfirmed', 'materialImpactConfirmed', 'credentialLinked', 'occurrenceLinked'].map((name) => ({ name, type: 'BOOLEAN', required: true })) }] })
+  assert.match(html, /사고 연관 근거/); assert.doesNotMatch(html, /textarea|원문 붙여넣기/)
+})
 test('manual current evidence expires at its declared window and historical incidents are separate', () => {
   const now = Date.parse('2026-10-22T00:00:00Z')
   assert.equal(api.validRiskEvidenceWindow('ACCESS_SCOPE', '2026-10-21T23:00:00Z', '2026-10-22T05:00:00Z', now), true)

@@ -14,7 +14,8 @@ export interface RiskEvidence {
   currentEligible?: boolean; facts?: Record<string, string | number | boolean>; evidenceRef?: string
 }
 export interface RiskEvidenceField { name: string; type: 'ENUM' | 'BOOLEAN' | 'INTEGER'; required: boolean; options?: string[]; minimum?: number; maximum?: number }
-export interface RiskEvidenceForm { evidenceType: string; subject: 'OCCURRENCE'; fields: RiskEvidenceField[] }
+export interface RiskEvidenceForm { evidenceType: string; subject: 'OCCURRENCE'; fields: RiskEvidenceField[]; assessmentSupport?: string; reasonCode?: string }
+export interface RiskSourceRef { type: 'VALIDATION_ATTEMPT' | 'INVESTIGATION_HISTORY' | 'RISK_EVIDENCE' | 'ASSET'; id: number; version: number; role: 'BINDS_IDENTITY' | 'ASSERTS' | 'LIMITS' | 'CLASSIFIES'; labelCode?: string; observedAt?: string | null }
 export interface RiskOverride extends RiskAssessment { canReview?: boolean; allowedDecisionReasonCodes?: string[]; validUntil?: string | null; status?: string; reasonCode?: string; targetAssessmentStatus?: AssessmentStatus; targetSeverity?: RiskSeverity | null; evidenceIds?: number[]; basisAssessmentId?: number | null; createdAt?: string }
 export type RiskInput = string | null | { value: string; observedAt?: string | null; verificationLevel?: string; freshness?: string }
 export interface SecretRisk {
@@ -26,11 +27,12 @@ export interface SecretRisk {
   nextAction?: string | { code: string; canExecute?: boolean; target?: { kind?: string; id?: number }; label?: string }
   readAt: string; evidenceForms?: RiskEvidenceForm[]; overrideProposals?: RiskOverride[]; allowedOverrideReasonCodes?: string[]
   allowedOverrideTargets?: OverrideTarget[]; overrideMaxDurationDays?: number
+  availableSourceRefs?: RiskSourceRef[]
 }
 export interface AssessmentHistory { items: (Partial<RiskAssessment> & { assessmentId: number; recordKind?: string; decision?: string; reasonCode?: string; createdAt?: string; actorUserId?: number })[]; total: number; page: number; size: number }
 export const fetchOccurrenceRisk = (occurrenceId: number) => apiRequest<SecretRisk>(`/api/v1/secrets/occurrences/${occurrenceId}/risk`)
 export const fetchAssessmentHistory = (occurrenceId: number, page: number) => apiRequest<AssessmentHistory>(`/api/v1/secrets/occurrences/${occurrenceId}/assessment-history?page=${page}&size=20`)
-export interface RiskEvidenceRequest { expectedEvidenceRevision: number; idempotencyKey: string; evidenceType: string; subject: 'OCCURRENCE'; observedAt: string; validUntil: string | null; evidenceRef: string; facts: Record<string, string | number | boolean> }
+export interface RiskEvidenceRequest { expectedEvidenceRevision: number; idempotencyKey: string; evidenceType: string; subject: 'OCCURRENCE'; observedAt: string; validUntil: string | null; evidenceRef: string; facts: Record<string, string | number | boolean>; sourceRefs?: Pick<RiskSourceRef, 'type' | 'id' | 'version' | 'role'>[] }
 export interface RiskDecisionRequest { expectedEvidenceRevision: number; idempotencyKey: string; decision: string; reasonCode: string }
 export interface AssessmentRequest { requestId: number; jobId: number; status: string; reused?: boolean; runId?: null; assessmentId?: number | null; failureCode?: string | null; reasonCode?: string | null }
 export interface SeverityOverrideRequest { expectedEvidenceRevision: number; idempotencyKey: string; targetAssessmentStatus: 'ASSESSED' | 'NOT_APPLICABLE'; targetSeverity: RiskSeverity | null; basisAssessmentId: number | null; reasonCode: string; evidenceIds: number[]; validUntil: string }

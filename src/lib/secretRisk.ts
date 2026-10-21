@@ -9,6 +9,7 @@ export const riskReasonLabels: Record<string, string> = {
   EXPOSURE_INCIDENT_CONFLICT: '정상 보관 주장과 연결된 사고 근거가 충돌해 재검토가 필요해요.', DOWNGRADE_REVIEW_REQUIRED: '기존 높은 등급을 낮추기 전에 반증과 독립 검토가 필요해요.',
   STALE_BASELINE: '평가 기준이 바뀌어 최신 근거로 다시 평가해야 해요.', METADATA_ONLY: '메타데이터만 확인해 심각도 평가 대상이 아니에요.',
   OVERRIDE_EXPIRED_REVIEW_REQUIRED: '수동 판단의 기간이 끝났어요. 기존 높은 등급의 하향 검토는 별도로 필요해요.', INVESTIGATE_CONFLICT: '충돌하는 근거 재검토',
+  ABUSE_LINKAGE_UNVERIFIED: '제출한 사고 자료를 실제 키·노출에 연결할 자동 확인을 지원하지 않아요. 자료 수용만으로 악용 확인이나 CRITICAL이 되지 않아요.',
   REVIEW_EVIDENCE: '부족한 근거 확인', SUBMIT_EVIDENCE: '자료 보완', REQUEST_ASSESSMENT: '현재 근거로 다시 평가', REVIEW_OVERRIDE: '수동 판단 검토',
   CONFIRMED_INCIDENT: '해당 노출에 연결된 중대한 악용이 확인됐어요.',
 }
