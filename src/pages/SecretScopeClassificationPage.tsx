@@ -4,6 +4,8 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
 import { approveScopeClassification, fetchClassificationQueue, fetchScopeClassification, assignScopeReviewer, rejectScopeClassification, type ScopeClassification } from '@/api/secretPolicy'
 import { SecretScopeSetupEditor } from '@/components/SecretScopeSetupEditor'
+import { SecretTaskGuidance } from '@/components/SecretTaskGuidance'
+import { SecretHandoffForm } from '@/components/SecretHandoffForm'
 import { scopeSetupReasons, setupReasonLabels, scopeChangeMessage, refreshedWorkbenchReturn } from '@/lib/secretScopeSetup'
 import { PageHeader } from '@/components/PageHeader'
 import { SecretPolicyDraftForm } from '@/components/SecretPolicyDraftForm'
@@ -67,6 +69,8 @@ export function SecretScopeClassificationPage() {
       {receipt?.scopeId === scopeId && receipt.changeResult && <section className="card secret-scope-receipt" role="status"><h2>{scopeChangeMessage(receipt.changeResult)}</h2><p>설정 저장과 남은 확인 항목은 별개예요.</p><ul>{receipt.changeResult.remainingReasonCodes.map((code) => <li key={code}>{setupReasonLabels[code] ?? '추가 확인'}</li>)}</ul><Link className="btn outline" to={params.get('return') === 'workbench' ? refreshedWorkbenchReturn(params.get('returnQuery')) : '/secrets/connections/review'}>최신 목록에서 확인</Link></section>}
       <section className="card secret-classification-current"><h2>현재 승인 내용</h2><dl className="secret-scan-facts"><div><dt>대응 출처</dt><dd>{inventoryOptions.origin[valid.origin] ?? '미분류'}</dd></div><div><dt>승인 범위</dt><dd>{scopeTypeLabel(valid.contentType)} · 버전 {valid.scopeRevision}</dd></div><div><dt>보관 정책</dt><dd>{valid.storagePolicy ? <Link to={`/secrets/connections/policies/${valid.storagePolicy.policyId}/versions/${valid.storagePolicy.version}`}>정책 #{valid.storagePolicy.policyId} · v{valid.storagePolicy.version}</Link> : policyStatusLabel[valid.policyStatus] ?? '보관 판단 미확인'}</dd></div><div><dt>승인 시각</dt><dd>{scanDate(valid.approvedAt)}</dd></div></dl><p className="caption">수집을 승인한 사실만으로 이 위치의 키 보관이 허용되지는 않아요.</p><details className="secret-classification-history"><summary>분류 변경 이력</summary>{valid.history.length ? <ul>{valid.history.map((entry) => <li key={entry.decisionId}>{inventoryOptions.origin[entry.fromOrigin as keyof typeof inventoryOptions.origin] ?? '미분류'} → {inventoryOptions.origin[entry.toOrigin as keyof typeof inventoryOptions.origin] ?? '미분류'} · {entry.evidenceRef} · {scanDate(entry.decidedAt)}</li>)}</ul> : <p className="caption">변경 이력이 없어요.</p>}</details></section>
       {valid.pendingProposal ? <PendingClassification key={`${valid.pendingProposal.proposalId}:${valid.pendingProposal.version}:${refreshVersion}`} scope={valid} onUpdated={reload} /> : <SecretScopeSetupEditor key={`${valid.scopeVersion}:${refreshVersion}`} scope={valid} onUpdated={reload} />}
+      <SecretTaskGuidance guidance={valid.taskGuidance} />
+      <SecretHandoffForm key={`request:${scopeId}:${valid.scopeVersion}`} targetType="SCOPE" targetId={valid.scopeId} expectedVersion={valid.scopeVersion} />
       <SecretPolicyDraftForm key={`draft:${scopeId}`} scope={valid} />
     </>}
   </>
