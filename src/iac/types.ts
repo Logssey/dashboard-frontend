@@ -152,3 +152,12 @@ export interface IacFindingUpdate {
   unassign?: boolean
   version: number
 }
+
+/** S-01 G. 조치 하나가 끊는 열린 경로 수 */
+export interface IacRemediation {
+  action: string
+  source: string
+  pathsCut: number
+  tier1PathsCut: number
+  templateKey: string
+}

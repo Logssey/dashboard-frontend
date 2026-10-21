@@ -1,5 +1,5 @@
 import { apiRequest } from '@/api/client'
-import type { IacDrift, IacFindingUpdate, IacGates, IacPathDetail, IacPathList, IacPullRequest, IacPullRequestSummary, IacStateSummary, IacSummary } from './types'
+import type { IacDrift, IacFindingUpdate, IacGates, IacPathDetail, IacPathList, IacPullRequest, IacPullRequestSummary, IacRemediation, IacStateSummary, IacSummary } from './types'
 
 const base = '/api/v1/iac'
 
@@ -27,3 +27,5 @@ export const fetchIacDrifts = () => apiRequest<IacDrift[]>(`${base}/drifts?statu
 export const updateIacFinding = (findingId: number, body: IacFindingUpdate) =>
   apiRequest<{ findingId: number; status: string; assigneeUserId: number | null; version: number }>(
     `${base}/findings/${findingId}`, { method: 'PATCH', body: JSON.stringify(body) })
+
+export const fetchIacRemediations = () => apiRequest<IacRemediation[]>(`${base}/remediations/suggested`)

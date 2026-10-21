@@ -8,6 +8,7 @@ import { fetchIacPaths, fetchIacPullRequests, fetchIacSummary } from './api'
 import { GateSection } from './GateSection'
 import { PathDrawer } from './PathDrawer'
 import { PullRequestDrawer } from './PullRequestDrawer'
+import { RemediationSection } from './RemediationSection'
 import { StateSection } from './StateSection'
 import {
   formatDateTime, hopLabel, pullRequestBadge, pullRequestChanges, ruleTitle, severityLabel, severityTone, shortSha, tierLabel,
@@ -139,6 +140,9 @@ export function IacPage() {
 
         {/* F ③ State·드리프트 */}
         <StateSection />
+
+        {/* G 할 수 있는 조치 */}
+        <RemediationSection />
       </div>
       <PathDrawer pathId={selectedPathId} onClose={() => setSelectedPathId(null)} />
       <PullRequestDrawer number={selectedPr} onClose={() => setSelectedPr(null)} />
