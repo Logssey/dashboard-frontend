@@ -1,0 +1,29 @@
+import type { AssessmentStatus, RiskInput } from '../api/secretRisk'
+
+export const riskReasonLabels: Record<string, string> = {
+  EXPOSURE_UNKNOWN: '보관·노출 판단 근거가 필요해요.', EXPOSURE_RANGE_UNKNOWN: '읽을 수 있는 대상과 범위를 확인해야 해요.', CREDENTIAL_UNCONFIRMED: '자격 증명의 구성·동일성 확인이 필요해요.',
+  IMPACT_UNKNOWN: '이 키의 실제 권한·대상·제한을 확인해야 해요.', IDENTITY_BINDING_UNRESOLVED: '발견된 키와 권한 주체의 연결을 확인해야 해요.',
+  PERMISSION_MAPPING_INCOMPLETE: '권한 해석이 일부만 확인됐어요.', TARGET_COVERAGE_INCOMPLETE: '접근 가능한 전체 대상은 확인되지 않았어요.',
+  ASSET_CLASSIFICATION_UNKNOWN: '대상 자원의 운영·민감도 분류가 필요해요.', UNSUPPORTED_IMPACT_ANALYSIS: '이 유형의 영향 자동 분석은 지원하지 않아요.',
+  STALE_EVIDENCE: '근거의 확인 기한이 지났어요.', TIME_UNCERTAIN: '근거의 관측 시각을 확인해야 해요.', CONFLICTING_EVIDENCE: '같은 사실에 대한 근거가 서로 충돌해요.',
+  EXPOSURE_INCIDENT_CONFLICT: '정상 보관 주장과 연결된 사고 근거가 충돌해 재검토가 필요해요.', DOWNGRADE_REVIEW_REQUIRED: '기존 높은 등급을 낮추기 전에 반증과 독립 검토가 필요해요.',
+  STALE_BASELINE: '평가 기준이 바뀌어 최신 근거로 다시 평가해야 해요.', METADATA_ONLY: '메타데이터만 확인해 심각도 평가 대상이 아니에요.',
+  REVIEW_EVIDENCE: '부족한 근거 확인', SUBMIT_EVIDENCE: '자료 보완', REQUEST_ASSESSMENT: '현재 근거로 다시 평가', REVIEW_OVERRIDE: '수동 판단 검토',
+  CONFIRMED_INCIDENT: '해당 노출에 연결된 중대한 악용이 확인됐어요.',
+}
+export const riskReason = (code: string) => riskReasonLabels[code] ?? '판단에 필요한 근거 또는 적용 조건을 확인해 주세요.'
+export function severityText(severity?: string | null, status?: AssessmentStatus | string): string {
+  if (status === 'NOT_APPLICABLE') return '심각도 적용 대상 아님'
+  return ({ CRITICAL: '치명적', HIGH: '높음', MEDIUM: '보통', LOW: '낮음' } as Record<string, string>)[severity ?? ''] ?? '미평가'
+}
+export const riskAxisLabels: Record<string, string> = { exposure: '노출 판단', exposureRange: '노출 범위', credential: '자격 증명 확인', impact: '영향 범위', abuse: '중대한 악용', validity: '유효성' }
+const axisValues: Record<string, Record<string, string>> = {
+  exposure: { ABNORMAL: '노출 확인', NORMAL: '정상 보관', UNKNOWN: '판단 근거 부족' }, exposureRange: { BROAD: '광범위', BOUNDED: '제한된 접근 대상', UNKNOWN: '접근 대상 확인 필요' },
+  credential: { CONFIRMED: '형식·구성 확인', CANDIDATE: '구성·동일성 확인 필요' }, impact: { ADMIN: '관리자 수준', IMPORTANT: '중요 자원·데이터', LIMITED: '특정 자원에 실질적 영향', MINIMAL: '권한·대상 제한 확인', UNKNOWN: '권한·대상 확인 필요' },
+  abuse: { CONFIRMED: '연결된 중대한 악용 확인', NOT_CONFIRMED: '확인된 악용 근거 없음 · 미조사일 수 있음' }, validity: { VALID: '공급자 인증 확인', INVALID: '사용 불가 · 원인은 별도 확인', UNKNOWN: '인증 확인 불가', UNCHECKED: '인증 미검증' },
+}
+export const riskInputValue = (input: RiskInput | undefined) => typeof input === 'string' ? input : input?.value ?? null
+export const riskAxisValue = (axis: string, input: RiskInput | undefined) => axisValues[axis]?.[riskInputValue(input) ?? ''] ?? '이 규칙에 사용한 확인 값 없음'
+export const verificationLabel = (level: string) => ({ PROVIDER_OBSERVED: '공급자 자동 관측', ASSET_CLASSIFIED: '자산 분류', MANUAL_SUBMITTED: '담당자 제출 · 수용 대기', MANUAL_ACCEPTED: '담당자 확인' } as Record<string, string>)[level] ?? '확인 수준 확인 필요'
+export const riskEvidenceLabels: Record<string, string> = { ACCESS_SCOPE: '접근 대상·노출 범위', PERMISSION_MAPPING: '권한·대상·제한', ASSET_CLASSIFICATION: '자산 중요도', ABUSE_LINK: '사고 연관 근거', ABUSE_COVERAGE: '악용 조사 범위' }
+export const riskRuleLabels: Record<string, string> = { R00: '유효한 보관 허용 근거가 확인된 위치예요.', R01: '해당 노출에 연결된 중대한 비인가 사용과 영향이 확인됐어요.', R02: '넓게 노출된 관리자 수준 자격 증명이에요.', R03: '제한된 대상에게 노출된 운영 관리자 자격 증명이에요.', R04: '운영·민감 데이터 등 중요 대상에 영향을 줄 수 있어요.', R05: '특정 자원에 대한 실질적인 접근·변경 가능성이 확인됐어요.', R06: '권한·대상이 제한된 자격 증명이 넓게 노출됐어요.', R07: '권한·대상과 노출 범위가 제한됨을 확인했어요.', R99: '필요한 근거가 부족하거나 충돌해 등급을 확정하지 않았어요.' }

@@ -22,7 +22,10 @@ export interface SecretItem {
   credentialType: string
   componentState: SecretComponentState
   maskedLabel: string
-  severity: string
+  severity: string | null
+  assessmentStatus?: 'ASSESSED' | 'UNASSESSED' | 'NOT_APPLICABLE'
+  unassessedOccurrenceCount?: number
+  heldOccurrenceCount?: number
   validationStatus: string
   validationReasonCode: string | null
   validatedAt: string | null
@@ -114,6 +117,9 @@ export interface InventoryFilter extends SecretFilter {
   snapshotId: string
 }
 export interface KeyLocation {
+  severity?: string | null
+  assessmentStatus?: 'ASSESSED' | 'UNASSESSED' | 'NOT_APPLICABLE'
+  held?: boolean
   sourceDetails?: { status: string; label: string; repository?: string; branch?: string; path?: string; line?: string | null; sourceUrl?: string | null; region?: string; resource?: string }
   detectionEvidence?: { ruleId: string; detectedAt: string; runId: number }[]
   requiresReassessment?: boolean
