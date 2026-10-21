@@ -41,7 +41,7 @@ test('work cards, stage bars and their lists retain every filter and the exact s
   assert.ok(links.some((url) => url.searchParams.get('bucket') === 'UNCLASSIFIED'))
   assert.match(html, /발급자·환경·담당자 조건은 적용하지 않아요/)
   assert.match(html, /서로 다른 단위예요/)
-  assert.match(html, /심각도는 미평가 상태/)
+  assert.match(html, /심각도 미평가/)
   assert.match(html, /경고 #77/)
   assert.doesNotMatch(html, /평균 위험|총 위험|높음 0|낮음 0/)
 })

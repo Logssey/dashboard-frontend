@@ -10,11 +10,11 @@ export const workbenchOptions = {
 } as const
 export const workbenchMetricLabels: Record<string, { title: string; unit: string; description: string; bucket: string }> = {
   needsDecisionLocations: { title: '확인 필요', unit: '곳', description: '노출·보관 근거 확인', bucket: 'NEEDS_DECISION' },
-  ongoingCases: { title: '대응 중', unit: '건', description: '신규 및 분석·조치 중', bucket: 'ACTION_REQUIRED' },
+  ongoingCases: { title: '대응 중', unit: '건', description: '신규·조치 중인 대응', bucket: 'ACTION_REQUIRED' },
   revalidationPendingCases: { title: '재검사 대기', unit: '건', description: '조치 후 다시 확인할 건', bucket: 'ACTION_REQUIRED' },
   coverageGapScopes: { title: '검사 누락', unit: '범위', description: '실패·지연·미검사 확인', bucket: 'COVERAGE_GAPS' },
   needsCaseLinkLocations: { title: '건 연결 필요', unit: '곳', description: '확인된 노출의 대응 연결', bucket: 'NEEDS_CASE_LINK' },
-  unclassifiedScopes: { title: '출처 확인', unit: '범위', description: '분류·보관 정책 확인', bucket: 'UNCLASSIFIED' },
+  unclassifiedScopes: { title: '범위 설정', unit: '범위', description: '출처·정책·검토 대기', bucket: 'UNCLASSIFIED' },
 }
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
 export function parseWorkbenchFilters(params: URLSearchParams): { filters: WorkbenchFilters; valid: boolean } {

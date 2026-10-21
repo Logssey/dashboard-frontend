@@ -22,8 +22,8 @@ function HistoryList({ filters, errors, params, setParams }: {
   filters: RunFilters; errors: string[]; params: URLSearchParams; setParams: (params: URLSearchParams, options?: { replace: boolean }) => void
 }) {
   const queryClient = useQueryClient()
-  const [selection, setSelection] = useState<number | null>(null)
-  const [confirm, setConfirm] = useState(false)
+  const [selection, setSelection] = useState<number | null>(filters.connectionId ?? null)
+  const [confirm, setConfirm] = useState(params.get('request') === 'scan')
   const confirmationRef = useRef<HTMLHeadingElement>(null)
   const requestKey = useRef('')
   const restored = useRef('')
@@ -67,7 +67,7 @@ function HistoryList({ filters, errors, params, setParams }: {
       try { sessionStorage.removeItem(focusKey) } catch { /* Storage can be disabled. */ }
     }
   }, [history.isSuccess, history.isPlaceholderData, history.data, params, focusKey])
-  useEffect(() => { if (confirm) confirmationRef.current?.focus() }, [confirm])
+  useEffect(() => { if (confirm) { if (!requestKey.current) requestKey.current = crypto.randomUUID(); confirmationRef.current?.focus() } }, [confirm, selected?.connectionId])
   if (acceptedId) return <Navigate to={scanDetailPath(acceptedId, { ...filters, page: 0, snapshotId: '' })} />
   const change = (key: keyof RunFilters, value: string) => {
     const next = runFilterSearch({ ...filters, page: 0, snapshotId: '' })

@@ -20,6 +20,13 @@ await writeFile(bundlePath, bundled.outputFiles[0].contents)
 const { SecretRunDetailPage, SecretHistoryPage, SecretConnectionsPage } = await import(pathToFileURL(bundlePath).href)
 after(() => unlink(bundlePath))
 
+test('scan navigation asks for confirmation without registering an automatic scan', () => {
+  const html = renderPage(SecretHistoryPage, '/secrets/history', '/secrets/history?request=scan')
+  assert.match(html, /승인된 범위를 검사할까요/)
+  assert.match(html, /스캔 등록/)
+  assert.match(html, /disabled=""[^>]*>스캔 등록/)
+})
+
 function renderPage(Component, path, url, entries = []) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } })
   for (const [key, data] of entries) client.setQueryData(key, data)
