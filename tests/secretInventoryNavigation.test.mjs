@@ -54,14 +54,15 @@ test('independent key detail displays present, missing and unknown together with
   const html = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [
     [['secret-detail', 12, 'TEST'], item], [['secret-key-locations', 12, filters, 0], locations],
   ])
-  assert.match(html, /현재 발견/)
-  assert.match(html, /재검사에서 미발견/)
-  assert.match(html, /현재 확인 불가/)
+  assert.match(html, /마지막 검사에서 발견/)
+  assert.match(html, /마지막 검사에서 미발견/)
+  assert.match(html, /검사 근거 미확인/)
+  assert.match(html, /현재 존재 확인 불가/)
   assert.match(html, /열람 가능한 위치 기준/)
   assert.match(html, /합성 데이터 여부 미확인/)
   assert.match(html, /조치 후 위치 미발견<\/dt><dd>근거 확인 필요/)
   assert.doesNotMatch(html, /must-not-render|키 전체 노출|해결 완료<\/button>|원문 보기/)
-  assert.match(html, /미발견은 키 폐기·해결 완료와 별개/)
+  assert.match(html, /미발견과 체크 완료만으로 키 폐기·해결을 확정하지 않아요/)
 })
 test('inventory makes metadata and value candidate filters explicit and uses safe independent key links', () => {
   const url = `/secrets/findings?origin=TEST&contentKind=METADATA&snapshotId=${snapshotId}`
