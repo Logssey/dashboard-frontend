@@ -23,7 +23,7 @@ export interface WorkbenchSummary {
   restrictedCoverage: boolean
   accessScope: string
   metrics: WorkbenchMetric[]
-  caseSummary: { scope: string; unit: 'ResponseCase'; total: number | null; status: string; actionCounts: Record<string, number> | null; severityCounts: Record<string, number> | null; severityStatus: string; severityReasonCode: string | null }
+  caseSummary: { scope: string; unit: 'ResponseCase'; total: number | null; status: string; actionCounts: Record<string, number> | null; severityCounts: Record<string, number> | null; notApplicableCaseCount: number | null; severityStatus: string; severityReasonCode: string | null }
   normalInventory: { unit: 'CredentialSet'; value: number | null; status?: string }
   crossEnvironmentAlerts: { unit: 'CrossEnvironmentAlert'; value: number | null; status?: string; items: { alertId: number; status: string; nextActionCode: string }[] }
   partialCoverage: boolean | null
