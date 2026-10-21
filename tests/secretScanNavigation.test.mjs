@@ -27,6 +27,17 @@ test('scan navigation asks for confirmation without registering an automatic sca
   assert.match(html, /disabled=""[^>]*>스캔 등록/)
 })
 
+test('scan request is an independent dialog and never silently chooses the first available connection', () => {
+  const connection = { connectionId: 3, displayName: '승인 연결', approvedScopeCount: 2, provider: 'GITHUB', status: 'ACTIVE' }
+  const html = renderPage(SecretHistoryPage, '/secrets/history', '/secrets/history?request=scan', [[['secret-connections'], { items: [connection] }]])
+  assert.match(html, /<dialog[^>]*secret-scan-request-dialog/)
+  assert.match(html, /<option value="" selected="">연결 선택/)
+  assert.match(html, /disabled=""[^>]*>스캔 등록/)
+  const explicit = renderPage(SecretHistoryPage, '/secrets/history', '/secrets/history?request=scan&connectionId=3', [[['secret-connections'], { items: [connection] }]])
+  assert.match(explicit, /<option value="3" selected="">승인 연결/)
+  assert.doesNotMatch(explicit, /disabled=""[^>]*>스캔 등록/)
+})
+
 function renderPage(Component, path, url, entries = []) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } })
   for (const [key, data] of entries) client.setQueryData(key, data)

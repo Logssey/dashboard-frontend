@@ -9,7 +9,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { build } from 'esbuild'
 
-const bundle = await build({ stdin: { contents: "export * from './src/lib/secretReview'; export * from './src/api/secretTriage'; export { SecretTriagePage } from './src/pages/SecretTriagePage'; export { SecretTriageCandidatesPage } from './src/pages/SecretTriageCandidatesPage'", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
+const bundle = await build({ stdin: { contents: "export * from './src/lib/secretReview'; export * from './src/api/secretTriage'; export { parseWorkbenchFilters } from './src/lib/secretWorkbench'; export { SecretTriagePage } from './src/pages/SecretTriagePage'; export { SecretTriageCandidatesPage } from './src/pages/SecretTriageCandidatesPage'", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
 const bundlePath = resolve('node_modules/.secret-review-decision-test.mjs')
 await writeFile(bundlePath, bundle.outputFiles[0].contents)
 const api = await import(pathToFileURL(bundlePath).href)
@@ -37,6 +37,33 @@ test('delayed context and incomplete URLs provide protected loading/return state
   assert.match(invalid, /확인할 위치를 선택해 주세요/)
   assert.match(invalid, /키 상세에서 위치 선택/)
   assert.doesNotMatch(invalid, /가능한 결정 선택/)
+})
+test('incomplete TEST review links preserve their origin when recovering through key detail or returning', () => {
+  const html = renderContext(null, '/secrets/triage/12?origin=TEST')
+  const urls = [...html.matchAll(/href="([^"]+)"/g)].map((match) => new URL(match[1].replaceAll('&amp;', '&'), 'http://local'))
+  assert.equal(urls.find((url) => url.pathname === '/secrets/12').searchParams.get('origin'), 'TEST')
+  assert.equal(urls.find((url) => url.pathname === '/secrets/triage').searchParams.get('origin'), 'TEST')
+})
+test('an existing TEST case link retains the exact occurrence and safe return filters', () => {
+  const returnQuery = 'origin=TEST&source=GITHUB&environment=DEV&bucket=NEEDS_CASE_LINK&page=3'
+  const html = renderContext({ ...context, origin: 'TEST', allowedDecisions: [], caseLinkData: { ...context.caseLinkData, caseId: 6, caseOrigin: 'TEST' } }, `/secrets/triage/12?occurrence=8&returnQuery=${encodeURIComponent(returnQuery)}`)
+  const href = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1].replaceAll('&amp;', '&')).find((href) => href.startsWith('/secrets/cases/6?'))
+  const url = new URL(href, 'http://local')
+  assert.equal(url.searchParams.get('origin'), 'TEST'); assert.equal(url.searchParams.get('occurrence'), '8')
+  const back = new URLSearchParams(url.searchParams.get('returnQuery'))
+  assert.equal(back.get('bucket'), 'NEEDS_CASE_LINK'); assert.equal(back.get('source'), 'GITHUB'); assert.equal(back.get('page'), '3')
+})
+test('case queue entry buttons preserve TEST origin, occurrence and the return list', () => {
+  const query = 'origin=TEST&bucket=ACTION_REQUIRED&snapshotId=11111111-1111-1111-1111-111111111111'
+  const { filters } = api.parseWorkbenchFilters(new URLSearchParams(query))
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, gcTime: Infinity } } })
+  client.setQueryData(['secret-review-queue', filters, 'ACTION_REQUIRED', '', 0, 0], { unit: 'ResponseCase', items: [{ caseId: 6, occurrenceId: 8, maskedLabel: '키 후보', stage: 'OPEN' }], total: 1, size: 20, asOf: '2026-10-21T00:00:00Z', snapshotId: filters.snapshotId })
+  const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [`/secrets/triage?${query}`] }, createElement(api.SecretTriageCandidatesPage))))
+  const href = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1].replaceAll('&amp;', '&')).find((href) => href.startsWith('/secrets/cases/6?'))
+  const url = new URL(href, 'http://local')
+  assert.equal(url.searchParams.get('origin'), 'TEST'); assert.equal(url.searchParams.get('occurrence'), '8')
+  assert.equal(new URLSearchParams(url.searchParams.get('returnQuery')).get('bucket'), 'ACTION_REQUIRED')
+  client.clear()
 })
 test('unchecked validity does not block evidence-backed exposure, while stale/mismatched findings do', () => {
   assert.deepEqual(api.reviewInputErrors(context, input), [])
@@ -104,5 +131,22 @@ test('a direct legacy review link returns to its verified origin without treatin
   const back = new URL(api.reviewReturnPath(new URLSearchParams(), 12, 8, 'TEST'), 'http://localhost')
   assert.equal(back.searchParams.get('origin'), 'TEST'); assert.equal(back.searchParams.get('focus'), '12:8')
   const html = renderContext({ ...context, origin: 'TEST', validity: { result: 'UNCHECKED', reasonCode: 'SYNTHETIC_FIXTURE', observedAt: '2026-10-19T00:00:00Z' } })
-  assert.match(html, /표본 분류로 검증 생략/); assert.match(html, /검증 기록 시각/)
+  assert.match(html, /표본 분류로 검증 생략/); assert.match(html, /최근 검증 시도/)
+})
+
+
+test('a linked current exposure opens its exact case location and folds repeat decisions', () => {
+  const value = { ...context, origin: 'TEST', exposureStatus: 'ABNORMAL', caseLinkData: { ...context.caseLinkData, caseId: 2, caseOrigin: 'TEST', caseLinkStatus: 'LINKED' } }
+  const html = renderContext(value, '/secrets/triage/12?occurrence=8&returnQuery=origin%3DTEST%26bucket%3DNEEDS_DECISION%26page%3D3')
+  assert.match(html, /이미 노출이 확인되어 대응 중이에요/)
+  const section = html.match(/<details class="card secret-scan-technical"><summary>판정 변경<\/summary>([\s\S]*?)<\/details>/)?.[0]
+  assert.ok(section); assert.match(section, /가능한 결정 선택/)
+  assert.doesNotMatch(section, /<details[^>]* open=/)
+  assert.match(html, /href="\/secrets\/cases\/2\?origin=TEST&amp;occurrence=8&amp;return=workbench/)
+  const changed = renderContext({ ...value, storagePolicy: { ...value.storagePolicy, requiresReassessment: true } })
+  assert.doesNotMatch(changed, /<summary>판정 변경/)
+  assert.match(changed, /가능한 결정 선택/)
+  const repair = renderContext({ ...value, caseLinkData: { ...value.caseLinkData, canRepair: true, decisionId: 17, decisionVersion: 1 } })
+  assert.doesNotMatch(repair, /<summary>판정 변경/)
+  assert.match(repair, /확인된 노출을 대응 건에 연결/)
 })

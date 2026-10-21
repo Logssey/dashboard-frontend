@@ -33,8 +33,8 @@ export function validationPresentation(data: SecretValidation): { title: string;
   const allReasons = [data.latestAttempt?.reasonCode, ...(data.capabilities.blockedReasonCodes ?? []), data.support.reasonCode, ...(data.support.reasonCodes ?? [])]
   const reason = allReasons.find((code) => !!code && code !== 'SUPPORTED')
   if (activeRequest(data.latestRequest?.status)) return { title: requestStatusLabel(data.latestRequest!.status), description: '접수된 요청의 진행 상황이에요. 아직 새 인증 결과가 아니에요.' }
-  if (allReasons.includes('SYNTHETIC_FIXTURE')) return { title: '검증 생략', description: validationReason('SYNTHETIC_FIXTURE') }
-  if (allReasons.includes('SOURCE_GUARD_BLOCKED')) return { title: '보호 규칙으로 검증 생략', description: validationReason('SOURCE_GUARD_BLOCKED') }
+  if (allReasons.includes('SYNTHETIC_FIXTURE')) return { title: '합성 키 검증 생략', description: validationReason('SYNTHETIC_FIXTURE') }
+  if (allReasons.includes('SOURCE_GUARD_BLOCKED')) return { title: '시험 저장소 검증 제외', description: validationReason('SOURCE_GUARD_BLOCKED') }
   if (data.support.status === 'UNSUPPORTED' || reason === 'UNSUPPORTED_TYPE') return { title: '검증 미지원', description: validationReason('UNSUPPORTED_TYPE') }
   if (['INCOMPLETE_CREDENTIAL', 'INCOMPLETE_PAIR', 'MISSING_SESSION_TOKEN'].includes(reason ?? '')) return { title: '구성 부족', description: validationReason(reason) }
   if (allReasons.includes('PROFILE_UNCONFIGURED')) return { title: '서버 검증 설정 필요', description: validationReason('PROFILE_UNCONFIGURED') }

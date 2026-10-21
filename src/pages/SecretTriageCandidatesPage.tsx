@@ -20,7 +20,7 @@ function targetLink(item: WorkbenchQueueItem, unit: string, params: URLSearchPar
   const secretId = item.credentialSetId ?? item.secretId
   const returnQuery = params.toString()
   if (unit === 'Scope') return { href: item.connectionId && item.scopeId ? params.get('bucket') === 'COVERAGE_GAPS' ? `/secrets/connections/${item.connectionId}/scopes?scopeId=${item.scopeId}&return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : `/secrets/connections/${item.connectionId}/scopes/${item.scopeId}?return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : null, title: item.safeDisplayAlias ?? `범위 #${item.scopeId ?? '미확인'}`, action: '검사 대상 설정 열기', focus: String(item.scopeId ?? '') }
-  if (unit === 'ResponseCase') return { href: item.caseId ? `/secrets/cases/${item.caseId}?return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : null, title: `CASE-${item.caseId ?? '미확인'}`, action: '대응 건 확인', focus: String(item.caseId ?? '') }
+  if (unit === 'ResponseCase') return { href: item.caseId ? `/secrets/cases/${item.caseId}?${new URLSearchParams({ origin: params.get('origin') === 'TEST' ? 'TEST' : 'PRODUCTION', ...(item.occurrenceId ? { occurrence: String(item.occurrenceId) } : {}), return: 'workbench', returnQuery })}` : null, title: `CASE-${item.caseId ?? '미확인'}`, action: '대응 건 확인', focus: String(item.caseId ?? '') }
   return { href: secretId ? item.occurrenceId ? reviewDetailPath(secretId, item.occurrenceId, params) : `/secrets/${secretId}?origin=${params.get('origin') ?? 'PRODUCTION'}&return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : null, title: item.maskedLabel ?? (secretId ? `키 #${secretId}` : '대상 미확인'), action: item.occurrenceId ? '위치 근거 확인' : '키 상세', focus: item.occurrenceId ? `${secretId}:${item.occurrenceId}` : String(secretId ?? '') }
 }
 export function SecretTriageCandidatesPage() {
@@ -38,8 +38,9 @@ export function SecretTriageCandidatesPage() {
     const nextFilters = { ...filters, snapshotId: queue.data.snapshotId }
     client.setQueryData(['secret-review-queue', nextFilters, bucket, stages, page, refreshVersion], queue.data)
     const next = workbenchSearch(nextFilters); next.set('bucket', bucket); next.set('page', String(page + 1)); if (stages) next.set('stages', stages)
+    const focus = params.get('focus'); if (focus && /^[1-9]\d*(?::[1-9]\d*)?$/.test(focus)) next.set('focus', focus)
     setParams(next, { replace: true })
-  }, [queue.isSuccess, queue.isFetching, queue.data, filters, bucket, stages, page, refreshVersion, client, setParams])
+  }, [queue.isSuccess, queue.isFetching, queue.data, filters, bucket, stages, page, refreshVersion, client, params, setParams])
   useEffect(() => {
     const focus = params.get('focus'); if (!queue.isSuccess || !focus || !/^[1-9]\d*(?::[1-9]\d*)?$/.test(focus) || restored.current === focus) return
     const link = document.getElementById(`review-link-${focus.replace(':', '-')}`)

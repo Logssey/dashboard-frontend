@@ -78,6 +78,15 @@ test('pending review shows waiting owner without granting approval to the reques
   assert.match(html, /스스로 승인할 수 없어요/)
   assert.doesNotMatch(html, /<button[^>]*>변경 승인<\/button>/)
 })
+test('scope details distinguish remaining policy work from saved source classification', () => {
+  const value = { ...classification, pendingProposal: null, policyStatus: 'EXPIRED', storagePolicy: { policyId: 3, version: 2 }, setupReasonCodes: ['POLICY_EXPIRED'], capabilities: { canPropose: false, canDraftPolicy: false, canClassifySource: false } }
+  const html = renderPage(api.SecretScopeClassificationPage, '/secrets/connections/:connectionId/scopes/:scopeId', '/secrets/connections/2/scopes/5', [[['secret-classification', 5], value]])
+  assert.match(html, /이 대상에서 남은 일/)
+  assert.match(html, /<strong>보관 정책<\/strong><span>보관 정책 만료/)
+  assert.match(html, /자료 용도<\/dt><dd>운영/)
+  assert.match(html, /<dt>보관 정책<\/dt><dd><span>보관 정책 만료<\/span><a/)
+  assert.ok(html.indexOf('이 대상에서 남은 일') < html.indexOf('운영·시험 분류</h2>'))
+})
 
 test('approval preview is read-only POST and assignment includes optimistic version and retry key', async () => {
   const originalFetch = globalThis.fetch, originalDocument = globalThis.document

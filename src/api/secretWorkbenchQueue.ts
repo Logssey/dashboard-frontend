@@ -15,6 +15,7 @@ export interface WorkbenchQueueItem {
   assigneeDisplayName?: string | null; assigneeTeam?: string | null; assigneeUserId?: number | null
   contentType?: string; coverage?: ScopeCoverage
   classificationStatus?: string; approvalStatus?: string; policyStatus?: string
+  lastSeenAt?: string | null; evidenceObservedAt?: string | null; updatedAt?: string | null
 }
 export interface WorkbenchQueuePage {
   items: WorkbenchQueueItem[]; total: number; page: number; size: number

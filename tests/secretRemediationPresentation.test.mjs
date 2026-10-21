@@ -46,13 +46,12 @@ test('selecting a location opens one dialog instead of appending evidence under 
 })
 
 
-test('discovery context restores source coordinates and explains potential risk without asserting a breach', () => {
-  const html = renderToStaticMarkup(createElement(api.SecretDiscoveryContext, { detail: { issuer: 'GITHUB', componentState: 'CONFIRMED', validationStatus: 'UNCHECKED', severity: 'UNASSESSED' }, locations: [{ occurrenceId: 8, source: 'GITHUB', exposure: 'UNKNOWN', lastSeenAt: null, sourceDetails: { status: 'AVAILABLE', repository: 'Logssey/test-find-key', branch: 'main', path: 'fixtures/config/sample.env', line: 'L4', sourceUrl: 'https://github.com/Logssey/test-find-key/blob/main/fixtures/config/sample.env#L4' } }], onSelect() {} }))
-  assert.match(html, /왜 확인해야 하나요/)
-  assert.match(html, /부여된 권한으로 저장소나 조직 자료에 접근/)
-  assert.match(html, /Logssey\/test-find-key/)
-  assert.match(html, /fixtures\/config\/sample.env/)
-  assert.match(html, /4번째 줄/)
-  assert.match(html, /현재 사용 가능 여부 미확인/)
-  assert.doesNotMatch(html, /침해 확인|Critical|안전해요/)
+test('discovery graph connects actual key, source and short location labels while detail preserves full coordinates', () => {
+  const location = { occurrenceId: 8, source: 'GITHUB', exposure: 'UNKNOWN', lastSeenAt: null, sourceDetails: { status: 'AVAILABLE', repository: 'Logssey/test-find-key', branch: 'main', path: 'fixtures/config/sample.env', line: 'L4', sourceUrl: 'https://github.com/Logssey/test-find-key/blob/main/fixtures/config/sample.env#L4' } }
+  const html = renderToStaticMarkup(createElement(api.SecretDiscoveryContext, { detail: { maskedLabel: 'GitHub ••••1234', issuer: 'GITHUB', componentState: 'CONFIRMED', validationStatus: 'UNCHECKED', severity: 'UNASSESSED' }, locations: [location], onSelect() {} }))
+  assert.match(html, /키와 발견 소스·위치의 관계/); assert.match(html, /GitHub ••••1234/)
+  assert.match(html, /Logssey\/test-find-key/); assert.match(html, /sample.env · 4행/)
+  assert.doesNotMatch(html, /fixtures\/config\/sample.env|L4|침해 확인|Critical|안전해요/)
+  const coordinates = renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location }))
+  assert.match(coordinates, /fixtures\/config\/sample.env/); assert.match(coordinates, /4번째 줄/)
 })

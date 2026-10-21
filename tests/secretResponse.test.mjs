@@ -6,12 +6,13 @@ import { after, test } from 'node:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { build } from 'esbuild'
 
-const entries = { response: 'src/lib/secretResponse.ts', workflow: 'src/components/SecretCaseWorkflow.tsx', api: 'src/api/secretCases.ts', revalidation: 'src/api/secretCaseRevalidations.ts', lifecycle: 'src/components/SecretLifecycleEvidence.tsx' }
+const entries = { response: 'src/lib/secretResponse.ts', workflow: 'src/components/SecretCaseWorkflow.tsx', workspace: 'src/pages/SecretCaseDetailPage.tsx', api: 'src/api/secretCases.ts', revalidation: 'src/api/secretCaseRevalidations.ts', lifecycle: 'src/components/SecretLifecycleEvidence.tsx' }
 const modules = {}, paths = []
 for (const [key, entry] of Object.entries(entries)) {
-  const built = await build({ entryPoints: [resolve(entry)], bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', alias: { '@': resolve('src') } })
+  const built = await build({ entryPoints: [resolve(entry)], bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
   const path = resolve(`node_modules/.secret-response-${key}-test.mjs`)
   paths.push(path); await writeFile(path, built.outputFiles[0].contents); modules[key] = await import(pathToFileURL(path).href)
 }
@@ -26,6 +27,11 @@ test('response workflow uses four stages and recommends a visible location needi
   assert.equal(modules.response.recommendedCaseLocation({ ...detail, occurrences: [occurrence, other] }).occurrenceId, 12)
   assert.equal(modules.response.recommendedCaseLocation({ ...detail, occurrences: [] }), undefined)
   assert.equal(modules.response.suggestedCaseTab({ ...detail, taskGuidance: { nextActionCode: 'REQUEST_REVALIDATION' } }), 'verification')
+  const unassigned = { ...occurrence, occurrenceId: 15, assignedTeam: null, assignedUserId: null }
+  const coordinated = { ...detail, assigneeUserId: 1, assigneeTeam: null, occurrences: [occurrence, unassigned] }
+  assert.equal(modules.response.recommendedCaseLocation(coordinated).occurrenceId, 15)
+  assert.equal(modules.response.responseNextAction(coordinated), '위치별 담당자 지정')
+  assert.equal(locationNextAction(unassigned), '담당자 지정')
 })
 function render(Component, props, seeds = []) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -63,6 +69,26 @@ test('a remediator records actual work without a duplicate review or empty start
   assert.match(html, /외부 조치 기록/); assert.match(html, /키 원문·URL·자유 메모/)
   assert.doesNotMatch(html, /보안 검토|조치 시작|이 위치를 재검사 대기로/)
   assert.equal(locationNextAction({ ...location, assignedUserId: null, assignedTeam: null }), '담당자 지정')
+})
+test('unassigned location opens its actual assignment while coordinator management stays collapsed', () => {
+  const seeds = [[['secret-case-assignees', 7, 11], { items: [] }], [['secret-case-assignees', 7, undefined], { items: [] }]]
+  const location = render(modules.workflow.SecretCaseAssignment, { detail, occurrence: { ...occurrence, assignedTeam: null, assignedUserId: null } }, seeds)
+  assert.match(location, /<details[^>]* open=""><summary>이 위치의 실제 조치 담당자/)
+  const coordinator = render(modules.workflow.SecretCaseAssignment, { detail }, seeds)
+  assert.doesNotMatch(coordinator, /<details[^>]* open=/)
+  assert.match(coordinator, /실제 키 교체·삭제 담당자는 각 위치에서 따로 지정/)
+})
+test('case workspace puts permitted location work before the collapsed case summary and coordinator', () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } })
+  client.setQueryData(['secret-case', 7], { ...detail, maskedLabel: '키 후보', secretId: 3, caseOrigin: 'PRODUCTION', disposition: 'ACTIVE', visibleOccurrenceCount: 1, restrictedCoverage: true, readAt: '2026-10-21T00:00:00Z', occurrences: [{ ...occurrence, presence: 'PRESENT', actionCycle: 1, canRecordAction: true }] })
+  client.setQueryData(['secret-case-assignees', 7, undefined], { items: [] })
+  const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/secrets/cases/7?tab=work'] }, createElement(Routes, null, createElement(Route, { path: '/secrets/cases/:caseId', element: createElement(modules.workspace.SecretCaseDetailPage) })))))
+  assert.ok(html.indexOf('대응 상세 구역') < html.indexOf('외부 조치 기록'))
+  assert.ok(html.indexOf('외부 조치 기록') < html.indexOf('<summary>대응 요약·진행 관리자'))
+  assert.match(html, /<details class="card secret-case-context"><summary>/)
+  assert.match(html, /열람 가능한 위치만 표시/)
+  assert.doesNotMatch(html, /이 위치의 실제 조치 담당자 지정·변경/)
+  client.clear()
 })
 test('manual lifecycle approval is visibly distinct from provider verification', () => {
   const html = render(modules.lifecycle.SecretLifecycleEvidence, { detail }, [[['secret-case-lifecycle', 7], { caseId: 7, caseVersion: 3, items: [{ evidenceId: 8, kind: 'REVOKED', verificationLevel: 'APPROVED_MANUAL', reviewStatus: 'APPROVED', evidenceRef: 'CHANGE:SEC-123', performedAt: '2026-10-20T00:00:00Z', observedAt: null, version: 1, limitations: [], isCurrentlyApplicable: true, coverageLimit: 'LIMITED', capabilities: { canReview: false } }], allowedKinds: [], allowedReviewReasonCodes: {}, capabilities: { canSubmit: false } }]])

@@ -19,6 +19,7 @@ export interface RiskSourceRef { type: 'VALIDATION_ATTEMPT' | 'INVESTIGATION_HIS
 export interface RiskOverride extends RiskAssessment { canReview?: boolean; allowedDecisionReasonCodes?: string[]; validUntil?: string | null; status?: string; reasonCode?: string; targetAssessmentStatus?: AssessmentStatus; targetSeverity?: RiskSeverity | null; evidenceIds?: number[]; basisAssessmentId?: number | null; createdAt?: string }
 export type RiskInput = string | null | { value: string; observedAt?: string | null; verificationLevel?: string; freshness?: string }
 export interface SecretRisk {
+  legacyExposureAssessment?: { decision: string; assessmentId: number; scopeRevision: number | null; currentScopeRevision: number; needsReconfirmation: boolean; reasonCodes: string[] }
   latestAutomaticAssessment: RiskAssessment | null; effectiveAssessment: RiskAssessment | null
   lastConfirmedSeverity: { severity: RiskSeverity; assessmentId: number; assessedAt: string | null } | null
   evidenceRevision: number; inputs?: Record<string, RiskInput>; evidenceSummary?: RiskEvidence[]; positiveCapabilities?: string[]
