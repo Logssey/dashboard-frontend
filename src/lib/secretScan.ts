@@ -5,6 +5,15 @@ export const scanPlatforms = { GITHUB: 'GitHub', AWS: 'AWS', NOTION: 'Notion', K
 export const scanStatuses = { PENDING: '대기', RUNNING: '진행 중', SUCCEEDED: '정상 종료', PARTIAL: '부분 실패', FAILED: '실패', CANCELLED: '취소' } as const
 export const terminalRunStatuses = new Set(['SUCCEEDED', 'PARTIAL', 'FAILED', 'CANCELLED'])
 
+/** Hide only the known bootstrap names; an explicit safe alias or custom name stays intact. */
+export function scanConnectionLabel(connection: { connectionId: number; provider: string; safeDisplayAlias?: string | null; displayName?: string | null }): string {
+  if (connection.safeDisplayAlias) return connection.safeDisplayAlias
+  const legacyNames = ['GitHub fixtures (local)', 'AWS IAM metadata (dev)']
+  if (connection.displayName && !legacyNames.includes(connection.displayName)) return connection.displayName
+  const provider = scanPlatforms[connection.provider as keyof typeof scanPlatforms] ?? '검사 연결'
+  return `${provider} · 연결 ${connection.connectionId}`
+}
+
 export function positiveId(raw: string | null | undefined): number | null {
   if (!raw || !/^[1-9]\d*$/.test(raw)) return null
   const value = Number(raw)
@@ -83,6 +92,18 @@ export function scopeTypeLabel(type: string): string {
 }
 export function scanReason(code: string | null | undefined): string {
   if (!code) return '상세 근거 미기록'
+  const reasonLabels: Record<string, string> = {
+    NO_OBJECTS: '검사할 수집 항목 없음',
+    NO_CANDIDATES: '유효성을 확인할 키 후보 없음',
+    NO_SUPPORTED_VALIDATOR: '지원되는 유효성 확인 방식 없음',
+    DETECTION_NOT_RUN: '탐지 단계 미실행',
+    VALIDATION_ATTEMPT_FAILED: '유효성 확인 시도 실패',
+    VALIDATION_INCONCLUSIVE: '키 인증 여부 확인 불가',
+    SOURCE_GUARD_BLOCKED: '시험 저장소 검증 제외',
+    SYNTHETIC_FIXTURE: '합성 키 검증 생략',
+    STAGE_NOT_RECORDED: '단계 실행 근거 미기록',
+  }
+  if (Object.hasOwn(reasonLabels, code)) return reasonLabels[code]
   if (code.includes('ACCESS_DENIED') || code.includes('ACCOUNT_MISMATCH')) return '접근 권한 확인 필요'
   if (code.includes('NOT_APPLICABLE') || code.includes('METADATA')) return '키 값 검사 대상 아님'
   if (code.includes('NEVER_SCANNED') || code.includes('REVISION_UNCHECKED')) return '현재 승인 범위 검사 전'
