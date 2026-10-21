@@ -44,6 +44,19 @@ test('synthetic guard takes precedence over a global disabled profile and missin
   const html = render(api.SecretValidationCard, { secretId: 12, locations: [{ ...location, connectionId: 3, scopeId: 5 }] }, [[['secret-validation', 12, 8], { ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'PROFILE_UNCONFIGURED'] }, validationPolicy: { canConfigure: true } }]])
   assert.match(html, /서버 운영 담당자의 검증 실행 설정이 필요/); assert.match(html, /href="\/secrets\/connections\/3\/scopes\/5\?settings=validation"/); assert.match(html, /다음 확인 기한 예약 없음/); assert.doesNotMatch(html, /담당자에게 사유 코드를 알려/)
 })
+
+test('a guarded test repository skips external validation without asserting synthetic evidence', () => {
+  const value = { ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'SOURCE_GUARD_BLOCKED'] } }
+  const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value]])
+  assert.match(html, /<h3>보호 규칙으로 검증 생략<\/h3>/)
+  assert.match(html, /외부 인증 확인을 실행하지 않았어요/)
+  assert.match(html, /합성 여부는 별도 근거로 확인/)
+  assert.match(html, /실제 확인 시각<\/dt><dd>—/)
+  assert.doesNotMatch(html, /합성 시험 키로 확인되어|<h3>유효<\/h3>|<h3>사용 불가<\/h3>|담당자에게 사유 코드를 알려/)
+  const history = render(api.SecretValidationHistory, { secretId: 12 }, [[['secret-validation-history', 12, null, 0], { items: [{ attemptId: 4, result: 'UNCHECKED', reasonCode: 'SOURCE_GUARD_BLOCKED', providerCheckedAt: null }], total: 1, page: 0, size: 20 }]])
+  assert.match(history, /시험 저장소 보호 규칙/)
+  assert.doesNotMatch(history, /합성 시험 키로 확인되어/)
+})
 test('abandoned attempts in history have no invented unchecked result or provider timestamp', () => {
   const html = render(api.SecretValidationHistory, { secretId: 12 }, [[['secret-validation-history', 12, null, 0], { items: [{ attemptId: 3, state: 'ABANDONED', result: null, reasonCode: 'LEASE_EXPIRED', purpose: 'CREDENTIAL_VALIDITY', completedAt: '2026-10-22T00:00:00Z', providerCheckedAt: null }], total: 1, page: 0, size: 20 }]])
   assert.match(html, /시도 중단 · 결론 없음/); assert.match(html, /실행 권한이 만료/); assert.doesNotMatch(html, /<td>미검증<\/td>/)

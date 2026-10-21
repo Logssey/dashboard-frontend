@@ -5,6 +5,7 @@ export const validationReasonLabels: Record<string, string> = {
   DISABLED: '검증 설정이 꺼져 있어요.', PROFILE_DISABLED: '서버 검증 기능이 꺼져 있어요.', GLOBAL_DISABLED: '서버 검증 기능이 꺼져 있어요.',
   UNSUPPORTED_TYPE: '이 유형의 인증 확인은 지원하지 않아요.', UNSUPPORTED: '이 유형의 인증 확인은 지원하지 않아요.',
   SYNTHETIC_FIXTURE: '합성 시험 키로 확인되어 공급자 호출을 생략했어요.', METADATA_ONLY: '존재 정보만 있어 인증을 확인하지 않아요.',
+  SOURCE_GUARD_BLOCKED: '시험 저장소 보호 규칙에 따라 외부 인증 확인을 실행하지 않았어요. 합성 여부는 별도 근거로 확인해야 해요.',
   INCOMPLETE_CREDENTIAL: '인증에 필요한 키 구성요소가 부족해요.', INCOMPLETE_PAIR: '같은 구성임이 확인된 키 쌍이 필요해요.', MISSING_SESSION_TOKEN: '임시 키의 세션 토큰이 필요해요.',
   NO_VERIFICATION_ATTEMPT: '아직 인증을 확인하지 않았어요.', NOT_APPROVED: '이 범위의 인증 확인 허용이 필요해요.',
   SOURCE_VALUE_UNAVAILABLE: '승인 원천에서 원문을 다시 얻을 경로가 없어요.', SOURCE_UNAVAILABLE: '승인 원천에서 값을 다시 읽지 못했어요.',
@@ -33,6 +34,7 @@ export function validationPresentation(data: SecretValidation): { title: string;
   const reason = allReasons.find((code) => !!code && code !== 'SUPPORTED')
   if (activeRequest(data.latestRequest?.status)) return { title: requestStatusLabel(data.latestRequest!.status), description: '접수된 요청의 진행 상황이에요. 아직 새 인증 결과가 아니에요.' }
   if (allReasons.includes('SYNTHETIC_FIXTURE')) return { title: '검증 생략', description: validationReason('SYNTHETIC_FIXTURE') }
+  if (allReasons.includes('SOURCE_GUARD_BLOCKED')) return { title: '보호 규칙으로 검증 생략', description: validationReason('SOURCE_GUARD_BLOCKED') }
   if (data.support.status === 'UNSUPPORTED' || reason === 'UNSUPPORTED_TYPE') return { title: '검증 미지원', description: validationReason('UNSUPPORTED_TYPE') }
   if (['INCOMPLETE_CREDENTIAL', 'INCOMPLETE_PAIR', 'MISSING_SESSION_TOKEN'].includes(reason ?? '')) return { title: '구성 부족', description: validationReason(reason) }
   if (allReasons.includes('PROFILE_UNCONFIGURED')) return { title: '서버 검증 설정 필요', description: validationReason('PROFILE_UNCONFIGURED') }
