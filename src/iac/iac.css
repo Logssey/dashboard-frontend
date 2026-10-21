@@ -12,3 +12,24 @@
 @media (max-width: 1100px) { .iac-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .iac-metrics { grid-template-columns: 1fr; } }
 .iac-card-body { margin: 0 28px 28px; }
+.iac-steps { display: flex; flex-direction: column; gap: var(--space-2); margin: 10px 0 0; padding-left: 20px; }
+.iac-steps li { display: flex; align-items: center; gap: var(--space-2); }
+.iac-cuts { display: flex; flex-direction: column; gap: var(--space-4); margin: 10px 0 0; padding: 0; list-style: none; }
+.iac-cuts li { display: flex; flex-direction: column; gap: 4px; padding: var(--space-4); border-radius: var(--radius-sm); background: var(--surface-subtle); }
+.iac-cuts p { margin: 0; }
+.iac-section-text { margin: 10px 0 0; }
+.iac-findings { display: flex; flex-direction: column; gap: var(--space-4); margin: 10px 0 0; padding: 0; list-style: none; }
+.iac-findings li { display: flex; flex-direction: column; gap: 6px; padding: var(--space-4); border-radius: var(--radius-sm); background: var(--surface-subtle); }
+.iac-address { font-size: 12px; word-break: break-all; }
+.iac-next { display: flex; flex-direction: column; gap: var(--space-2); margin: 10px 0 0; padding-left: 20px; }
+.iac-gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.iac-gates > li { display: flex; flex-direction: column; gap: 6px; padding: var(--space-4); border-radius: var(--radius-sm); background: var(--surface-subtle); }
+.iac-gate-rules { margin: 4px 0 0; padding-left: 16px; font-size: 12px; color: var(--text-muted); }
+.iac-supply { margin: var(--space-6) 0 var(--space-4); font-size: 15px; }
+.iac-bucket { display: flex; flex-direction: column; gap: 6px; margin-top: var(--space-4); }
+.iac-subhead { margin: 0 28px var(--space-4); font-size: 15px; }
+.iac-status-actions { display: flex; gap: var(--space-2); margin-left: auto; }
+.facts.iac-facts-wide { grid-template-columns: minmax(140px, max-content) 1fr; column-gap: var(--space-6); }
+.iac-nowrap { white-space: nowrap; }
+.iac-removed { margin-top: var(--space-4); }
+.iac-removed summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-body); }
