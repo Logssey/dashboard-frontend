@@ -4,6 +4,7 @@ import { fetchAssessmentHistory, fetchOccurrenceRisk, type RiskAssessment } from
 import { safeMutationMessage } from '@/lib/secretEvidence'
 import { positiveId, scanDate } from '@/lib/secretScan'
 import { riskRuleLabels, riskAxisLabels, riskAxisValue, riskEvidenceLabels, riskReason, severityText, verificationLabel } from '@/lib/secretRisk'
+import { SecretRiskActions } from './SecretRiskActions'
 import './secret-validation-risk.css'
 
 function AssessmentResult({ label, assessment }: { label: string; assessment: RiskAssessment | null }) {
@@ -19,12 +20,14 @@ export function SecretRiskPanel({ occurrenceId }: { occurrenceId: number }) {
     </> : <>
       <div className="secret-risk-results"><AssessmentResult label="최근 자동 평가" assessment={risk.data.latestAutomaticAssessment} /><AssessmentResult label="현재 적용 판단" assessment={risk.data.effectiveAssessment} /></div>
       {risk.data.lastConfirmedSeverity && <p className="caption">마지막 확정 등급 {severityText(risk.data.lastConfirmedSeverity.severity)} · 평가 #{risk.data.lastConfirmedSeverity.assessmentId} · {scanDate(risk.data.lastConfirmedSeverity.assessedAt)}. 현재 적용 판단과 구분해요.</p>}
+      {typeof risk.data.freshness === 'object' && risk.data.freshness.currentEligible === false && <p className="notice">최근 자동 평가의 근거가 현재 기준과 달라요. 당시 결과와 현재 유지 중인 판단을 구분하고 재평가가 필요한 정보를 확인하세요.</p>}
       <h3>확인한 여섯 가지 사실</h3><p className="caption">자동 규칙에 필요한 사실만 사용해요. 유효성으로 심각도를 올리거나 내리지 않아요.</p><dl className="secret-risk-axes">{Object.entries(riskAxisLabels).map(([axis, label]) => { const input = risk.data.inputs?.[axis]; return <div key={axis}><dt>{label}</dt><dd>{riskAxisValue(axis, input)}{input && typeof input === 'object' && <small>{input.observedAt ? scanDate(input.observedAt) : '—'} · {input.verificationLevel ? verificationLabel(input.verificationLevel) : '관측 범위 확인'}{input.freshness === 'STALE' && ' · 근거 오래됨'}</small>}</dd></div> })}</dl>
       {risk.data.positiveCapabilities?.length ? <div className="notice"><h3>확인된 권한</h3><ul>{risk.data.positiveCapabilities.map((code) => <li key={code}>{riskReason(code)}</li>)}</ul><p>전체 대상·제한 확인 전에는 완전한 영향 분석으로 표시하지 않아요.</p></div> : null}
       {[...(risk.data.missingReasonCodes ?? []), ...(risk.data.conflictReasonCodes ?? [])].length > 0 && <div className="notice"><h3>아직 필요한 정보</h3><ul>{[...new Set([...(risk.data.missingReasonCodes ?? []), ...(risk.data.conflictReasonCodes ?? [])])].map((code) => <li key={code}>{riskReason(code)}</li>)}</ul></div>}
       <h3>사용한 근거</h3>{risk.data.evidenceSummary?.length ? <ul className="secret-risk-history">{risk.data.evidenceSummary.map((evidence) => <li key={evidence.evidenceId}><strong>{riskEvidenceLabels[evidence.type ?? evidence.evidenceType ?? evidence.kind ?? ''] ?? '판단 근거'}</strong><p>{verificationLabel(evidence.verificationLevel)} · {evidence.observedAt ? scanDate(evidence.observedAt) : '—'}</p>{evidence.currentEligible === false && <p>현재 적용 불가 · 과거 자료</p>}</li>)}</ul> : <p>이 조회 범위에서 사용할 수 있는 추가 근거가 없어요. 정상 보관이나 낮은 위험을 뜻하지 않아요.</p>}
       {risk.data.nextAction && <p className="notice">다음 작업 · {riskReason(typeof risk.data.nextAction === 'string' ? risk.data.nextAction : risk.data.nextAction.code)}</p>}
       <p className="caption">조회 시각 {scanDate(risk.data.readAt)} · 근거 revision {risk.data.evidenceRevision}</p>
+      <SecretRiskActions occurrenceId={occurrenceId} risk={risk.data} refreshing={risk.isFetching} onReload={() => void risk.refetch()} />
     </>}
   </section>
 }
