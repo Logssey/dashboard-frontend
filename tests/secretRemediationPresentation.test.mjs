@@ -14,6 +14,28 @@ await writeFile(path, result.outputFiles[0].contents)
 const api = await import(pathToFileURL(path).href)
 after(() => unlink(path))
 const summary = { requiredLocationCount: 3, presentLocationCount: 1, postActionMissingLocationCount: 1, unknownLocationCount: 1, postActionRedetectedCount: 1, approvedStorageLocationCount: 2, metadataLocationCount: 1, visibleLocationCount: 6, evidenceObservedAt: '2026-10-21T01:00:00Z', restrictedCoverage: true, comparisonScope: 'AUTHORIZED_CURRENT_ORIGIN' }
+
+test('repeated scans keep the latest detection readable without expanding historical evidence', () => {
+  const evidence = Array.from({ length: 20 }, (_, i) => ({ ruleId: 'github-pat', runId: i + 1, detectedAt: `2026-10-${String(i + 1).padStart(2, '0')}T01:00:00Z` }))
+  const html = renderToStaticMarkup(createElement(api.SecretDetectionEvidence, { evidence }))
+  const current = html.split('<details')[0]
+  assert.equal((current.match(/github-pat/g) ?? []).length, 1)
+  assert.match(current, /SCAN-20/)
+  assert.match(html, /<details[^>]*><summary>최근 탐지 기록 20건<\/summary>/)
+  assert.doesNotMatch(html, /<details[^>]* open/)
+  assert.match(html, /SCAN-1<\/p>/)
+})
+
+test('multiple detector rules are bounded in the default view while all evidence remains available', () => {
+  const evidence = Array.from({ length: 8 }, (_, i) => ({ ruleId: `rule-${i + 1}`, runId: 25, detectedAt: '2026-10-22T01:00:00Z' }))
+  const html = renderToStaticMarkup(createElement(api.SecretDetectionEvidence, { evidence }))
+  assert.equal((html.split('<details')[0].match(/<strong>rule-/g) ?? []).length, 3)
+  assert.match(html, /최근 탐지 기록 8건/)
+  assert.match(html, /rule-8/)
+  const missing = renderToStaticMarkup(createElement(api.SecretDetectionEvidence, { evidence: undefined }))
+  assert.match(missing, /상세 탐지 규칙 기록 없음/)
+  assert.doesNotMatch(missing, /탐지 기록 0건|정상|안전/)
+})
 test('location evidence counts retain uncertainty and separate approved storage and metadata', () => {
   const html = renderToStaticMarkup(createElement(api.SecretRemediationSummary, { data: summary }))
   assert.match(html, /필수 대응 3곳/)
