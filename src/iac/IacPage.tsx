@@ -1,17 +1,18 @@
 import { Fragment, useState } from 'react'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
 import { PageHeader } from '@/components/PageHeader'
-import { fetchIacPaths, fetchIacPullRequests, fetchIacSummary } from './api'
+import { fetchIacPaths, fetchIacPullRequests, fetchIacSummary, triggerIacJob } from './api'
 import { GateSection } from './GateSection'
+import { JobSection } from './JobSection'
 import { PathDrawer } from './PathDrawer'
 import { PullRequestDrawer } from './PullRequestDrawer'
 import { RemediationSection } from './RemediationSection'
 import { StateSection } from './StateSection'
 import {
-  formatDateTime, hopLabel, pullRequestBadge, pullRequestChanges, ruleTitle, severityLabel, severityTone, shortSha, tierLabel,
+  IAC_POLICY_URL, formatDateTime, hopLabel, pullRequestBadge, pullRequestChanges, ruleTitle, severityLabel, severityTone, shortSha, tierLabel,
 } from './labels'
 import type { IacPath, IacPullRequestSummary, IacSeverity } from './types'
 import './iac.css'
@@ -40,6 +41,12 @@ export function IacPage() {
   const [selectedPathId, setSelectedPathId] = useState<number | null>(null)
   const pullRequests = useQuery({ queryKey: ['iac', 'prs'], queryFn: fetchIacPullRequests })
   const [selectedPr, setSelectedPr] = useState<number | null>(null)
+  const queryClient = useQueryClient()
+  // 수집(COLLECT_GRAPH)은 배포된 클러스터에서만 돌릴 수 있어, 지금 있는 그래프로 경로와 State 를 다시 계산한다
+  const checkNow = useMutation({
+    mutationFn: () => Promise.all([triggerIacJob('enrich-graph'), triggerIacJob('check-state')]),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['iac', 'jobs'] }),
+  })
 
   return (
     <>
@@ -50,7 +57,17 @@ export function IacPage() {
         <Badge label="매일 03:00 수집 · PR 마다 분석" tone="primary" />
         <span className="caption">마지막 전체 점검 {formatDateTime(summary.data?.lastFullCheckAt ?? null)}</span>
         <span className="caption">그래프 기준 {formatDateTime(summary.data?.graphAsOf ?? null)}</span>
+        <div className="iac-status-actions">
+          <a className="btn outline" href={IAC_POLICY_URL} target="_blank" rel="noopener noreferrer">규칙 보기</a>
+          <button className="btn primary" onClick={() => checkNow.mutate()} disabled={checkNow.isPending}>
+            {checkNow.isPending ? '등록 중…' : '지금 점검'}
+          </button>
+        </div>
       </div>
+      {checkNow.isSuccess && (
+        <p className="notice page-notice" role="status">점검을 등록했어요. 아래 "검사 주기와 상태"에서 진행을 볼 수 있어요.</p>
+      )}
+      {checkNow.isError && <p className="notice error page-notice" role="alert">점검을 등록하지 못했어요.</p>}
       {summary.data?.graphStale && (
         <p className="notice page-notice" role="status">
           자산 그래프가 24시간보다 오래됐어요. 아래 경로는 기준 시각의 상태예요.
@@ -143,6 +160,9 @@ export function IacPage() {
 
         {/* G 할 수 있는 조치 */}
         <RemediationSection />
+
+        {/* H 검사 주기와 상태 */}
+        <JobSection />
       </div>
       <PathDrawer pathId={selectedPathId} onClose={() => setSelectedPathId(null)} />
       <PullRequestDrawer number={selectedPr} onClose={() => setSelectedPr(null)} />

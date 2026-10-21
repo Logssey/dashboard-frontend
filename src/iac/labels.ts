@@ -169,3 +169,22 @@ export const driftLevel: Record<string, { label: string; tone: string }> = {
   'drift.medium': { label: '드리프트 중간', tone: 'medium' },
   'drift.low': { label: '드리프트 낮음', tone: '' },
 }
+
+export const jobLabel: Record<string, string> = {
+  COLLECT_GRAPH: '자산 수집',
+  ENRICH_GRAPH: '그래프 보강·경로 계산',
+  CHECK_STATE: 'State 점검',
+  CHECK_DRIFT: '드리프트 점검',
+  ANALYZE_RUN: 'PR 분석',
+}
+
+export function jobStatusBadge(job: { lastStatus: string | null; pending: number }) {
+  if (job.pending > 0) return { label: '실행 대기·중', tone: 'primary' }
+  if (job.lastStatus === 'SUCCEEDED') return { label: '성공', tone: 'success' }
+  if (job.lastStatus === 'FAILED') return { label: '실패', tone: 'critical' }
+  if (job.lastStatus === 'CANCELLED') return { label: '취소', tone: '' }
+  return { label: '기록 없음', tone: '' }
+}
+
+/** 규칙 원본 (변경은 PR 로만) */
+export const IAC_POLICY_URL = `https://github.com/${IAC_REPO}/tree/main/policy`
