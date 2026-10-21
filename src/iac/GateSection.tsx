@@ -43,7 +43,8 @@ export function GateSection() {
               </li>
             ))}
           </ol>
-          <dl className="facts iac-supply">
+          <h3 className="iac-supply">공급망 요약 (main)</h3>
+          <dl className="facts iac-facts-wide">
             <dt>버전 미고정 프로바이더</dt>
             <dd>{checked ? data.supplyChain.unpinnedProviders : '—'}</dd>
             <dt>버전 미고정 모듈</dt>

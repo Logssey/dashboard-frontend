@@ -80,7 +80,7 @@ export function PathDrawer({ pathId, onClose }: { pathId: number | null; onClose
                             <b>{label.kind}</b>
                             {label.name && <span>{label.name}</span>}
                           </span>
-                          {cut && <Badge label="끊을 지점" tone="primary" />}
+                          {cut && <Badge label="↓ 다음 관계를 끊을 수 있음" tone="primary" />}
                         </li>
                       )
                     })}

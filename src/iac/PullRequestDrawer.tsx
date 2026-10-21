@@ -8,10 +8,49 @@ import {
   causeActionLabel, formatDateTime, hopLabel, pathChangeLabel, pullRequestBadge, pullRequestUrl, ruleNextStep, ruleTitle,
   severityLabel, severityTone, shortSha, tierLabel,
 } from './labels'
-import type { IacPullRequest, IacSeverity } from './types'
+import type { IacPathChange, IacPullRequest, IacSeverity } from './types'
 
 function SeverityBadge({ severity }: { severity: IacSeverity | null }) {
   return severity ? <Badge label={severityLabel[severity]} tone={severityTone[severity]} /> : null
+}
+
+/** 경로 변화 한 건: 종류·심각도·등급, 단계, 원인 리소스, 시뮬레이터 결과 */
+function PathChangeItem({ change }: { change: IacPathChange }) {
+  return (
+    <li>
+      <div className="row">
+        <Badge label={pathChangeLabel[change.change] ?? change.change}
+          tone={change.change === 'REMOVED' ? 'success' : 'critical'} />
+        <SeverityBadge severity={change.severity} />
+        <Badge label={tierLabel(change.tier)} />
+      </div>
+      <div className="iac-hops">
+        {change.hops.map((hop, i) => {
+          const label = hopLabel(hop)
+          return (
+            <Fragment key={`${hop.id}-${i}`}>
+              {i > 0 && <span className="iac-hop-arrow" aria-hidden="true">→</span>}
+              <span className="iac-hop" title={hop.id}>
+                <b>{label.kind}</b>
+                {label.name && <span>{label.name}</span>}
+              </span>
+            </Fragment>
+          )
+        })}
+      </div>
+      {change.cause.address && (
+        <span className="caption">
+          원인: <code className="iac-address">{change.cause.address}</code>
+          {change.cause.action && ` ${causeActionLabel[change.cause.action] ?? change.cause.action}`}
+        </span>
+      )}
+      {change.evidence?.simulator && (
+        <span className="caption">
+          IAM 시뮬레이터: {change.evidence.simulator.before} → {change.evidence.simulator.after}
+        </span>
+      )}
+    </li>
+  )
 }
 
 /** 화면에 보여줄 규칙 ID (② 발견, ① 경로 변화, ③ State 순서, 중복 없이) */
@@ -54,6 +93,9 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
   const pr = detail.data
   const url = number === null ? null : pullRequestUrl(number)
   const gateBlocked = pr?.gate.status === 'BLOCK'
+  // 사라진 경로는 수십 개가 될 수 있어 접어 둔다 (새로 생긴·짧아진 경로가 먼저 보이게)
+  const added = pr?.paths.filter((change) => change.change !== 'REMOVED') ?? []
+  const removed = pr?.paths.filter((change) => change.change === 'REMOVED') ?? []
   const nextSteps = pr ? ruleIds(pr).flatMap((id) => {
     const text = ruleNextStep(id)
     return text ? [{ id, text }] : []
@@ -120,43 +162,21 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
                   ) : pr.paths.length === 0 ? (
                     <p className="muted iac-section-text">새로 생기거나 사라진 경로가 없어요.</p>
                   ) : (
-                    <ul className="iac-findings">
-                      {pr.paths.map((change, index) => (
-                        <li key={`${change.ruleId}-${index}`}>
-                          <div className="row">
-                            <Badge label={pathChangeLabel[change.change] ?? change.change}
-                              tone={change.change === 'REMOVED' ? 'success' : 'critical'} />
-                            <SeverityBadge severity={change.severity} />
-                            <Badge label={tierLabel(change.tier)} />
-                          </div>
-                          <div className="iac-hops">
-                            {change.hops.map((hop, hopIndex) => {
-                              const label = hopLabel(hop)
-                              return (
-                                <Fragment key={`${hop.id}-${hopIndex}`}>
-                                  {hopIndex > 0 && <span className="iac-hop-arrow" aria-hidden="true">→</span>}
-                                  <span className="iac-hop" title={hop.id}>
-                                    <b>{label.kind}</b>
-                                    {label.name && <span>{label.name}</span>}
-                                  </span>
-                                </Fragment>
-                              )
-                            })}
-                          </div>
-                          {change.cause.address && (
-                            <span className="caption">
-                              원인: <code className="iac-address">{change.cause.address}</code>
-                              {change.cause.action && ` ${causeActionLabel[change.cause.action] ?? change.cause.action}`}
-                            </span>
-                          )}
-                          {change.evidence?.simulator && (
-                            <span className="caption">
-                              IAM 시뮬레이터: {change.evidence.simulator.before} → {change.evidence.simulator.after}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      {added.length > 0 && (
+                        <ul className="iac-findings">
+                          {added.map((change, index) => <PathChangeItem key={`${change.ruleId}-${index}`} change={change} />)}
+                        </ul>
+                      )}
+                      {removed.length > 0 && (
+                        <details className="iac-removed">
+                          <summary>사라진 경로 {removed.length}개</summary>
+                          <ul className="iac-findings">
+                            {removed.map((change, index) => <PathChangeItem key={`${change.ruleId}-${index}`} change={change} />)}
+                          </ul>
+                        </details>
+                      )}
+                    </>
                   )}
                 </section>
 

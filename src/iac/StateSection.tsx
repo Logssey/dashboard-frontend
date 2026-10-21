@@ -58,7 +58,7 @@ export function StateSection() {
           <p className="notice">State 점검 기록이 아직 없어요.</p>
         ) : (
           <>
-            <dl className="facts">
+            <dl className="facts iac-facts-wide">
               <dt>tfstate 를 읽을 수 있는 주체</dt>
               <dd>{state.data.readerCount}개</dd>
               <dt>민감 값 후보 → 실제</dt>
@@ -132,11 +132,11 @@ export function StateSection() {
                           {drift.assigneeUserId === null ? '없음' : mine ? '나' : `사용자 #${drift.assigneeUserId}`}
                         </span>
                         {mine ? (
-                          <button className="btn" disabled={busy} onClick={() => assign.mutate({ drift, toMe: false })}>
+                          <button className="btn iac-nowrap" disabled={busy} onClick={() => assign.mutate({ drift, toMe: false })}>
                             담당 해제
                           </button>
                         ) : (
-                          <button className="btn" disabled={busy || myId === null} onClick={() => assign.mutate({ drift, toMe: true })}>
+                          <button className="btn iac-nowrap" disabled={busy || myId === null} onClick={() => assign.mutate({ drift, toMe: true })}>
                             내가 맡기
                           </button>
                         )}

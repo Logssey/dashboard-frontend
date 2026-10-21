@@ -180,7 +180,7 @@ function PathTable({ items, onSelect }: { items: IacPath[]; onSelect: (pathId: n
             <th scope="col">경로</th>
             <th scope="col">대상</th>
             <th scope="col">마지막 확인</th>
-            <th scope="col"><span className="sr-only">상세</span></th>
+            <th scope="col" aria-label="상세" />
           </tr>
         </thead>
         <tbody>
@@ -211,7 +211,7 @@ function PathTable({ items, onSelect }: { items: IacPath[]; onSelect: (pathId: n
               </td>
               <td className="muted">{formatDateTime(path.lastSeenAt)}</td>
               <td>
-                <button className="btn" onClick={() => onSelect(path.pathId)} aria-label={`경로 #${path.pathId} 끊을 지점 보기`}>
+                <button className="btn iac-nowrap" onClick={() => onSelect(path.pathId)} aria-label={`경로 #${path.pathId} 끊을 지점 보기`}>
                   끊을 지점
                 </button>
               </td>
@@ -234,7 +234,7 @@ function PullRequestTable({ items, onSelect }: { items: IacPullRequestSummary[];
             <th scope="col">변화</th>
             <th scope="col">사유</th>
             <th scope="col">검사 시각</th>
-            <th scope="col"><span className="sr-only">상세</span></th>
+            <th scope="col" aria-label="상세" />
           </tr>
         </thead>
         <tbody>
@@ -255,7 +255,7 @@ function PullRequestTable({ items, onSelect }: { items: IacPullRequestSummary[];
                 <td>{pr.reason ? ruleTitle[pr.reason] ?? pr.reason : <span className="muted">—</span>}</td>
                 <td className="muted">{formatDateTime(pr.checkedAt)}</td>
                 <td>
-                  <button className="btn" onClick={() => onSelect(pr.number)} aria-label={`PR #${pr.number} 검사 결과 보기`}>
+                  <button className="btn iac-nowrap" onClick={() => onSelect(pr.number)} aria-label={`PR #${pr.number} 검사 결과 보기`}>
                     상세
                   </button>
                 </td>
