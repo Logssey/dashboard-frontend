@@ -55,3 +55,23 @@ test('discovery graph connects actual key, source and short location labels whil
   const coordinates = renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location }))
   assert.match(coordinates, /fixtures\/config\/sample.env/); assert.match(coordinates, /4번째 줄/)
 })
+
+test('the primary case action follows the explicit location and never falls back to another case', () => {
+  function page(selected, caseForSelected) {
+    const params = new URLSearchParams(`origin=TEST&occurrence=${selected}&locationPanel=closed`), filters = api.parseLocationFilters(params).filters
+    const item = { id: 12, issuer: 'GITHUB', credentialType: 'GITHUB_CLASSIC_PAT', componentState: 'CONFIRMED', maskedLabel: 'GitHub ••••1234', severity: null, validationStatus: 'UNCHECKED', remediationSummary: summary }
+    const base = { source: 'GITHUB', environment: 'UNKNOWN', origin: 'TEST', presence: 'PRESENT', exposure: 'ABNORMAL', validity: { result: 'UNCHECKED' }, storagePolicy: { result: 'UNKNOWN' }, coverage: {}, capabilities: { canViewCase: true } }
+    const items = [{ ...base, occurrenceId: 8, safeLocationLabel: 'A 위치', caseId: 1 }, { ...base, occurrenceId: 9, safeLocationLabel: 'B 위치', caseId: caseForSelected }]
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, gcTime: Infinity } } })
+    client.setQueryData(['secret-detail', 12, 'TEST'], item)
+    client.setQueryData(['secret-key-locations', 12, filters, 0], { credential: item, items, total: 2, visibleLocationCount: 2, page: 0, size: 20 })
+    const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [`/secrets/12?${params}`] }, createElement(Routes, null, createElement(Route, { path: '/secrets/:secretId', element: createElement(api.SecretKeyDetailPage) })))))
+    client.clear(); return html.match(/<div class="secret-key-primary-actions">([\s\S]*?)<\/div><div class="secret-key-recent-scan">/)[1]
+  }
+  const selectedB = page(9, 2)
+  assert.match(selectedB, /cases\/2\?origin=TEST&amp;occurrence=9/); assert.doesNotMatch(selectedB, /cases\/1/)
+  const withoutCase = page(9, null)
+  assert.match(withoutCase, /선택 위치 확인/); assert.doesNotMatch(withoutCase, /cases\/1|현재 대응·조치/)
+  const invalidSelection = page(404, 2)
+  assert.match(invalidSelection, /선택 위치를 다시 확인/); assert.doesNotMatch(invalidSelection, /cases\//)
+})

@@ -15,9 +15,15 @@ const retry = (count: number, error: Error) => !(error instanceof ApiError && [4
 export function ValidationTimes({ attempt, lastAuthenticatedAt }: { attempt: ValidationAttempt | null; lastAuthenticatedAt: string | null }) {
   return <dl className="secret-scan-facts"><div><dt>실제 확인 시각</dt><dd>{validationDate(attempt?.providerCheckedAt)}</dd></div><div><dt>최근 시도 시각</dt><dd>{validationDate(attempt?.completedAt)}</dd></div><div><dt>마지막 인증 성공</dt><dd>{validationDate(lastAuthenticatedAt)}</dd></div></dl>
 }
-export function SecretValidationCard({ secretId, locations, metadataOnly = false }: { secretId: number; locations: KeyLocation[]; metadataOnly?: boolean }) {
+interface ValidationCardProps { secretId: number; locations: KeyLocation[]; metadataOnly?: boolean }
+export function SecretValidationCard(props: ValidationCardProps) {
+  const [params] = useSearchParams()
+  const selectedId = params.has('occurrence') ? positiveId(params.get('occurrence')) : params.has('validationOccurrence') ? positiveId(params.get('validationOccurrence')) : props.locations[0]?.occurrenceId ?? null
+  // A confirmation and a polled request belong to one immutable location selection.
+  return <LocationValidationCard key={`${props.secretId}:${selectedId ?? 'none'}`} {...props} selectedId={selectedId} />
+}
+function LocationValidationCard({ secretId, locations, metadataOnly = false, selectedId }: ValidationCardProps & { selectedId: number | null }) {
   const [params, setParams] = useSearchParams(), client = useQueryClient()
-  const selectedId = positiveId(params.get('occurrence')) ?? positiveId(params.get('validationOccurrence')) ?? locations[0]?.occurrenceId ?? null
   const location = locations.find((item) => item.occurrenceId === selectedId)
   const [confirm, setConfirm] = useState(false), [requestId, setRequestId] = useState<number | null>(null)
   const processed = useRef<number | null>(null), requestKey = useRef({ payload: '', key: '' })
@@ -40,7 +46,7 @@ export function SecretValidationCard({ secretId, locations, metadataOnly = false
   const pending = requestId != null && !completedRequest(progress.data?.status) || activeRequest(query.data?.latestRequest?.status)
   return <details className="card secret-validation-card" aria-labelledby="key-validation-title"><summary><strong id="key-validation-title">키 유효성</strong><span>{metadataOnly ? '값 인증 대상 아님' : presentation?.title ?? '확인 조건 조회'}</span><small>{query.data?.latestAttempt?.providerCheckedAt ? validationDate(query.data.latestAttempt.providerCheckedAt) : '공급자 확인 시각 —'}</small><span className="secret-validation-expand">확인·이력</span></summary><div className="secret-validation-expanded"><p className="caption">선택한 위치의 키로 공급자 인증 가능 여부를 확인해요.</p>
     {metadataOnly ? <p>메타데이터만 확인한 항목이에요. 값 인증은 수행하지 않아요.</p> : !locations.length ? <p>인증 확인에 사용할 열람 가능한 발견 위치를 먼저 불러와 주세요.</p> : <>
-      <label>확인할 발견 위치<select className="select" value={selectedId ?? ''} onChange={(event) => { const next = new URLSearchParams(params); next.set('occurrence', event.target.value); next.delete('validationOccurrence'); next.set('locationPanel', 'closed'); setParams(next); setConfirm(false); setRequestId(null); mutation.reset() }}>{locations.map((item) => <option key={item.occurrenceId} value={item.occurrenceId}>{item.safeLocationLabel}</option>)}</select></label>
+      <label>확인할 발견 위치<select className="select" value={selectedId ?? ''} onChange={(event) => { const next = new URLSearchParams(params); next.set('occurrence', event.target.value); next.delete('validationOccurrence'); next.set('locationPanel', 'closed'); setParams(next); setConfirm(false); setRequestId(null); mutation.reset() }}><option value="">위치 선택</option>{locations.map((item) => <option key={item.occurrenceId} value={item.occurrenceId}>{item.safeLocationLabel}</option>)}</select></label>
       {!location ? <p className="notice">선택한 위치가 현재 필터·페이지에 없어요. 열람 가능한 위치를 다시 선택하세요.</p> : query.isPending ? <p role="status">인증 확인 조건을 불러오는 중이에요.</p> : query.isError ? <div className="notice error" role="alert"><p>{safeMutationMessage(query.error)}</p><button className="btn outline" onClick={() => void query.refetch()}>확인 조건 다시 조회</button></div> : <>
         <h3>{presentation!.title}</h3><p>{presentation!.description}</p><ValidationTimes attempt={query.data.latestAttempt} lastAuthenticatedAt={query.data.lastAuthenticatedAt} />
         <p className="caption">다음 확인 기한 {query.data.nextDueAt ? validationDate(query.data.nextDueAt) : '예약 없음'}</p>

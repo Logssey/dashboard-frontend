@@ -81,3 +81,10 @@ test('canonical occurrence drives validation and history even when a legacy vali
   const history = render(api.SecretValidationHistory, { secretId: 12 }, [[['secret-validation-history', 12, 8, 0], { items: [{ attemptId: 1, result: 'VALID', reasonCode: 'AUTHENTICATED', providerCheckedAt: '2026-10-22T00:00:00Z' }], total: 1, page: 0, size: 20 }]], '/?occurrence=8&validationOccurrence=9')
   assert.match(history, /<td>유효/)
 })
+
+test('an invalid explicit validation location cannot borrow another location result or request controls', () => {
+  const value = { ...data, latestAttempt: { result: 'VALID', reasonCode: 'AUTHENTICATED', providerCheckedAt: '2026-10-22T00:00:00Z' }, capabilities: { canRequestValidation: true, blockedReasonCodes: [] } }
+  const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value]], '/?occurrence=0&validationOccurrence=8')
+  assert.match(html, /선택한 위치가 현재 필터·페이지에 없어요/)
+  assert.doesNotMatch(html, /<h3>유효<\/h3>|>유효성 확인<|>확인 요청</)
+})
