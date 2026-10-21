@@ -46,6 +46,8 @@ test('key detail keeps inventory snapshot, origin, filters and page with an allo
   assert.equal(back.searchParams.get('snapshotId'), snapshotId)
   assert.equal(back.searchParams.get('focus'), '12')
   assert.equal(inventoryReturnPath(new URLSearchParams('return=https://example.invalid'), 12), '/secrets/findings')
+  for (const origin of ['TEST', 'UNCLASSIFIED']) assert.equal(inventoryReturnPath(new URLSearchParams({ origin }), 12), `/secrets/findings?origin=${origin}`)
+  assert.equal(inventoryReturnPath(new URLSearchParams('origin=evil'), 12), '/secrets/findings')
 })
 test('independent key detail displays present, missing and unknown together without declaring resolution', () => {
   const params = new URLSearchParams('origin=TEST&detailVersion=v1&occurrence=2')
