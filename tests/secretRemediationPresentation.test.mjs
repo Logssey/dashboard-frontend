@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { build } from 'esbuild'
-const result = await build({ stdin: { contents: "export * from './src/components/SecretRemediationSummary'; export * from './src/pages/SecretKeyDetailPage'; export { parseLocationFilters } from './src/lib/secretInventory';", resolveDir: resolve('.') }, bundle: true, write: false, platform: 'node', format: 'esm', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
+const result = await build({ stdin: { contents: "export * from './src/components/SecretRemediationSummary'; export * from './src/components/SecretDiscoveryContext'; export * from './src/pages/SecretKeyDetailPage'; export { parseLocationFilters } from './src/lib/secretInventory';", resolveDir: resolve('.') }, bundle: true, write: false, platform: 'node', format: 'esm', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
 const path = resolve('node_modules/.secret-remediation-presentation-test.mjs')
 await writeFile(path, result.outputFiles[0].contents)
 const api = await import(pathToFileURL(path).href)
@@ -43,4 +43,16 @@ test('selecting a location opens one dialog instead of appending evidence under 
   assert.match(html, /위치 근거 닫기/)
   assert.match(html, /현재 위치 필터의 소스별 분포/)
   assert.doesNotMatch(html, /<td colSpan="7"/)
+})
+
+
+test('discovery context restores source coordinates and explains potential risk without asserting a breach', () => {
+  const html = renderToStaticMarkup(createElement(api.SecretDiscoveryContext, { detail: { issuer: 'GITHUB', componentState: 'CONFIRMED', validationStatus: 'UNCHECKED', severity: 'UNASSESSED' }, locations: [{ occurrenceId: 8, source: 'GITHUB', exposure: 'UNKNOWN', lastSeenAt: null, sourceDetails: { status: 'AVAILABLE', repository: 'Logssey/test-find-key', branch: 'main', path: 'fixtures/config/sample.env', line: 'L4', sourceUrl: 'https://github.com/Logssey/test-find-key/blob/main/fixtures/config/sample.env#L4' } }], onSelect() {} }))
+  assert.match(html, /왜 확인해야 하나요/)
+  assert.match(html, /부여된 권한으로 저장소나 조직 자료에 접근/)
+  assert.match(html, /Logssey\/test-find-key/)
+  assert.match(html, /fixtures\/config\/sample.env/)
+  assert.match(html, /4번째 줄/)
+  assert.match(html, /현재 사용 가능 여부 미확인/)
+  assert.doesNotMatch(html, /침해 확인|Critical|안전해요/)
 })

@@ -101,8 +101,8 @@ function HistoryList({ filters, errors, params, setParams }: {
     {confirm && <section className="card secret-scan-confirm" aria-labelledby="scan-confirm-title">
       <h2 id="scan-confirm-title" ref={confirmationRef} tabIndex={-1}>승인된 범위를 검사할까요?</h2>
       <label>검사할 연결<select className="select" value={selected?.connectionId ?? ''} disabled={start.isPending} onChange={(e) => { setSelection(Number(e.target.value)); requestKey.current = crypto.randomUUID(); start.reset() }}>{available.map((item) => <option key={item.connectionId} value={item.connectionId}>{item.displayName}</option>)}</select></label>
-      <p>{selected ? `${selected.displayName} · 승인 범위 ${selected.approvedScopeCount}개` : '검사 가능한 연결이 없어요.'}</p>
-      <p className="caption">작업을 등록하면 별도 워커가 실행해요. 6시간 정기 검사 일정은 유지돼요.</p>
+      <p>{selected ? `${selected.displayName} · 승인 범위 ${selected.approvedScopeCount}개` : '스캔을 실행할 수 있는 연결이 없어요. 연결 관리에서 실행 권한·검사 대상·일시중지 상태를 확인하세요.'}</p>
+      <p className="caption">등록된 검사 대상의 파일·설정을 읽고 키를 탐지해요. 별도 워커가 최대 30초 간격으로 작업을 가져가며, 6시간 정기 검사와 별도로 실행해요.</p>
       {start.isError && <p className="notice error" role="alert">{start.error instanceof ApiError && start.error.status === 409 ? '연결의 승인 범위와 진행 중인 작업을 확인해 주세요.' : start.error instanceof ApiError && start.error.status === 403 ? '이 연결을 실행할 권한이 없어요.' : '작업 등록 여부를 확인하지 못했어요. 같은 요청으로 다시 확인할 수 있어요.'}</p>}
       <div className="row"><button className="btn primary" disabled={!selected || start.isPending} onClick={() => selected && start.mutate({ connectionId: selected.connectionId, idempotencyKey: requestKey.current })}>{start.isPending ? '등록 중…' : '스캔 등록'}</button><button className="btn outline" disabled={start.isPending} onClick={() => { setConfirm(false); document.querySelector<HTMLButtonElement>('.page-head button')?.focus() }}>취소</button></div>
     </section>}
