@@ -14,7 +14,7 @@ export const workbenchMetricLabels: Record<string, { title: string; unit: string
   revalidationPendingCases: { title: '재검사 대기', unit: '건', description: '조치 후 다시 확인할 건', bucket: 'ACTION_REQUIRED' },
   coverageGapScopes: { title: '검사 누락', unit: '범위', description: '실패·지연·미검사 확인', bucket: 'COVERAGE_GAPS' },
   needsCaseLinkLocations: { title: '건 연결 필요', unit: '곳', description: '확인된 노출의 대응 연결', bucket: 'NEEDS_CASE_LINK' },
-  unclassifiedScopes: { title: '범위 설정', unit: '범위', description: '출처·정책·검토 대기', bucket: 'UNCLASSIFIED' },
+  unclassifiedScopes: { title: '검사 대상 설정', unit: '범위', description: '자료 용도·보관 규칙 설정', bucket: 'UNCLASSIFIED' },
 }
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
 export function parseWorkbenchFilters(params: URLSearchParams): { filters: WorkbenchFilters; valid: boolean } {
@@ -64,7 +64,7 @@ export const workbenchBuckets: Record<string, { label: string; unit: string }> =
   CURRENT_CASES: { label: '현재 대응 건', unit: '대응 건' },
   NORMAL_INVENTORY: { label: '인벤토리', unit: '고유 키' },
   COVERAGE_GAPS: { label: '검사 누락', unit: '승인 범위' },
-  UNCLASSIFIED: { label: '출처·보관 정책 확인', unit: '승인 범위' },
+  UNCLASSIFIED: { label: '운영·시험 분류 설정 확인', unit: '승인 범위' },
 }
 export function safeWorkbenchReturn(query: string | null, focus?: string): string {
   const raw = new URLSearchParams(query ?? '')

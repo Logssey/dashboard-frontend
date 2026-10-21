@@ -28,6 +28,9 @@ export interface ScopeCoverage {
   gapReasonCodes: string[]
 }
 export interface ManagedSecretConnection {
+  targetSummary?: string[]
+  testBlockedReasonCode?: string | null
+  scanBlockedReasonCode?: string | null
   connectionId: number
   provider: ScanPlatform
   safeDisplayAlias: string | null

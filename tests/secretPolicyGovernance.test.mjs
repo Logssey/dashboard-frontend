@@ -49,8 +49,8 @@ test('classification mismatch retains the return path and exposes no change form
 })
 test('a pending TEST proposal never replaces current PRODUCTION and its author cannot approve', () => {
   const html = renderPage(api.SecretScopeClassificationPage, '/secrets/connections/:connectionId/scopes/:scopeId', '/secrets/connections/2/scopes/5', [[['secret-classification', 5], classification]])
-  assert.match(html, /현재 승인 내용/)
-  assert.match(html, /대응 출처<\/dt><dd>운영/)
+  assert.match(html, /이 대상의 현재 설정/)
+  assert.match(html, /자료 용도<\/dt><dd>운영/)
   assert.match(html, /제안 출처<\/dt><dd>시험/)
   assert.match(html, /아직 현재 승인 분류에 적용되지 않았어요/)
   assert.doesNotMatch(html, /<button[^>]*>변경 승인<\/button>/)
@@ -62,14 +62,13 @@ test('policy details keep protected paths private and hide self approval', () =>
   assert.doesNotMatch(html, /must-not-display-path|<button[^>]*>정책 승인<\/button>/)
 })
 
-test('scope setup keeps the current policy and makes approval preview an explicit step', () => {
-  const value = { ...classification, pendingProposal: null, capabilities: { canPropose: true, canDraftPolicy: false }, setupReasonCodes: ['POLICY_MISSING'] }
+test('source labels save without a ticket or approval-preview step and leave policy changes separate', () => {
+  const value = { ...classification, pendingProposal: null, capabilities: { canPropose: true, canDraftPolicy: false, canClassifySource: true }, setupReasonCodes: ['POLICY_MISSING'] }
   const html = renderPage(api.SecretScopeClassificationPage, '/secrets/connections/:connectionId/scopes/:scopeId', '/secrets/connections/2/scopes/5', [[['secret-classification', 5], value]])
-  assert.match(html, /보관 정책 별도 설정/)
-  assert.match(html, /현재 설정 유지/)
-  assert.match(html, /저장 방식 확인/)
-  assert.match(html, /disabled=""[^>]*>출처 저장/)
-  assert.doesNotMatch(html, /다른 보안 담당자의 검토가 필요함을 확인/)
+  assert.match(html, /운영·시험 분류/)
+  assert.match(html, /분류하지 않아도 연결 테스트와 스캔은 할 수 있어요/)
+  assert.match(html, /<button class="btn primary">분류 저장<\/button>/)
+  assert.doesNotMatch(html.match(/<section class="card secret-governance-form"><h2>운영·시험 분류[\s\S]*?<\/section>/)?.[0] ?? '', /저장 방식 확인|placeholder="TICKET:SEC-123"/)
 })
 
 test('pending review shows waiting owner without granting approval to the requester', () => {

@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
-import { fetchStoragePolicies, previewScopeClassification, proposeScopeClassification, type ClassificationPreview, type ScopeClassification, type ProposeClassification, type PreviewClassification } from '@/api/secretPolicy'
+import { saveScopeSource, fetchStoragePolicies, previewScopeClassification, proposeScopeClassification, type ClassificationPreview, type ScopeClassification, type ProposeClassification, type PreviewClassification } from '@/api/secretPolicy'
 import { idempotencyFor, safeMutationMessage, validEvidenceRef } from '@/lib/secretEvidence'
 import { approvalReasonLabels, setupReasonLabels } from '@/lib/secretScopeSetup'
 import { useSecretReadRefresh } from '@/lib/useSecretReadRefresh'
 
-export function SecretScopeSetupEditor({ scope, onUpdated }: { scope: ScopeClassification; onUpdated: (value?: ScopeClassification) => void }) {
+function AdvancedPolicyEditor({ scope, onUpdated }: { scope: ScopeClassification; onUpdated: (value?: ScopeClassification) => void }) {
   const [origin, setOrigin] = useState(scope.origin === 'UNCLASSIFIED' ? '' : scope.origin)
   const [editPolicy, setEditPolicy] = useState(false)
   const [policyChoice, setPolicyChoice] = useState('keep')
@@ -33,12 +33,12 @@ export function SecretScopeSetupEditor({ scope, onUpdated }: { scope: ScopeClass
   const validChoice = keepPolicy || policyChoice === 'none' || !!selected
   const ready = !!origin && validChoice && validEvidenceRef(evidence) && preview?.canSubmit && confirmed && !stale
   const busy = save.isPending || prepare.isPending
-  return <section className="card secret-governance-form"><h2>출처 설정</h2><p className="caption">출처를 저장한 뒤에도 보관 정책이나 위치 확인이 남을 수 있어요.</p>
+  return <section className="card secret-governance-form"><h2>보관 규칙 변경</h2><p className="caption">출처를 저장한 뒤에도 보관 정책이나 위치 확인이 남을 수 있어요.</p>
     <form onSubmit={(event) => { event.preventDefault(); if (!ready || !preview) return
       const payload = { ...request, reasonCode: policyId == null ? 'POLICY_PENDING' as const : scope.origin === 'UNCLASSIFIED' ? 'SOURCE_CLASSIFICATION' as const : 'SOURCE_CORRECTION' as const, evidenceRef: evidence, expectedApprovalMode: preview.approvalMode, reviewerUserId: preview.approvalMode === 'INDEPENDENT_REVIEW' && reviewer ? Number(reviewer) : null }
       save.mutate({ ...payload, idempotencyKey: idempotencyFor(command, payload) })
     }}>
-      <label>이 범위의 출처<select className="select" value={origin} disabled={busy} onChange={(e) => { setOrigin(e.target.value as typeof origin); setConfirmed(false) }}><option value="">출처 선택</option><option value="PRODUCTION">운영</option><option value="TEST">시험</option></select></label>
+      <label>현재 출처<select className="select" value={origin} disabled={true} onChange={(e) => { setOrigin(e.target.value as typeof origin); setConfirmed(false) }}><option value="">출처 선택</option><option value="PRODUCTION">운영</option><option value="TEST">시험</option></select></label>
       <p className="caption">같은 범위에 운영 자료와 시험 자료가 섞여 있다면 먼저 수집 범위를 나누세요.</p>
       <details open={editPolicy} onToggle={(event) => setEditPolicy(event.currentTarget.open)}><summary>보관 정책 별도 설정</summary><div className="secret-policy-picker">
         <label>적용할 보관 정책<select className="select" value={policyChoice} disabled={busy} onChange={(e) => { setPolicyChoice(e.target.value); setConfirmed(false) }}><option value="keep">현재 설정 유지{scope.storagePolicyId ? ` · #${scope.storagePolicyId} v${scope.storagePolicyVersion}` : ' · 미설정'}</option><option value="none">정책 미설정으로 변경</option>{candidates.map((policy) => <option key={`${policy.policyId}:${policy.version}`} value={`${policy.policyId}:${policy.version}`}>정책 #{policy.policyId} · v{policy.version}</option>)}</select></label>
@@ -58,4 +58,28 @@ export function SecretScopeSetupEditor({ scope, onUpdated }: { scope: ScopeClass
       <button className="btn primary" disabled={!ready || busy}>{save.isPending ? '저장 중…' : preview?.approvalMode === 'INDEPENDENT_REVIEW' ? '검토 요청' : '출처 저장'}</button>
     </form>
   </section>
+}
+
+
+export function SecretScopeSetupEditor({ scope, onUpdated }: { scope: ScopeClassification; onUpdated: (value?: ScopeClassification) => void }) {
+  const [origin, setOrigin] = useState(scope.origin === 'UNCLASSIFIED' ? '' : scope.origin)
+  const command = useRef({ payload: '', key: '' })
+  const refresh = useSecretReadRefresh()
+  const save = useMutation({ mutationFn: () => {
+    const payload = { origin, expectedScopeVersion: scope.scopeVersion }
+    return saveScopeSource(scope.scopeId, { ...payload, idempotencyKey: idempotencyFor(command, payload) })
+  }, onSuccess: (result) => { refresh(); onUpdated(result) } })
+  return <>
+    <section className="card secret-governance-form"><h2>운영·시험 분류</h2><p>이 검사 대상에서 발견한 기록을 어느 목록에 보여줄지 정해요. 분류하지 않아도 연결 테스트와 스캔은 할 수 있어요.</p>
+      <form onSubmit={(event) => { event.preventDefault(); if (origin && scope.capabilities.canClassifySource) save.mutate() }}>
+        <label>자료 용도<select className="select" value={origin} disabled={save.isPending || !scope.capabilities.canClassifySource} onChange={(event) => setOrigin(event.target.value as typeof origin)}><option value="">용도 선택</option><option value="PRODUCTION">운영 · 실제 서비스 자료</option><option value="TEST">시험 · 개발·실험 자료</option></select></label>
+        <p className="caption">시험으로 분류해도 실제 키 여부·노출 판정은 바뀌지 않으며, 기존 대응 기록은 남아요.</p>
+        {!scope.capabilities.canClassifySource && <p role="status">보안 담당자가 분류를 변경할 수 있어요. 연결 중지나 검토 대기 여부도 확인하세요.</p>}
+        {save.isError && <p role="alert" className="notice error">{safeMutationMessage(save.error)} <button className="btn outline" type="button" onClick={() => onUpdated()}>현재 설정 다시 조회</button></p>}
+        <button className="btn primary" disabled={!origin || save.isPending || !scope.capabilities.canClassifySource}>{save.isPending ? '저장 중…' : '분류 저장'}</button>
+        <p className="caption">외부 티켓 번호 없이 변경자·변경 시각을 자동으로 기록해요.</p>
+      </form>
+    </section>
+    {scope.capabilities.canPropose && scope.capabilities.canDraftPolicy && <details className="card secret-governance-form"><summary>보관 허용·금지 규칙 변경 (고급)</summary><p>분류·스캔과 별개의 설정이에요. 키를 보관해도 되는 장소인지 정하는 규칙 변경에는 별도 검토가 필요해요.</p><AdvancedPolicyEditor scope={scope} onUpdated={onUpdated} /></details>}
+  </>
 }

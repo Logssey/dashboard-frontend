@@ -107,11 +107,11 @@ test('malformed direct detail links retain a safe return path and do not display
 test('connection authentication success is separate from failed latest scan and earlier full success', () => {
   const connection = { connectionId: 3, provider: 'AWS', safeDisplayAlias: '승인 연결', connectionStatus: 'ACTIVE', approvedScopeCount: 12, scopeRevision: 2, latestProbe: { status: 'CONNECTED', reasonCode: null, checkedAt: '2026-10-21T00:00:00Z' }, lastFullScanAttempt: { runId: 12, status: 'FAILED', requestedAt: '2026-10-21T00:00:00Z', finishedAt: '2026-10-21T00:02:00Z' }, lastSuccessfulFullScan: { runId: 10, status: 'SUCCEEDED', requestedAt: '2026-10-20T00:00:00Z', finishedAt: '2026-10-20T00:02:00Z' }, nextDueAt: null, activeJob: null, capabilities: { canTest: false, canRun: false } }
   const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
-  assert.match(html, /인증 확인/)
+  assert.match(html, /연결 확인됨/)
   assert.match(html, /신원·설치만 확인/)
   assert.match(html, /SCAN-12 · 실패/)
   assert.match(html, /SCAN-10 · 정상 종료/)
-  assert.match(html, /범위 보기/)
+  assert.match(html, /검사 대상 보기/)
   assert.doesNotMatch(html, /<button[^>]*>[^<]*연결 테스트<\/button>/)
 })
 test('history displays server total and real detail links without page-level metric cards', () => {

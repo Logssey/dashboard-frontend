@@ -114,6 +114,9 @@ export interface InventoryFilter extends SecretFilter {
   snapshotId: string
 }
 export interface KeyLocation {
+  sourceDetails?: { status: string; label: string; repository?: string; branch?: string; path?: string; line?: string | null; sourceUrl?: string | null; region?: string; resource?: string }
+  detectionEvidence?: { ruleId: string; detectedAt: string; runId: number }[]
+  requiresReassessment?: boolean
   taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
   requiredRemediation?: boolean
   remediationPresence?: 'PRESENT' | 'MISSING' | 'UNKNOWN'

@@ -42,7 +42,7 @@ export interface ClassificationProposal {
   approvalMode?: ApprovalMode
   approvalRuleVersion?: string
   reviewerUserId?: number | null
-  capabilities: { canPropose: boolean; canApprove: boolean; canReject: boolean; canDraftPolicy: boolean; canAssignReviewer?: boolean }
+  capabilities: { canPropose: boolean; canApprove: boolean; canReject: boolean; canDraftPolicy: boolean; canClassifySource?: boolean; canAssignReviewer?: boolean }
 }
 export interface ScopeClassification {
   taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
@@ -66,7 +66,7 @@ export interface ScopeClassification {
   setupReasonCodes?: string[]
   eligibleReviewers?: Reviewer[]
   changeResult?: ScopeChangeResult | null
-  capabilities: { canPropose: boolean; canApprove: boolean; canReject: boolean; canDraftPolicy?: boolean; canAssignReviewer?: boolean }
+  capabilities: { canPropose: boolean; canApprove: boolean; canReject: boolean; canDraftPolicy?: boolean; canClassifySource?: boolean; canAssignReviewer?: boolean }
 }
 export type ApprovalMode = 'DIRECT' | 'INDEPENDENT_REVIEW'
 export interface Reviewer { userId: number; displayName: string }
@@ -107,3 +107,5 @@ export const retireStoragePolicy = (policyId: number, request: { expectedVersion
 export const proposeScopeClassification = (scopeId: number, request: ProposeClassification) => apiRequest<ScopeClassification>(`/api/v1/secrets/scopes/${scopeId}/classification-proposals`, { method: 'POST', body: JSON.stringify(request) })
 export const approveScopeClassification = (scopeId: number, proposalId: number, request: { expectedScopeVersion: number; expectedProposalVersion: number; idempotencyKey?: string }) => apiRequest<ScopeClassification>(`/api/v1/secrets/scopes/${scopeId}/classification-proposals/${proposalId}/approve`, { method: 'POST', body: JSON.stringify(request) })
 export const rejectScopeClassification = (scopeId: number, proposalId: number, request: { reasonCode: string; expectedProposalVersion: number; idempotencyKey?: string }) => apiRequest<ScopeClassification>(`/api/v1/secrets/scopes/${scopeId}/classification-proposals/${proposalId}/reject`, { method: 'POST', body: JSON.stringify(request) })
+
+export const saveScopeSource = (scopeId: number, request: { origin: string; expectedScopeVersion: number; idempotencyKey: string }) => apiRequest<ScopeClassification>(`/api/v1/secrets/scopes/${scopeId}/classification`, { method: 'PATCH', body: JSON.stringify(request) })

@@ -47,7 +47,7 @@ test('work cards, stage bars and their lists retain every filter and the exact s
 })
 test('pending scope setup is visible before zero-count work cards without claiming a key count', () => {
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
-  assert.match(html, /출처·정책 확인이 남은 범위 5개/)
+  assert.match(html, /분류·보관 규칙을 확인할 검사 대상 5개/)
   assert.ok(html.indexOf('setup-title') < html.indexOf('현황 조회 조건'))
   const unclassified = decodeLinks(html).find((url) => url.pathname === '/secrets/findings' && url.searchParams.get('origin') === 'UNCLASSIFIED')
   assert.ok(unclassified)
