@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
+import { secretNavigation, activeSecretNavigation } from '@/lib/secretNavigation'
 import { useSecretWorkbench } from '@/lib/useSecretWorkbench'
 import { availableMetric, parseWorkbenchFilters } from '@/lib/secretWorkbench'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
@@ -16,14 +17,7 @@ const navigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: '/vulnerabilities', icon: 'shield', label: '취약점 관리' },
 ]
 
-const secretNavigation: Array<{ path: string; icon: IconName; label: string }> = [
-  { path: '/secrets', icon: 'key', label: '시크릿 현황' },
-  { path: '/secrets/findings', icon: 'list', label: '탐지 목록' },
-  { path: '/secrets/triage', icon: 'list', label: '확인 대기열' },
-  { path: '/secrets/cases', icon: 'shield', label: '대응 관리' },
-  { path: '/secrets/connections', icon: 'plug', label: '연결 관리' },
-  { path: '/secrets/history', icon: 'clock', label: '스캔 이력' },
-]
+
 
 function initials(name: string): string {
   const words = name.trim().split(/\s+/)
@@ -105,18 +99,18 @@ export function AppLayout() {
                 {isSecrets && inSecrets && (
                   <div className="secret-subnav" role="group" aria-label="시크릿 세부 메뉴">
                     {secretNavigation.map((page) => (
-                      <NavLink
+                      <Link
                         key={page.path}
-                        className={`nav-link secret-sub ${location.pathname === page.path || (page.path !== '/secrets' && location.pathname.startsWith(`${page.path}/`)) ? 'active' : ''}`.trim()}
+                        className={`nav-link secret-sub ${activeSecretNavigation(page.path, location.pathname) ? 'active' : ''}`.trim()}
                         to={routeParams.get('origin') === 'TEST' ? `${page.path}?origin=TEST` : page.path}
-                        end
+                        aria-current={activeSecretNavigation(page.path, location.pathname) ? 'page' : undefined}
                       >
                         <Icon name={page.icon} />
                         <span>{page.label}</span>
-                        {page.path === '/secrets/triage' && summary.isSuccess && !isSecretSnapshotInvalidated(summarySelection.filters.snapshotId) && availableMetric(decisionMetric) && (
+                        {page.path === '/secrets/findings' && summary.isSuccess && !isSecretSnapshotInvalidated(summarySelection.filters.snapshotId) && availableMetric(decisionMetric) && (
                           <span className="secret-nav-count" title="확인할 발견 위치" aria-label={`확인 필요 위치 ${decisionMetric!.value}곳`}>{decisionMetric!.value}</span>
                         )}
-                      </NavLink>
+                      </Link>
                     ))}
                   </div>
                 )}

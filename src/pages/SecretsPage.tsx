@@ -60,9 +60,9 @@ export function SecretsPage() {
   const error = inventory.error
   const refreshRequired = error instanceof ApiError && [404, 409].includes(error.status) && Boolean(filters.snapshotId)
   return <>
-    <PageHeader title="탐지 목록" description="고유 키별로 발견 위치와 확인할 이유를 살펴보세요." actions={<>
+    <PageHeader title="키·노출 위치" description="고유 키별로 발견 위치와 확인할 이유를 살펴보세요." actions={<>
       <button className="btn secret-export-button" disabled={download.isPending || locallyInvalidated || !inventory.isSuccess || !snapshot || !inventory.data?.asOf || !filters.snapshotId || inventory.data.total === 0} onClick={() => snapshot && inventory.data?.asOf && download.mutate({ filters: { ...filters, snapshotId: snapshot }, asOf: inventory.data.asOf })}><Icon name="download" />{download.isPending ? 'CSV 준비 중…' : '마스킹 CSV 내보내기'}</button>
-      <Link className="btn primary" to="/secrets/history"><Icon name="search" /> 스캔 요청</Link>
+      <Link className="btn primary" to="/secrets/history?request=scan"><Icon name="search" /> 스캔 요청</Link>
     </>} />
     <section className="card secret-scan-filters" aria-label="키 인벤토리 필터">
       {selectFilter('origin', '출처')}{selectFilter('contentKind', '기록 종류')}{selectFilter('workBucket', '할 일')}{selectFilter('source', '발견 소스')}{selectFilter('provider', '키 발급자')}

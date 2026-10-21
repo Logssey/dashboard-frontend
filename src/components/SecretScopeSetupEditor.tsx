@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
-import { fetchStoragePolicies, previewScopeClassification, proposeScopeClassification, type ClassificationPreview, type ScopeClassification, type ProposeClassification } from '@/api/secretPolicy'
+import { fetchStoragePolicies, previewScopeClassification, proposeScopeClassification, type ClassificationPreview, type ScopeClassification, type ProposeClassification, type PreviewClassification } from '@/api/secretPolicy'
 import { idempotencyFor, safeMutationMessage, validEvidenceRef } from '@/lib/secretEvidence'
 import { approvalReasonLabels, setupReasonLabels } from '@/lib/secretScopeSetup'
 import { useSecretReadRefresh } from '@/lib/useSecretReadRefresh'
@@ -27,7 +27,7 @@ export function SecretScopeSetupEditor({ scope, onUpdated }: { scope: ScopeClass
   const request = { origin: origin as ScopeClassification['origin'], storagePolicyId: policyId, storagePolicyVersion: policyVersion, expectedScopeVersion: scope.scopeVersion }
   const signature = JSON.stringify(request)
   const preview = prepared?.signature === signature ? prepared.result : null
-  const prepare = useMutation({ mutationFn: () => previewScopeClassification(scope.scopeId, request), onSuccess: (result, _input, _context) => { setPrepared({ signature, result }); setConfirmed(false); setReviewer('') } })
+  const prepare = useMutation({ mutationFn: (input: { request: PreviewClassification; signature: string }) => previewScopeClassification(scope.scopeId, input.request), onSuccess: (result, input) => { setPrepared({ signature: input.signature, result }); setConfirmed(false); setReviewer('') } })
   const save = useMutation({ mutationFn: (value: ProposeClassification) => proposeScopeClassification(scope.scopeId, value), onSuccess: (result) => { refresh(); onUpdated(result) }, onError: (error) => { if (error instanceof ApiError && error.status === 409) setStale(true) } })
   if (!scope.capabilities?.canPropose) return <section className="card secret-governance-form"><h2>설정 변경</h2><p>운영 또는 보안 담당자가 출처와 정책을 설정할 수 있어요.</p></section>
   const validChoice = keepPolicy || policyChoice === 'none' || !!selected
@@ -45,7 +45,7 @@ export function SecretScopeSetupEditor({ scope, onUpdated }: { scope: ScopeClass
         {policies.isError && <p role="alert">정책 목록을 불러오지 못했어요. 현재 설정은 유지돼요.</p>}
         {policies.data && <div className="row"><button className="btn outline" type="button" disabled={policyPage === 0 || busy} onClick={() => setPolicyPage((page) => page - 1)}>이전 정책</button><span>{policyPage + 1}페이지</span><button className="btn outline" type="button" disabled={(policyPage + 1) * policies.data.size >= policies.data.total || busy} onClick={() => setPolicyPage((page) => page + 1)}>다음 정책</button></div>}
       </div></details>
-      <button className="btn outline" type="button" disabled={!origin || !validChoice || busy || stale} onClick={() => prepare.mutate()}>{prepare.isPending ? '확인 중…' : '저장 방식 확인'}</button>
+      <button className="btn outline" type="button" disabled={!origin || !validChoice || busy || stale} onClick={() => prepare.mutate({ request, signature })}>{prepare.isPending ? '확인 중…' : '저장 방식 확인'}</button>
       {prepare.isError && <p className="notice error" role="alert">{safeMutationMessage(prepare.error)}</p>}
       {preview && <div className="secret-scope-preview" aria-live="polite"><h3>{preview.approvalMode === 'DIRECT' ? '바로 저장할 수 있어요' : '다른 보안 담당자의 검토가 필요해요'}</h3>
         {preview.approvalReasonCodes.map((code) => <p key={code}>{approvalReasonLabels[code] ?? '변경 영향 검토가 필요해요.'}</p>)}

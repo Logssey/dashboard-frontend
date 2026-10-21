@@ -7,7 +7,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { build } from 'esbuild'
-const bundle = await build({ stdin: { contents: "export * from './src/components/SecretTaskGuidance'; export * from './src/lib/secretTaskGuidance'; export * from './src/lib/secretInvestigationClosure'; export * from './src/api/secretInvestigations'; export * from './src/lib/secretScopeSetup';", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
+const bundle = await build({ stdin: { contents: "export * from './src/components/SecretTaskGuidance'; export * from './src/lib/secretTaskGuidance'; export * from './src/lib/secretInvestigationClosure'; export * from './src/api/secretInvestigations'; export * from './src/lib/secretScopeSetup'; export * from './src/lib/secretNavigation';", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
 const path = resolve('node_modules/.secret-task-guidance-test.mjs')
 await writeFile(path, bundle.outputFiles[0].contents)
 const api = await import(pathToFileURL(path).href)
@@ -49,4 +49,12 @@ test('handoff requests carry the readable target version and a stable retry key'
     assert.equal(calls[0].init.headers.get('X-XSRF-TOKEN'), 'csrf-test')
     assert.doesNotMatch(calls[0].init.body, /rawSecret|approvedRef|status/)
   } finally { globalThis.fetch = oldFetch; globalThis.document = oldDocument }
+})
+
+test('secret navigation has five task-oriented entries and keeps detail pages in their section', () => {
+  assert.deepEqual(api.secretNavigation.map((entry) => entry.label), ['현황', '키·노출 위치', '대응 관리', '연결 관리', '스캔 이력'])
+  assert.equal(api.activeSecretNavigation('/secrets/findings', '/secrets/triage/12'), true)
+  assert.equal(api.activeSecretNavigation('/secrets/findings', '/secrets/12'), true)
+  assert.equal(api.activeSecretNavigation('/secrets', '/secrets/12'), false)
+  assert.equal(api.activeSecretNavigation('/secrets/cases', '/secrets/cases/7'), true)
 })
