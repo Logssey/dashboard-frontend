@@ -38,6 +38,15 @@ test('pending requests and stale validation are not fresh authentication success
   const html = render(api.SecretValidationPolicy, { scopeId: 5 }, [[['secret-validation-policy', 5], { enabled: true, expectedValidationApprovalRevision: 2, profileStatus: 'DISABLED', canConfigure: false }]])
   assert.match(html, /범위를 허용해도 공급자를 호출하지 않아요/); assert.doesNotMatch(html, /<button[^>]*>이 범위 검증/)
 })
+test('synthetic guard takes precedence over a global disabled profile and missing setup has a concrete path', () => {
+  assert.equal(api.validationPresentation({ ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'SYNTHETIC_FIXTURE'] } }).title, '검증 생략')
+  const html = render(api.SecretValidationCard, { secretId: 12, locations: [{ ...location, connectionId: 3, scopeId: 5 }] }, [[['secret-validation', 12, 8], { ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'PROFILE_UNCONFIGURED'] }, validationPolicy: { canConfigure: true } }]])
+  assert.match(html, /서버 운영 담당자의 검증 실행 설정이 필요/); assert.match(html, /href="\/secrets\/connections\/3\/scopes\/5\?settings=validation"/); assert.match(html, /다음 확인 기한 예약 없음/); assert.doesNotMatch(html, /담당자에게 사유 코드를 알려/)
+})
+test('abandoned attempts in history have no invented unchecked result or provider timestamp', () => {
+  const html = render(api.SecretValidationHistory, { secretId: 12 }, [[['secret-validation-history', 12, null, 0], { items: [{ attemptId: 3, state: 'ABANDONED', result: null, reasonCode: 'LEASE_EXPIRED', purpose: 'CREDENTIAL_VALIDITY', completedAt: '2026-10-22T00:00:00Z', providerCheckedAt: null }], total: 1, page: 0, size: 20 }]])
+  assert.match(html, /시도 중단 · 결론 없음/); assert.match(html, /실행 권한이 만료/); assert.doesNotMatch(html, /<td>미검증<\/td>/)
+})
 test('validation API uses selected location, opaque context, CSRF and independent policy revision', async () => {
   const originalFetch = globalThis.fetch, originalDocument = globalThis.document, calls = []
   globalThis.document = { cookie: 'XSRF-TOKEN=csrf-test' }; globalThis.fetch = async (url, init) => { calls.push({ url, init, body: init.body ? JSON.parse(init.body) : null }); return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }) }

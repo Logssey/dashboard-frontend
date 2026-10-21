@@ -2,7 +2,7 @@ import { apiRequest } from './client'
 
 export type ValidationResult = 'VALID' | 'INVALID' | 'UNKNOWN' | 'UNCHECKED'
 export interface ValidationAttempt {
-  attemptId: number; result: ValidationResult; reasonCode: string; method?: string; validatorVersion?: string
+  attemptId: number; result: ValidationResult | null; reasonCode: string; method?: string; validatorVersion?: string; state?: 'RESERVED' | 'SENT' | 'COMPLETED' | 'ABANDONED'
   requestedAt: string | null; requestSentAt?: string | null; providerCheckedAt: string | null; completedAt: string | null
   currentEligible?: boolean; purpose?: string; runId?: number | null
 }
