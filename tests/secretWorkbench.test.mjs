@@ -56,6 +56,18 @@ test('pending scope setup is visible before zero-count work cards without claimi
   const noSetup = { ...summary, metrics: summary.metrics.map((metric) => metric.key === 'unclassifiedScopes' ? { ...metric, value: 0 } : metric) }
   assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], noSetup]]), /setup-title/)
 })
+
+test('severity exclusions use only the server count and stay separate from graded cases', () => {
+  const data = { ...summary, caseSummary: { ...summary.caseSummary, severityStatus: 'AVAILABLE', severityCounts: { HIGH: 1 }, notApplicableCaseCount: 2 } }
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], data]])
+  assert.match(html, /심각도 평가 대상 외 2건 · 등급별 건수와 별도로 집계/)
+  for (const value of [null, undefined, -1, 1.5]) {
+    const unavailable = { ...data, caseSummary: { ...data.caseSummary, notApplicableCaseCount: value } }
+    assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], unavailable]]), /심각도 평가 대상 외/)
+  }
+  const denied = { ...data, caseSummary: { ...data.caseSummary, severityStatus: 'NOT_AUTHORIZED' } }
+  assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], denied]]), /심각도 평가 대상 외/)
+})
 test('denied metrics are unavailable rather than a clickable zero', () => {
   const denied = { ...summary, metrics: [metric('needsDecisionLocations', 'Occurrence', null, 'NOT_AUTHORIZED')], normalInventory: { status: 'NOT_AUTHORIZED', value: null }, crossEnvironmentAlerts: { status: 'NOT_AUTHORIZED', value: null, items: [] }, caseSummary: { status: 'NOT_AUTHORIZED', actionCounts: null, severityStatus: 'LEGACY_UNAVAILABLE' } }
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], denied]])
