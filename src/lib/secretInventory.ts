@@ -43,14 +43,16 @@ export function keyDetailPath(id: number, filter?: InventoryFilter): string {
   return `/secrets/${id}?${result}`
 }
 export function inventoryReturnPath(params: URLSearchParams, id: number | null): string {
+  const origin = params.get('origin')
+  const fallback = origin === 'TEST' || origin === 'UNCLASSIFIED' ? `/secrets/findings?origin=${origin}` : '/secrets/findings'
   if (params.get('return') === 'run-findings') {
     const runId = positiveId(params.get('runId')), page = positiveId(params.get('returnPage'))
     if (runId) return `/secrets/history/${runId}/findings${page ? `?page=${page}` : ''}`
   }
   if (params.get('return') === 'workbench') return safeWorkbenchReturn(params.get('returnQuery'), id ? String(id) : undefined)
-  if (params.get('return') !== 'inventory') return '/secrets/findings'
+  if (params.get('return') !== 'inventory') return fallback
   const parsed = parseInventoryFilters(new URLSearchParams(params.get('returnQuery') ?? ''))
-  if (parsed.errors.length) return '/secrets/findings'
+  if (parsed.errors.length) return fallback
   const safe = inventorySearch(parsed.filters)
   if (id) safe.set('focus', String(id))
   return `/secrets/findings?${safe}`
