@@ -39,3 +39,16 @@ export interface IacPathList {
   items: IacPath[]
   nextCursor: number | null
 }
+
+/** 경로에서 끊을 수 있는 관계. fromHop·toHop 은 hops 의 순번 (0 = 인터넷) */
+export interface IacCutPoint {
+  fromHop: number
+  toHop: number
+  action: string
+  templateKey: string
+}
+
+export interface IacPathDetail {
+  path: IacPath
+  cutPoints: IacCutPoint[]
+}

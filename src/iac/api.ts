@@ -1,5 +1,5 @@
 import { apiRequest } from '@/api/client'
-import type { IacPathList, IacSummary } from './types'
+import type { IacPathDetail, IacPathList, IacSummary } from './types'
 
 const base = '/api/v1/iac'
 
@@ -11,3 +11,5 @@ export const fetchIacPaths = (params: { status?: 'OPEN' | 'CLOSED'; tier?: numbe
   if (params.cursor) query.set('cursor', String(params.cursor))
   return apiRequest<IacPathList>(`${base}/paths?${query}`)
 }
+
+export const fetchIacPath = (pathId: number) => apiRequest<IacPathDetail>(`${base}/paths/${pathId}`)

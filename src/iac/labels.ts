@@ -42,3 +42,23 @@ export function formatDateTime(value: string | null): string {
   if (!value) return '—'
   return new Date(value).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
+
+/** 조치 안내 문구 (백엔드 templateKey 기준). 값·비밀은 넣지 않고 고칠 위치만 적는다 */
+export const remediationTemplate: Record<string, { title: string; how: string }> = {
+  imdsv2_required: {
+    title: 'EC2 메타데이터를 IMDSv2 로만 받기',
+    how: 'compute 모듈의 변수 imds_tokens 를 "required" 로 바꾸면 인스턴스에서 역할 자격 증명을 꺼내는 관계가 끊겨요.',
+  },
+  secrets_read_scope: {
+    title: '역할의 시크릿 읽기 범위 좁히기',
+    how: 'secretsmanager:GetSecretValue 의 Resource 를 "*" 대신 이 역할이 실제로 쓰는 시크릿 ARN 으로 제한하세요.',
+  },
+  tfstate_bucket_policy: {
+    title: 'State 버킷 읽기 주체 줄이기',
+    how: 'tfstate 버킷 정책에서 plan·apply 역할 외의 s3:GetObject 를 거부하세요.',
+  },
+}
+
+export function remediationText(templateKey: string) {
+  return remediationTemplate[templateKey] ?? { title: templateKey, how: '안내 문구가 아직 없어요. 규칙 명세를 확인하세요.' }
+}

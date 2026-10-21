@@ -1,10 +1,11 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
 import { PageHeader } from '@/components/PageHeader'
 import { fetchIacPaths, fetchIacSummary } from './api'
+import { PathDrawer } from './PathDrawer'
 import { formatDateTime, hopLabel, severityLabel, severityTone, tierLabel } from './labels'
 import type { IacPath, IacSeverity } from './types'
 import './iac.css'
@@ -30,6 +31,7 @@ export function IacPage() {
     getNextPageParam: (last) => last.nextCursor,
   })
   const openPaths = paths.data?.pages.flatMap((page) => page.items) ?? []
+  const [selectedPathId, setSelectedPathId] = useState<number | null>(null)
 
   return (
     <>
@@ -97,7 +99,7 @@ export function IacPage() {
             <EmptyState title="1등급 데이터까지 열린 경로 없음"
               description={`마지막 계산 ${formatDateTime(summary.data?.lastFullCheckAt ?? null)}`} />
           ) : (
-            <PathTable items={openPaths} />
+            <PathTable items={openPaths} onSelect={setSelectedPathId} />
           )}
           {paths.hasNextPage && (
             <div className="table-foot">
@@ -108,11 +110,12 @@ export function IacPage() {
           )}
         </section>
       </div>
+      <PathDrawer pathId={selectedPathId} onClose={() => setSelectedPathId(null)} />
     </>
   )
 }
 
-function PathTable({ items }: { items: IacPath[] }) {
+function PathTable({ items, onSelect }: { items: IacPath[]; onSelect: (pathId: number) => void }) {
   return (
     <div className="table-scroll" tabIndex={0} role="region" aria-label="열린 공격 경로 표. 좁은 화면에서는 가로로 스크롤하세요.">
       <table>
@@ -122,6 +125,7 @@ function PathTable({ items }: { items: IacPath[] }) {
             <th scope="col">경로</th>
             <th scope="col">대상</th>
             <th scope="col">마지막 확인</th>
+            <th scope="col"><span className="sr-only">상세</span></th>
           </tr>
         </thead>
         <tbody>
@@ -151,6 +155,11 @@ function PathTable({ items }: { items: IacPath[] }) {
                 <span className="asset">{path.target.kind}</span>
               </td>
               <td className="muted">{formatDateTime(path.lastSeenAt)}</td>
+              <td>
+                <button className="btn" onClick={() => onSelect(path.pathId)} aria-label={`경로 #${path.pathId} 끊을 지점 보기`}>
+                  끊을 지점
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
