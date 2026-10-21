@@ -13,6 +13,7 @@ export interface WorkbenchQueueItem {
   whyHereCode?: string; whyHere?: string; nextActionCode?: string
   inventorySubtype?: string; stage?: string
   assigneeDisplayName?: string | null; assigneeTeam?: string | null; assigneeUserId?: number | null
+  visibleOccurrenceCount?: number
   contentType?: string; coverage?: ScopeCoverage
   classificationStatus?: string; approvalStatus?: string; policyStatus?: string
   lastSeenAt?: string | null; evidenceObservedAt?: string | null; updatedAt?: string | null

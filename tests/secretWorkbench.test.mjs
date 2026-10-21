@@ -23,7 +23,7 @@ const metric = (key, unit, value, status = 'AVAILABLE') => ({ key, unit, value, 
 const summary = {
   scope: 'workbench', unit: 'Mixed', total: null, origin: 'TEST', filters: {}, snapshotId, asOf: '2026-10-21T00:00:00Z', expiresAt: '2026-10-21T01:00:00Z', restrictedCoverage: true,
   metrics: [metric('needsDecisionLocations', 'Occurrence', 3), metric('ongoingCases', 'ResponseCase', 2), metric('revalidationPendingCases', 'ResponseCase', 1), metric('coverageGapScopes', 'Scope', 4), metric('needsCaseLinkLocations', 'Occurrence', 0), metric('unclassifiedScopes', 'Scope', 5)],
-  workPreviews: { response: { status: 'AVAILABLE', unit: 'ResponseCase', total: 2, snapshotId, items: [{ caseId: 7, occurrenceId: 8, maskedLabel: 'AWS ••••A1B2', safeLocationLabel: '주문 서비스 설정', assigneeDisplayName: '보안 담당자', whyHereCode: 'ACTIVE_RESPONSE' }] }, decision: { status: 'AVAILABLE', unit: 'Occurrence', total: 3, snapshotId, items: [] }, revalidation: { status: 'AVAILABLE', unit: 'ResponseCase', total: 1, snapshotId, items: [] } },
+  workPreviews: { response: { status: 'AVAILABLE', unit: 'ResponseCase', total: 2, snapshotId, items: [{ caseId: 7, occurrenceId: 8, visibleOccurrenceCount: 2, maskedLabel: 'AWS ••••A1B2', safeLocationLabel: '주문 서비스 설정', assigneeDisplayName: '보안 담당자', whyHereCode: 'ACTIVE_RESPONSE' }] }, decision: { status: 'AVAILABLE', unit: 'Occurrence', total: 3, snapshotId, items: [] }, revalidation: { status: 'AVAILABLE', unit: 'ResponseCase', total: 1, snapshotId, items: [] } },
   collectionHealth: { status: 'AVAILABLE', origin: 'TEST', approvedScopeCount: 8, lastAttempt: { runId: 5, status: 'FAILED', requestedAt: '2026-10-21T00:00:00Z' }, lastScopeSuccess: { runId: 4, finishedAt: '2026-10-20T00:00:00Z' }, lastCompleteSuccess: null, counts: { success: 6, partial: 1, failed: 1, notRun: 0, paused: 0, running: 0, incomplete: 0 }, items: [] },
   setupSummary: { status: 'AVAILABLE', selectedOrigin: 'TEST', selectedOriginScopeCount: 1, unclassifiedScopeCount: 4, pausedScopeCount: 2, globalGroupsIgnoreOrigin: true, selectedReasonCounts: { POLICY_MISSING: 1 }, unclassifiedReasonCounts: { SOURCE_UNCLASSIFIED: 4 }, pausedReasonCounts: { POLICY_MISSING: 2 }, items: [{ scopeId: 13, connectionId: 9, safeDisplayAlias: '선택 출처 범위', setupReasonCodes: ['POLICY_MISSING'] }], unclassifiedItems: [], pausedItems: [], notApplicableFilters: ['provider', 'environment', 'assignee'] },
   caseSummary: { status: 'AVAILABLE', total: 5, actionCounts: { OPEN: 1, IN_PROGRESS: 1, REVALIDATION_PENDING: 1, RESOLVED: 2, RISK_ACCEPTED: 0 }, severityStatus: 'LEGACY_UNAVAILABLE', severityCounts: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNASSESSED: 5 } },
@@ -133,4 +133,15 @@ test('overview shows at most three real work rows while retaining the server tot
   assert.match(html, /실제업무-1/); assert.match(html, /실제업무-3/); assert.match(html, /대응<span>5건/)
   assert.doesNotMatch(html, /실제업무-4|실제업무-5/)
   assert.match(html, /선택 범위 전체를 한 실행에서 확인한 근거 없음/)
+})
+
+test('overview navigation retains TEST discovery filters without transferring its workbench snapshot', () => {
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
+  const links = decodeLinks(html)
+  for (const url of links.filter((url) => url.pathname === '/secrets/findings')) {
+    for (const key of ['origin', 'source', 'provider', 'environment']) assert.equal(url.searchParams.get(key), filters[key])
+    assert.equal(url.searchParams.has('snapshotId'), false)
+  }
+  for (const url of links.filter((url) => url.pathname === '/secrets/history' || url.pathname === '/secrets/connections' && url.searchParams.has('origin'))) assert.equal(url.searchParams.get('origin'), 'TEST')
+  assert.doesNotMatch(html, /위치 정보 미제공/)
 })

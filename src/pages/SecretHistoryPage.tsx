@@ -13,7 +13,8 @@ import { hasScopeAggregation, kstInput, kstInputToUtc, parseRunFilters, positive
 import './secret-scan.css'
 
 export function SecretHistoryPage() {
-  const [params, setParams] = useSearchParams()
+  const [params, updateParams] = useSearchParams()
+  const setParams = (next: URLSearchParams, options?: { replace: boolean }) => { const origin = params.get('origin'); if (origin && ['PRODUCTION', 'TEST'].includes(origin) && !next.has('origin')) next.set('origin', origin); updateParams(next, options) }
   const { filters, errors } = parseRunFilters(params)
   const legacyId = positiveId(params.get('run'))
   if (legacyId) return <Navigate replace to={scanDetailPath(legacyId, filters)} />
