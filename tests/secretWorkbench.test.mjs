@@ -23,6 +23,9 @@ const metric = (key, unit, value, status = 'AVAILABLE') => ({ key, unit, value, 
 const summary = {
   scope: 'workbench', unit: 'Mixed', total: null, origin: 'TEST', filters: {}, snapshotId, asOf: '2026-10-21T00:00:00Z', expiresAt: '2026-10-21T01:00:00Z', restrictedCoverage: true,
   metrics: [metric('needsDecisionLocations', 'Occurrence', 3), metric('ongoingCases', 'ResponseCase', 2), metric('revalidationPendingCases', 'ResponseCase', 1), metric('coverageGapScopes', 'Scope', 4), metric('needsCaseLinkLocations', 'Occurrence', 0), metric('unclassifiedScopes', 'Scope', 5)],
+  workPreviews: { response: { status: 'AVAILABLE', unit: 'ResponseCase', total: 2, snapshotId, items: [{ caseId: 7, occurrenceId: 8, visibleOccurrenceCount: 2, maskedLabel: 'AWS ••••A1B2', safeLocationLabel: '주문 서비스 설정', assigneeDisplayName: '보안 담당자', whyHereCode: 'ACTIVE_RESPONSE' }] }, decision: { status: 'AVAILABLE', unit: 'Occurrence', total: 3, snapshotId, items: [] }, revalidation: { status: 'AVAILABLE', unit: 'ResponseCase', total: 1, snapshotId, items: [] } },
+  collectionHealth: { status: 'AVAILABLE', origin: 'TEST', approvedScopeCount: 8, lastAttempt: { runId: 5, status: 'FAILED', requestedAt: '2026-10-21T00:00:00Z' }, lastScopeSuccess: { runId: 4, finishedAt: '2026-10-20T00:00:00Z' }, lastCompleteSuccess: null, counts: { success: 6, partial: 1, failed: 1, notRun: 0, paused: 0, running: 0, incomplete: 0 }, items: [] },
+  setupSummary: { status: 'AVAILABLE', selectedOrigin: 'TEST', selectedOriginScopeCount: 1, unclassifiedScopeCount: 4, pausedScopeCount: 2, globalGroupsIgnoreOrigin: true, selectedReasonCounts: { POLICY_MISSING: 1 }, unclassifiedReasonCounts: { SOURCE_UNCLASSIFIED: 4 }, pausedReasonCounts: { POLICY_MISSING: 2 }, items: [{ scopeId: 13, connectionId: 9, safeDisplayAlias: '선택 출처 범위', setupReasonCodes: ['POLICY_MISSING'] }], unclassifiedItems: [], pausedItems: [], notApplicableFilters: ['provider', 'environment', 'assignee'] },
   caseSummary: { status: 'AVAILABLE', total: 5, actionCounts: { OPEN: 1, IN_PROGRESS: 1, REVALIDATION_PENDING: 1, RESOLVED: 2, RISK_ACCEPTED: 0 }, severityStatus: 'LEGACY_UNAVAILABLE', severityCounts: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNASSESSED: 5 } },
   normalInventory: { status: 'AVAILABLE', unit: 'CredentialSet', value: 12 }, crossEnvironmentAlerts: { status: 'AVAILABLE', unit: 'CrossEnvironmentAlert', value: 1, items: [{ alertId: 77, status: 'SUSPECTED_REAL' }] }, partialCoverage: true,
 }
@@ -32,29 +35,34 @@ function render(Component, entry, seeds = []) {
   return renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [entry] }, createElement(Component))))
 }
 function decodeLinks(html) { return [...html.matchAll(/href="([^"]+)"/g)].map((match) => new URL(match[1].replaceAll('&amp;', '&'), 'http://local')) }
-test('work cards, stage bars and their lists retain every filter and the exact snapshot', () => {
+test('actual work rows and their destination retain every filter and the exact snapshot', () => {
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
   const links = decodeLinks(html).filter((url) => url.pathname === '/secrets/triage')
-  assert.equal(links.length, 13)
+  assert.ok(links.length >= 2)
   for (const url of links) for (const [key, value] of new URLSearchParams(query)) assert.equal(url.searchParams.get(key), value)
-  assert.ok(links.some((url) => url.searchParams.get('stages') === 'RESOLVED'))
-  assert.ok(links.some((url) => url.searchParams.get('bucket') === 'UNCLASSIFIED'))
-  assert.match(html, /발급자·환경·담당자 조건은 적용하지 않아요/)
-  assert.match(html, /서로 다른 단위예요/)
-  assert.match(html, /심각도 미평가/)
-  assert.match(html, /경고 #77/)
-  assert.doesNotMatch(html, /평균 위험|총 위험|높음 0|낮음 0/)
+  assert.match(html, /AWS ••••A1B2/); assert.match(html, /주문 서비스 설정/); assert.match(html, /보안 담당자/)
+  const caseLink = decodeLinks(html).find((url) => url.pathname === '/secrets/cases/7')
+  assert.equal(caseLink.searchParams.get('origin'), 'TEST'); assert.equal(caseLink.searchParams.get('occurrence'), '8')
+  for (const [key, value] of new URLSearchParams(query)) assert.equal(new URLSearchParams(caseLink.searchParams.get('returnQuery')).get(key), value)
+  assert.match(html, /검사 상태/); assert.match(html, /최근 범위 성공/)
+  assert.doesNotMatch(html, /선택 범위 전체 성공|secret-workbench-card|secret-workbench-stage-track|평균 위험|총 위험|높음 0|낮음 0/)
 })
-test('pending scope setup is visible before zero-count work cards without claiming a key count', () => {
+test('reason-based setup stays after actual security work and separates paused connections', () => {
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
-  assert.match(html, /분류·보관 규칙을 확인할 검사 대상 5개/)
-  assert.ok(html.indexOf('setup-title') < html.indexOf('현황 조회 조건'))
-  const unclassified = decodeLinks(html).find((url) => url.pathname === '/secrets/findings' && url.searchParams.get('origin') === 'UNCLASSIFIED')
-  assert.ok(unclassified)
-  for (const key of ['source', 'provider', 'environment']) assert.equal(unclassified.searchParams.get(key), filters[key])
-  assert.equal(unclassified.searchParams.has('snapshotId'), false)
-  const noSetup = { ...summary, metrics: summary.metrics.map((metric) => metric.key === 'unclassifiedScopes' ? { ...metric, value: 0 } : metric) }
-  assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], noSetup]]), /setup-title/)
+  assert.ok(html.indexOf('지금 처리할 업무') < html.indexOf('운영 설정'))
+  assert.match(html, /선택한 출처의 설정 보완/); assert.match(html, /출처가 미분류인 범위/); assert.match(html, /중지된 연결의 설정 잔여/)
+  assert.match(html, /보관 정책 미설정 1/)
+  assert.doesNotMatch(html, /setup-title|분류·보관 규칙을 확인할 검사 대상/)
+})
+test('an actual empty operating work queue provides explicit TEST and unclassified entry without fake activity', () => {
+  const operating = { ...filters, origin: 'PRODUCTION' }
+  const value = { ...summary, workPreviews: Object.fromEntries(Object.entries(summary.workPreviews).map(([key, preview]) => [key, { ...preview, total: 0, items: [] }])) }
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${modules.lib.workbenchSearch(operating)}`, [[['secret-summary', operating], value]])
+  assert.match(html, /현재 조건에서 처리할 보안 업무가 없어요/)
+  const links = decodeLinks(html)
+  assert.ok(links.some((url) => url.pathname === '/secrets' && url.searchParams.get('origin') === 'TEST'))
+  assert.ok(links.some((url) => url.pathname === '/secrets/findings' && url.searchParams.get('origin') === 'UNCLASSIFIED'))
+  assert.doesNotMatch(html, /AWS ••••A1B2|모두 안전|전체 성공/)
 })
 
 test('severity exclusions use only the server count and stay separate from graded cases', () => {
@@ -69,7 +77,7 @@ test('severity exclusions use only the server count and stay separate from grade
   assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], denied]]), /심각도 평가 대상 외/)
 })
 test('denied metrics are unavailable rather than a clickable zero', () => {
-  const denied = { ...summary, metrics: [metric('needsDecisionLocations', 'Occurrence', null, 'NOT_AUTHORIZED')], normalInventory: { status: 'NOT_AUTHORIZED', value: null }, crossEnvironmentAlerts: { status: 'NOT_AUTHORIZED', value: null, items: [] }, caseSummary: { status: 'NOT_AUTHORIZED', actionCounts: null, severityStatus: 'LEGACY_UNAVAILABLE' } }
+  const denied = { ...summary, metrics: [metric('needsDecisionLocations', 'Occurrence', null, 'NOT_AUTHORIZED')], workPreviews: { response: { status: 'NOT_AUTHORIZED', items: [], total: null, snapshotId }, decision: { status: 'NOT_AUTHORIZED', items: [], total: null, snapshotId }, revalidation: { status: 'NOT_AUTHORIZED', items: [], total: null, snapshotId } }, collectionHealth: { status: 'NOT_AUTHORIZED' }, setupSummary: { status: 'NOT_AUTHORIZED' }, normalInventory: { status: 'NOT_AUTHORIZED', value: null }, crossEnvironmentAlerts: { status: 'NOT_AUTHORIZED', value: null, items: [] }, caseSummary: { status: 'NOT_AUTHORIZED', actionCounts: null, severityStatus: 'LEGACY_UNAVAILABLE' } }
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], denied]])
   assert.match(html, /지표를 볼 권한이 없어요/)
   assert.doesNotMatch(html, />0<small>/)
@@ -117,4 +125,23 @@ test('summary and queue requests share normalized filters rather than calling in
     for (const url of calls) for (const [key, value] of new URLSearchParams(query)) assert.equal(url.searchParams.get(key), value)
     assert.equal(calls[1].searchParams.get('page'), '2')
   } finally { globalThis.fetch = originalFetch }
+})
+
+test('overview shows at most three real work rows while retaining the server total', () => {
+  const value = { ...summary, workPreviews: { ...summary.workPreviews, response: { ...summary.workPreviews.response, total: 5, items: [1, 2, 3, 4, 5].map((id) => ({ caseId: id, maskedLabel: `실제업무-${id}`, whyHereCode: 'ACTIVE_RESPONSE' })) } } }
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], value]])
+  assert.match(html, /실제업무-1/); assert.match(html, /실제업무-3/); assert.match(html, /대응<span>5건/)
+  assert.doesNotMatch(html, /실제업무-4|실제업무-5/)
+  assert.match(html, /선택 범위 전체를 한 실행에서 확인한 근거 없음/)
+})
+
+test('overview navigation retains TEST discovery filters without transferring its workbench snapshot', () => {
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
+  const links = decodeLinks(html)
+  for (const url of links.filter((url) => url.pathname === '/secrets/findings')) {
+    for (const key of ['origin', 'source', 'provider', 'environment']) assert.equal(url.searchParams.get(key), filters[key])
+    assert.equal(url.searchParams.has('snapshotId'), false)
+  }
+  for (const url of links.filter((url) => url.pathname === '/secrets/history' || url.pathname === '/secrets/connections' && url.searchParams.has('origin'))) assert.equal(url.searchParams.get('origin'), 'TEST')
+  assert.doesNotMatch(html, /위치 정보 미제공/)
 })

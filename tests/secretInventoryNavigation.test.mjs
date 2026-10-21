@@ -62,9 +62,16 @@ test('independent key detail displays present, missing and unknown together with
   assert.match(html, /현재 존재 확인 불가/)
   assert.match(html, /열람 가능한 위치 기준/)
   assert.match(html, /합성 데이터 여부 미확인/)
-  assert.match(html, /조치 후 위치 미발견<\/dt><dd>근거 확인 필요/)
+  assert.doesNotMatch(html, /해결에 필요한 근거|조치 후 위치 미발견<\/dt>/)
   assert.doesNotMatch(html, /must-not-render|키 전체 노출|해결 완료<\/button>|원문 보기/)
-  assert.match(html, /미발견과 체크 완료만으로 키 폐기·해결을 확정하지 않아요/)
+  const linked = { ...locations, items: locations.items.map((row) => row.occurrenceId === 2 ? { ...row, caseId: 7, capabilities: { ...row.capabilities, canViewCase: true } } : row) }
+  const linkedHtml = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [
+    [['secret-detail', 12, 'TEST'], item], [['secret-key-locations', 12, filters, 0], linked],
+  ])
+  assert.match(linkedHtml, /<details[^>]*><summary>조치·검사 근거 자세히<\/summary>/)
+  assert.match(linkedHtml, /조치 후 위치 미발견<\/dt><dd>근거 확인 필요/)
+  assert.match(linkedHtml, /미발견과 체크 완료만으로 키 폐기·해결을 확정하지 않아요/)
+  assert.doesNotMatch(linkedHtml, /must-not-render|해결 완료<\/button>/)
 })
 test('inventory makes metadata and value candidate filters explicit and uses safe independent key links', () => {
   const url = `/secrets/findings?origin=TEST&contentKind=METADATA&snapshotId=${snapshotId}`

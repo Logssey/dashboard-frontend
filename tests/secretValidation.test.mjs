@@ -40,7 +40,7 @@ test('pending requests and stale validation are not fresh authentication success
   assert.match(html, /범위를 허용해도 공급자를 호출하지 않아요/); assert.doesNotMatch(html, /<button[^>]*>이 범위 검증/)
 })
 test('synthetic guard takes precedence over a global disabled profile and missing setup has a concrete path', () => {
-  assert.equal(api.validationPresentation({ ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'SYNTHETIC_FIXTURE'] } }).title, '검증 생략')
+  assert.equal(api.validationPresentation({ ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'SYNTHETIC_FIXTURE'] } }).title, '합성 키 검증 생략')
   const html = render(api.SecretValidationCard, { secretId: 12, locations: [{ ...location, connectionId: 3, scopeId: 5 }] }, [[['secret-validation', 12, 8], { ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'PROFILE_UNCONFIGURED'] }, validationPolicy: { canConfigure: true } }]])
   assert.match(html, /서버 운영 담당자의 검증 실행 설정이 필요/); assert.match(html, /href="\/secrets\/connections\/3\/scopes\/5\?settings=validation"/); assert.match(html, /다음 확인 기한 예약 없음/); assert.doesNotMatch(html, /담당자에게 사유 코드를 알려/)
 })
@@ -48,7 +48,7 @@ test('synthetic guard takes precedence over a global disabled profile and missin
 test('a guarded test repository skips external validation without asserting synthetic evidence', () => {
   const value = { ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'SOURCE_GUARD_BLOCKED'] } }
   const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value]])
-  assert.match(html, /<h3>보호 규칙으로 검증 생략<\/h3>/)
+  assert.match(html, /<h3>시험 저장소 검증 제외<\/h3>/)
   assert.match(html, /외부 인증 확인을 실행하지 않았어요/)
   assert.match(html, /합성 여부는 별도 근거로 확인/)
   assert.match(html, /실제 확인 시각<\/dt><dd>—/)
@@ -72,4 +72,19 @@ test('validation API uses selected location, opaque context, CSRF and independen
     assert.equal(calls[1].url, '/api/v1/secrets/validation-requests/4'); assert.match(calls[2].url, /occurrenceId=8/); assert.match(calls[2].url, /page=2/); assert.equal(calls[3].body.expectedValidationApprovalRevision, 2)
     for (const call of calls) assert.doesNotMatch(JSON.stringify(call.body), /rawSecret|endpoint|authRef/)
   } finally { globalThis.fetch = originalFetch; globalThis.document = originalDocument }
+})
+
+test('canonical occurrence drives validation and history even when a legacy validation selection differs', () => {
+  const value = { ...data, latestAttempt: { result: 'VALID', reasonCode: 'AUTHENTICATED', providerCheckedAt: '2026-10-22T00:00:00Z' } }
+  const html = render(api.SecretValidationCard, { secretId: 12, locations: [location, { ...location, occurrenceId: 9 }] }, [[['secret-validation', 12, 8], value]], '/?occurrence=8&validationOccurrence=9')
+  assert.match(html, /<h3>유효<\/h3>/)
+  const history = render(api.SecretValidationHistory, { secretId: 12 }, [[['secret-validation-history', 12, 8, 0], { items: [{ attemptId: 1, result: 'VALID', reasonCode: 'AUTHENTICATED', providerCheckedAt: '2026-10-22T00:00:00Z' }], total: 1, page: 0, size: 20 }]], '/?occurrence=8&validationOccurrence=9')
+  assert.match(history, /<td>유효/)
+})
+
+test('an invalid explicit validation location cannot borrow another location result or request controls', () => {
+  const value = { ...data, latestAttempt: { result: 'VALID', reasonCode: 'AUTHENTICATED', providerCheckedAt: '2026-10-22T00:00:00Z' }, capabilities: { canRequestValidation: true, blockedReasonCodes: [] } }
+  const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value]], '/?occurrence=0&validationOccurrence=8')
+  assert.match(html, /선택한 위치가 현재 필터·페이지에 없어요/)
+  assert.doesNotMatch(html, /<h3>유효<\/h3>|>유효성 확인<|>확인 요청</)
 })

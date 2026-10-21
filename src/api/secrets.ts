@@ -117,6 +117,8 @@ export interface InventoryFilter extends SecretFilter {
   snapshotId: string
 }
 export interface KeyLocation {
+  legacyExposureAssessment?: { decision: string; assessmentId: number; scopeRevision: number | null; currentScopeRevision: number; needsReconfirmation: boolean; reasonCodes: string[] }
+
   severity?: string | null
   assessmentStatus?: 'ASSESSED' | 'UNASSESSED' | 'NOT_APPLICABLE'
   held?: boolean

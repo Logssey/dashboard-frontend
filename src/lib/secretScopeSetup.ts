@@ -1,7 +1,7 @@
 import type { ScopeClassification, ScopeChangeResult } from '@/api/secretPolicy'
 
 export const setupReasonLabels: Record<string, string> = {
-  SOURCE_UNCLASSIFIED: '출처 미설정', CLASSIFICATION_EVIDENCE_REQUIRED: '출처 근거 필요',
+  CONNECTION_PAUSED: '연결 중지', SCOPE_DISABLED: '범위 중지', SOURCE_UNCLASSIFIED: '출처 미설정', CLASSIFICATION_EVIDENCE_REQUIRED: '출처 근거 필요',
   POLICY_MISSING: '보관 정책 미설정', POLICY_EXPIRED: '보관 정책 만료', POLICY_RETIRED: '보관 정책 폐기',
   POLICY_NOT_YET_VALID: '정책 적용 전', POLICY_SCOPE_MISMATCH: '정책 범위 불일치',
   PENDING_REVIEW: '다른 담당자 검토 대기', CLASSIFICATION_IMPACT_PENDING: '기존 대응 건 확인 필요',

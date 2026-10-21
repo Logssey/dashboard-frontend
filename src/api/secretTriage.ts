@@ -1,8 +1,9 @@
 import { apiRequest } from './client'
-import type { SecretComponentState, SecretIssuer, SecretOrigin } from './secrets'
+import type { KeyLocation, SecretComponentState, SecretIssuer, SecretOrigin } from './secrets'
 
 export type ReviewDecision = 'ABNORMAL' | 'NORMAL' | 'FALSE_POSITIVE' | 'NEEDS_MORE_INFO'
 export interface ReviewContext {
+  sourceDetails?: KeyLocation['sourceDetails']
   taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
   canRequestAssistance?: boolean
   credentialSetId: number

@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { withSecretOrigin } from '@/lib/secretNavigation'
+
 import { createPolicyDraft, type ScopeClassification } from '@/api/secretPolicy'
 import { kstInput, kstInputToUtc, scopeTypeLabel } from '@/lib/secretScan'
 import { safeMutationMessage, validEvidenceRef } from '@/lib/secretEvidence'
 import { useSecretReadRefresh } from '@/lib/useSecretReadRefresh'
 
 export function SecretPolicyDraftForm({ scope }: { scope: ScopeClassification }) {
+  const [params] = useSearchParams()
   const [effect, setEffect] = useState<'ALLOW' | 'DENY'>('ALLOW')
   const [evidence, setEvidence] = useState('')
   const [from, setFrom] = useState(() => kstInput(new Date().toISOString()))
@@ -25,7 +28,7 @@ export function SecretPolicyDraftForm({ scope }: { scope: ScopeClassification })
       <label className="secret-check-label"><input type="checkbox" checked={withoutExpiry} onChange={(e) => { setWithoutExpiry(e.target.checked); setConfirmed(false) }} /> 만료 없이 적용하도록 제안</label>
       <label className="secret-check-label"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> 선택한 승인 범위 전체에 적용되며, 다른 보안 담당자의 승인이 필요함을 확인했어요.</label>
       {draft.isError && <p className="notice error" role="alert">{safeMutationMessage(draft.error)}</p>}
-      {draft.isSuccess ? <p className="notice" role="status">정책 초안을 등록했어요. <Link to={`/secrets/connections/policies/${draft.data.policyId}/versions/${draft.data.version}`}>초안 검토로 이동</Link></p> : <button className="btn primary" disabled={!confirmed || !validEvidenceRef(evidence) || !datesValid || draft.isPending}>{draft.isPending ? '등록 중…' : '초안 등록'}</button>}
+      {draft.isSuccess ? <p className="notice" role="status">정책 초안을 등록했어요. <Link to={withSecretOrigin(`/secrets/connections/policies/${draft.data.policyId}/versions/${draft.data.version}`, params)}>초안 검토로 이동</Link></p> : <button className="btn primary" disabled={!confirmed || !validEvidenceRef(evidence) || !datesValid || draft.isPending}>{draft.isPending ? '등록 중…' : '초안 등록'}</button>}
     </form>
   </details>
 }

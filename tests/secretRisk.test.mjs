@@ -23,7 +23,7 @@ test('unassessed automatic risk preserves and explains a separately held inciden
 test('R00 with null severity remains distinct from R99 and low risk', () => {
   assert.equal(api.severityText(null, 'NOT_APPLICABLE'), '심각도 적용 대상 아님'); assert.equal(api.severityText(null, 'UNASSESSED'), '미평가')
   const html = render({ ...data, latestAutomaticAssessment: { ...assessment, assessmentStatus: 'NOT_APPLICABLE', ruleId: 'R00' } })
-  assert.match(html, /보관 허용 · 심각도 적용 대상 아님/); assert.doesNotMatch(html, /<strong>낮음/)
+  assert.match(html, /유효한 보관 허용 근거/); assert.match(html, /심각도 적용 대상 아님/); assert.doesNotMatch(html, /<strong>낮음/)
 })
 test('manual acceptance is not provider verification and uninvestigated abuse is not absence', () => {
   const html = render({ ...data, evidenceSummary: [{ evidenceId: 4, kind: 'PERMISSION_MAPPING', verificationLevel: 'MANUAL_ACCEPTED', observedAt: null }] })
@@ -39,4 +39,11 @@ test('rejected evidence and failed assessment have explicit states without claim
   assert.doesNotMatch(api.assessmentFailureReason('secret-sentinel'), /secret-sentinel/)
   const html = render({ ...data, evidenceSummary: [{ evidenceId: 9, type: 'ASSET_CLASSIFICATION', verificationLevel: 'MANUAL_SUBMITTED', status: 'REJECTED', observedAt: null }] })
   assert.match(html, /자료 거절/); assert.doesNotMatch(html, /담당자 제출 · 수용 대기/)
+})
+
+test('identical current and automatic R99 is one result while facts stay in a closed disclosure', () => {
+  const html = render({ ...data, effectiveAssessment: assessment })
+  assert.equal((html.match(/<strong>미평가<\/strong>/g) ?? []).length, 1)
+  assert.match(html, /<details class="secret-risk-technical"><summary>평가에 사용한 사실/)
+  assert.doesNotMatch(html, /최근 자동 평가|현재 적용 판단/)
 })

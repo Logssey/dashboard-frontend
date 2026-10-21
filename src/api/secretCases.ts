@@ -1,5 +1,5 @@
 import { apiRequest } from './client'
-import type { SecretIssuer } from './secrets'
+import type { KeyLocation, SecretIssuer } from './secrets'
 
 export type SecretCaseStage = 'OPEN' | 'IN_PROGRESS' | 'REVALIDATION_PENDING' | 'RESOLVED'
 export type SecretCaseOrigin = 'PRODUCTION' | 'TEST'
@@ -51,6 +51,7 @@ export interface SecretCaseDetail extends SecretCaseItem {
   }
 }
 export interface SecretCaseOccurrence {
+  sourceDetails?: KeyLocation['sourceDetails']
   requiredRemediation?: boolean
   remediationPresence?: 'PRESENT' | 'MISSING' | 'UNKNOWN'
   postActionRedetected?: boolean

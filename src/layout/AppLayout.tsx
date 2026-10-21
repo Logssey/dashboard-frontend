@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
-import { secretNavigation, activeSecretNavigation } from '@/lib/secretNavigation'
+import { secretNavigation, activeSecretNavigation, withSecretOrigin } from '@/lib/secretNavigation'
 import { useSecretWorkbench } from '@/lib/useSecretWorkbench'
 import { availableMetric, parseWorkbenchFilters } from '@/lib/secretWorkbench'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
@@ -92,7 +92,7 @@ export function AppLayout() {
             const active = isInfrastructure ? inInfrastructure : isSecrets ? inSecrets : location.pathname === item.path
             return (
               <div key={item.path}>
-                <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={item.path} end>
+                <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={isSecrets && inSecrets ? withSecretOrigin(item.path, routeParams) : item.path} end>
                   <Icon name={item.icon} />
                   {item.label}
                 </NavLink>
@@ -102,7 +102,7 @@ export function AppLayout() {
                       <Link
                         key={page.path}
                         className={`nav-link secret-sub ${activeSecretNavigation(page.path, location.pathname) ? 'active' : ''}`.trim()}
-                        to={routeParams.get('origin') === 'TEST' ? `${page.path}?origin=TEST` : page.path}
+                        to={withSecretOrigin(page.path, routeParams)}
                         aria-current={activeSecretNavigation(page.path, location.pathname) ? 'page' : undefined}
                       >
                         <Icon name={page.icon} />
