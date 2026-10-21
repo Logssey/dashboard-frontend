@@ -61,6 +61,39 @@ test('policy details keep protected paths private and hide self approval', () =>
   assert.match(html, /현재 적용 불가/)
   assert.doesNotMatch(html, /must-not-display-path|<button[^>]*>정책 승인<\/button>/)
 })
+
+test('scope setup keeps the current policy and makes approval preview an explicit step', () => {
+  const value = { ...classification, pendingProposal: null, capabilities: { canPropose: true, canDraftPolicy: false }, setupReasonCodes: ['POLICY_MISSING'] }
+  const html = renderPage(api.SecretScopeClassificationPage, '/secrets/connections/:connectionId/scopes/:scopeId', '/secrets/connections/2/scopes/5', [[['secret-classification', 5], value]])
+  assert.match(html, /보관 정책 별도 설정/)
+  assert.match(html, /현재 설정 유지/)
+  assert.match(html, /저장 방식 확인/)
+  assert.match(html, /disabled=""[^>]*>출처 저장/)
+  assert.doesNotMatch(html, /다른 보안 담당자의 검토가 필요함을 확인/)
+})
+
+test('pending review shows waiting owner without granting approval to the requester', () => {
+  const value = { ...classification, eligibleReviewers: [{ userId: 9, displayName: '검토 담당자' }], pendingProposal: { ...classification.pendingProposal, reviewerUserId: 9 }, capabilities: { ...classification.capabilities, canAssignReviewer: true } }
+  const html = renderPage(api.SecretScopeClassificationPage, '/secrets/connections/:connectionId/scopes/:scopeId', '/secrets/connections/2/scopes/5', [[['secret-classification', 5], value]])
+  assert.match(html, /검토 담당자 지정/)
+  assert.match(html, /스스로 승인할 수 없어요/)
+  assert.doesNotMatch(html, /<button[^>]*>변경 승인<\/button>/)
+})
+
+test('approval preview is read-only POST and assignment includes optimistic version and retry key', async () => {
+  const originalFetch = globalThis.fetch, originalDocument = globalThis.document
+  const calls = []
+  globalThis.document = { cookie: 'XSRF-TOKEN=csrf-test' }
+  globalThis.fetch = async (path, init) => { calls.push({ path, init, body: JSON.parse(init.body) }); return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }) }
+  try {
+    await api.previewScopeClassification(5, { origin: 'PRODUCTION', storagePolicyId: null, storagePolicyVersion: null, expectedScopeVersion: 2 })
+    await api.assignScopeReviewer(5, 12, { reviewerUserId: 9, expectedProposalVersion: 1, idempotencyKey: 'reviewer-retry' })
+    assert.equal(calls[0].path, '/api/v1/secrets/scopes/5/classification-preview')
+    assert.equal(calls[1].init.method, 'PATCH')
+    assert.deepEqual(calls[1].body, { reviewerUserId: 9, expectedProposalVersion: 1, idempotencyKey: 'reviewer-retry' })
+    assert.equal(calls[1].init.headers.get('X-XSRF-TOKEN'), 'csrf-test')
+  } finally { globalThis.fetch = originalFetch; globalThis.document = originalDocument }
+})
 test('policy writes send only IDs, controlled references and explicit versions', async () => {
   const originalFetch = globalThis.fetch, originalDocument = globalThis.document
   const calls = []
