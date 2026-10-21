@@ -162,3 +162,10 @@ export function pullRequestUrl(number: number): string | null {
 }
 
 export const shortSha = (sha: string) => sha.slice(0, 7)
+
+/** 드리프트 정도 (rule-spec ③). 노이즈로 분류된 것은 API 가 내려주지 않는다 */
+export const driftLevel: Record<string, { label: string; tone: string }> = {
+  'drift.high': { label: '드리프트 높음', tone: 'critical' },
+  'drift.medium': { label: '드리프트 중간', tone: 'medium' },
+  'drift.low': { label: '드리프트 낮음', tone: '' },
+}

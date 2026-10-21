@@ -26,3 +26,5 @@
 .iac-gates > li { display: flex; flex-direction: column; gap: 6px; padding: var(--space-4); border-radius: var(--radius-sm); background: var(--surface-subtle); }
 .iac-gate-rules { margin: 4px 0 0; padding-left: 16px; font-size: 12px; color: var(--text-muted); }
 .iac-supply { margin-top: var(--space-6); }
+.iac-bucket { display: flex; flex-direction: column; gap: 6px; margin-top: var(--space-4); }
+.iac-subhead { margin: 0 28px var(--space-4); font-size: 15px; }

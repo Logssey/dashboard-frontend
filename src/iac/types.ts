@@ -119,3 +119,36 @@ export interface IacGates {
   stages: IacGateStage[]
   supplyChain: { unpinnedProviders: number; unpinnedModules: number; changedModules: number; lockChanges: number }
 }
+
+/** S-01 F. tfstate 버킷별 읽기 주체 (CHECK_STATE 결과) */
+export interface IacStateSummary {
+  checkedAt: string | null
+  readerCount: number
+  tfstate: { arn: string; name: string; readers: { kind: string; name: string }[] }[] | null
+  bucketPolicy: unknown | null
+  sensitiveCandidates: number | null
+  sensitiveActual: number | null
+}
+
+/** 드리프트. attributes 는 속성 이름만 온다 (값 없음) */
+export interface IacDrift {
+  findingId: number
+  ruleId: string
+  enforcement: string
+  severity: IacSeverity | null
+  address: string
+  action: string
+  attributes: string[]
+  status: 'OPEN' | 'FIXED' | 'ACCEPTED'
+  assigneeUserId: number | null
+  version: number
+  firstSeenAt: string
+  lastSeenAt: string
+}
+
+/** PATCH /findings/{id}. version 은 읽었을 때의 값 (다르면 409) */
+export interface IacFindingUpdate {
+  assigneeUserId?: number
+  unassign?: boolean
+  version: number
+}
