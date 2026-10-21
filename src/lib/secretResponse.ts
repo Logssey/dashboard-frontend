@@ -29,8 +29,9 @@ export function caseDetailPath(caseId: number, filters?: CaseFilters, occurrence
 }
 export function caseReturnPath(params: URLSearchParams, caseId: number | null): string {
   if (params.get('return') === 'workbench') return safeWorkbenchReturn(params.get('returnQuery'), caseId ? String(caseId) : undefined)
-  const parsed = parseCaseFilters(new URLSearchParams(params.get('returnQuery') ?? ''))
-  const search = caseSearch(parsed.valid ? parsed.filters : parseCaseFilters(new URLSearchParams()).filters)
+  const fallback = new URLSearchParams({ origin: params.get('origin') === 'TEST' ? 'TEST' : 'PRODUCTION' })
+  const parsed = parseCaseFilters(params.has('returnQuery') ? new URLSearchParams(params.get('returnQuery')!) : fallback)
+  const search = caseSearch(parsed.valid ? parsed.filters : parseCaseFilters(fallback).filters)
   if (caseId) search.set('focus', String(caseId))
   return `/secrets/cases?${search}`
 }

@@ -41,6 +41,7 @@ test('case detail round trip keeps filters, page and focus without accepting an 
   const params = new URL(returnPath, 'http://local').searchParams
   assert.equal(params.get('origin'), 'TEST'); assert.equal(params.get('page'), '4'); assert.equal(params.get('focus'), '7')
   assert.match(caseReturnPath(new URLSearchParams('returnQuery=https://evil.invalid'), 7), /^\/secrets\/cases\?/)
+  assert.equal(new URL(caseReturnPath(new URLSearchParams('origin=TEST&occurrence=11'), 7), 'http://local').searchParams.get('origin'), 'TEST')
   assert.equal(parseCaseFilters(new URLSearchParams('page=0&stages=FAKE')).valid, false)
 })
 test('external action references and times reject secrets, paths and stale or future reports', () => {
