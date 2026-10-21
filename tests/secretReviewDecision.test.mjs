@@ -150,3 +150,13 @@ test('a linked current exposure opens its exact case location and folds repeat d
   assert.doesNotMatch(repair, /<summary>판정 변경/)
   assert.match(repair, /확인된 노출을 대응 건에 연결/)
 })
+
+test('a real legacy linked exposure keeps current case action above evidence despite required reconfirmation and no decision id', () => {
+  const html = renderContext({ ...context, origin: 'TEST', exposureStatus: 'ABNORMAL', storagePolicy: { ...context.storagePolicy, requiresReassessment: true }, caseLinkData: { caseId: 2, caseOrigin: 'TEST', caseLinkStatus: 'LINKED', canRepair: false, decisionId: null } }, '/secrets/triage/12?origin=TEST&occurrence=8')
+  assert.match(html, /기존 노출 판정과 현재 대응이 있어요/)
+  assert.match(html, /최신 근거 재확인은 별도로/)
+  assert.match(html, /href="\/secrets\/cases\/2\?origin=TEST&amp;occurrence=8"/)
+  assert.ok(html.indexOf('현재 대응 건에서 이 위치 조치') < html.indexOf('마지막 위치 검사'))
+  assert.match(html, /<details class="card secret-scan-technical"><summary>판정 근거 재확인·변경/)
+  assert.doesNotMatch(html, /<details class="card secret-scan-technical" open=/)
+})

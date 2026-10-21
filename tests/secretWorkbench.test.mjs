@@ -126,3 +126,11 @@ test('summary and queue requests share normalized filters rather than calling in
     assert.equal(calls[1].searchParams.get('page'), '2')
   } finally { globalThis.fetch = originalFetch }
 })
+
+test('overview shows at most three real work rows while retaining the server total', () => {
+  const value = { ...summary, workPreviews: { ...summary.workPreviews, response: { ...summary.workPreviews.response, total: 5, items: [1, 2, 3, 4, 5].map((id) => ({ caseId: id, maskedLabel: `실제업무-${id}`, whyHereCode: 'ACTIVE_RESPONSE' })) } } }
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], value]])
+  assert.match(html, /실제업무-1/); assert.match(html, /실제업무-3/); assert.match(html, /대응<span>5건/)
+  assert.doesNotMatch(html, /실제업무-4|실제업무-5/)
+  assert.match(html, /선택 범위 전체를 한 실행에서 확인한 근거 없음/)
+})
