@@ -13,7 +13,8 @@ export function guidanceTargetPath(value: TaskGuidance): string | null {
   const t = value.target
   if (!positiveId(String(t.id))) return null
   if (t.type === 'SCOPE' && positiveId(String(t.connectionId))) return `/secrets/connections/${t.connectionId}/scopes/${t.id}`
-  if (t.type === 'OCCURRENCE' && positiveId(String(t.secretId))) return `/secrets/triage/${t.secretId}?occurrence=${t.id}`
+  if (t.type === 'OCCURRENCE' && value.nextActionCode === 'VIEW_CASE' && positiveId(String(t.caseId))) return `/secrets/cases/${t.caseId}?occurrence=${t.id}`
+  if (t.type === 'OCCURRENCE' && positiveId(String(t.secretId))) return value.nextActionCode === 'VIEW_METADATA' ? `/secrets/${t.secretId}?tab=info` : `/secrets/triage/${t.secretId}?occurrence=${t.id}`
   if (t.type === 'CASE') return `/secrets/cases/${t.id}`
   if (t.type === 'INVESTIGATION') return `/secrets/triage/investigations/${t.id}`
   return null

@@ -15,6 +15,8 @@ export interface SecretConnection {
 }
 
 export interface SecretItem {
+  taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
+  remediationSummary?: RemediationSummary
   id: number
   issuer: SecretIssuer
   credentialType: string
@@ -112,6 +114,10 @@ export interface InventoryFilter extends SecretFilter {
   snapshotId: string
 }
 export interface KeyLocation {
+  taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
+  requiredRemediation?: boolean
+  remediationPresence?: 'PRESENT' | 'MISSING' | 'UNKNOWN'
+  postActionRedetected?: boolean
   occurrenceId: number
   connectionId: number
   scopeId: number
@@ -147,6 +153,11 @@ export interface KeyLocation {
   lastSeenAt: string | null
   capabilities: { canReview: boolean; canViewCase: boolean; canRecordAction: boolean; canRequestRevalidation: boolean; canViewCoverage: boolean; canOpenSafeSource: boolean }
 }
+export interface RemediationSummary {
+  requiredLocationCount: number; presentLocationCount: number; postActionMissingLocationCount: number; unknownLocationCount: number
+  postActionRedetectedCount: number; approvedStorageLocationCount: number; metadataLocationCount: number; visibleLocationCount: number
+  resolvedLocationCount?: number; restrictedCoverage: boolean; evidenceObservedAt?: string | null; comparisonScope: string
+}
 export interface LocationFilter {
   origin: SecretOrigin
   page: number
@@ -159,6 +170,7 @@ export interface LocationFilter {
   expectedDetailVersion?: string
 }
 export interface KeyLocationsResponse {
+  sourceGroups?: { source: string; locationCount: number; scopeCount: number; presenceCounts: Record<string, number> }[]
   credentialSetId: number
   credential: SecretItem
   detailVersion: string
