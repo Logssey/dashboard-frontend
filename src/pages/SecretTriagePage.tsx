@@ -5,6 +5,7 @@ import { ApiError } from '@/api/client'
 import { decideSecretOccurrence, fetchReviewContext, repairSecretCaseLink, type ReviewContext, type ReviewDecision, type ReviewResult } from '@/api/secretTriage'
 import { SecretTaskGuidance } from '@/components/SecretTaskGuidance'
 import { SecretHandoffForm } from '@/components/SecretHandoffForm'
+import { SecretSourceCoordinates } from '@/components/SecretDiscoveryContext'
 import { Badge } from '@/components/Badge'
 import { componentStateLabel, credentialTypeLabel, issuerLabel, secretValidationLabel, secretValidationReasonLabel } from '@/lib/labels'
 import { exposureLabels, inventoryOptions, presenceLabels } from '@/lib/secretInventory'
@@ -95,7 +96,7 @@ function CurrentCaseAction({ context }: { context: ReviewContext }) {
 
 function ReviewEvidence({ context }: { context: ReviewContext }) {
   return <>
-    <section className="card secret-scan-section"><div className="row between"><h2>{context.safeLocationLabel || `위치 #${context.occurrenceId}`}</h2><Badge label={inventoryOptions.origin[context.origin] ?? '미분류'} /></div><p className="caption">{issuerLabel[context.issuer] ?? '발급자 미확인'} · {credentialTypeLabel(context.credentialType)} · 승인 범위 #{context.scopeId} v{context.scopeRevision ?? '미기록'}</p>
+    <section className="card secret-scan-section"><div className="row between"><h2>{context.safeLocationLabel || `위치 #${context.occurrenceId}`}</h2><Badge label={inventoryOptions.origin[context.origin] ?? '미분류'} /></div><SecretSourceCoordinates location={context} /><p className="caption">{issuerLabel[context.issuer] ?? '발급자 미확인'} · {credentialTypeLabel(context.credentialType)} · 승인 범위 #{context.scopeId} v{context.scopeRevision ?? '미기록'}</p>
       <dl className="secret-review-facts"><div><dt>구성</dt><dd>{componentStateLabel[context.componentState]}</dd></div><div><dt>마지막 위치 검사</dt><dd>{presenceLabels[context.presence] ?? '현재 확인 불가'}</dd></div><div><dt>노출 판단</dt><dd>{exposureLabels[context.exposureStatus] ?? '노출 미확인'}</dd></div><div><dt>보관 정책</dt><dd>{context.storagePolicy?.result === 'ALLOWED' ? '명시적 허용 근거 있음' : context.storagePolicy?.result === 'DENIED' ? '명시적 금지 근거 있음' : '정책 적용 확인 필요'}</dd></div><div><dt>유효성</dt><dd>{secretValidationLabel(context.validity?.result ?? 'UNKNOWN')}</dd><small>{secretValidationReasonLabel(context.validity?.reasonCode ?? 'NO_VERIFICATION_ATTEMPT')}</small></div><div><dt>최근 검증 시도</dt><dd>{scanDate(context.validity?.observedAt)}</dd></div></dl>
       {context.storagePolicy?.requiresReassessment && <p className="notice">보관 정책 근거가 달라져 재확인이 필요해요. 과거 판정을 현재 사실로 재사용하지 않아요.</p>}
       {Object.keys(context.decisionUnavailableReasons ?? {}).length > 0 && <div className="notice"><strong>현재 확인할 처리 조건</strong><ul>{Object.entries(context.decisionUnavailableReasons ?? {}).filter(([decision]) => Object.hasOwn(reviewDecisionLabel, decision)).map(([decision, code]) => <li key={decision}>{reviewDecisionLabel[decision as ReviewDecision]} · {decisionUnavailableLabel(code)}</li>)}</ul></div>}

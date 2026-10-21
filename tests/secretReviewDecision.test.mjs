@@ -31,6 +31,16 @@ test('a key/occurrence mismatch or missing scope never displays mutation forms o
   assert.match(noScope, /일치하지 않아요/)
   assert.doesNotMatch(noScope, /가능한 결정 선택/)
 })
+test('review coordinates use only available safe source details and retain an unavailable fallback', () => {
+  const sourceDetails = { status: 'AVAILABLE', label: '검사 파일', repository: 'example/approved-source', branch: 'main', path: 'fixtures/config.env', line: 'L12', sourceUrl: 'https://github.com/example/approved-source/blob/main/fixtures/config.env#L12' }
+  const html = renderContext({ ...context, sourceDetails })
+  for (const text of ['example/approved-source', '브랜치 main', 'fixtures/config.env', '12번째 줄']) assert.ok(html.includes(text))
+  assert.ok(html.indexOf('fixtures/config.env') < html.indexOf('이 위치의 다음 작업'))
+  assert.match(html, /rel="noopener noreferrer"/)
+  const unavailable = renderContext({ ...context, sourceDetails: { ...sourceDetails, status: 'UNAVAILABLE', repository: 'must-not-render-repository', path: 'must-not-render-path', sourceUrl: 'https://github.com/must-not-render' } })
+  assert.match(unavailable, /원본 위치를 확인할 좌표가 부족해요/)
+  assert.doesNotMatch(unavailable, /must-not-render/)
+})
 test('delayed context and incomplete URLs provide protected loading/return states', () => {
   assert.match(renderContext(null), /위치·범위·정책 근거를 불러오는 중/)
   const invalid = renderContext(null, '/secrets/triage/12')
