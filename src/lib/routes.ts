@@ -20,6 +20,7 @@ export const sectionPages: SectionPage[] = [
   { path: '/runtime', title: '런타임 보안', description: '실행 중인 워크로드의 이벤트와 조사 근거를 확인하세요.' },
   { path: '/iac', title: 'IaC 보안', description: '인프라 코드 변경이 만드는 공격 경로와 State·드리프트를 확인하세요.' },
   { path: '/vulnerabilities', title: '취약점 관리', description: '업데이트가 필요한 이미지와 패키지를 확인하세요.' },
+  { path: '/vulnerabilities/findings', title: 'Finding 목록', description: '판정 상태와 근거로 취약점을 걸러 보세요.' },
 ]
 
 /** 인프라 보안 메뉴 아래 하위 탭 3개 */
