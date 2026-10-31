@@ -50,3 +50,15 @@ test('an assigned location reader can see its scan identifier without a full run
   assert.match(html, /SCAN-8/)
   assert.doesNotMatch(html, /href="\/secrets\/history\/8"/)
 })
+
+test('AWS source rechecks use server capability and never interpret source read failure as removal', () => {
+  const missing = renderFor('MISSING', 'SUCCEEDED', { source: 'AWS', safeLocationLabel: '승인된 AWS 값', canRequestRevalidation: true })
+  assert.match(missing, /<option value="11">승인된 AWS 값 · 재검사/)
+  assert.match(missing, /재검사에서 미발견/)
+  assert.match(missing, /키 폐기·교체 확인과 대응 건 해결은 별도로/)
+  for (const result of ['UNKNOWN', 'PENDING']) {
+    const unavailable = renderFor(result, 'FAILED', { source: 'AWS', safeLocationLabel: '승인된 AWS 값', canRequestRevalidation: false })
+    assert.doesNotMatch(unavailable, /재검사에서 미발견/)
+    assert.match(unavailable, /판정 불가/)
+  }
+})

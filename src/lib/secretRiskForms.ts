@@ -68,3 +68,12 @@ export function riskSourcePayload(available: RiskSourceRef[] | undefined, select
   const refs = allowedRiskSources(available).filter((ref) => selectedKeys.includes(riskSourceKey(ref)))
   return refs.length === selectedKeys.length && new Set(selectedKeys).size === selectedKeys.length ? refs.map(({ type, id, version, role }) => ({ type, id, version, role })) : null
 }
+export function riskEvidenceSources(available: RiskSourceRef[] | undefined, evidenceType: string, selectedAssetId?: number | null): RiskSourceRef[] {
+  return allowedRiskSources(available).filter((ref) => evidenceType !== 'ASSET_CLASSIFICATION' || ref.type !== 'RISK_EVIDENCE' && (selectedAssetId == null || ref.type !== 'ASSET'))
+}
+export function riskEvidenceSourcePayload(available: RiskSourceRef[] | undefined, selectedKeys: string[], evidenceType: string, selectedAssetId?: number | null): Pick<RiskSourceRef, 'type' | 'id' | 'version' | 'role'>[] | null {
+  const compatible = riskEvidenceSources(available, evidenceType, selectedAssetId)
+  const compatibleKeys = new Set(compatible.map(riskSourceKey))
+  const excludedKeys = new Set(allowedRiskSources(available).filter((ref) => !compatibleKeys.has(riskSourceKey(ref))).map(riskSourceKey))
+  return riskSourcePayload(compatible, selectedKeys.filter((key) => !excludedKeys.has(key)))
+}

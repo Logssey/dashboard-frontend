@@ -102,6 +102,9 @@ export function scanReason(code: string | null | undefined): string {
     SOURCE_GUARD_BLOCKED: '시험 저장소 검증 제외',
     SYNTHETIC_FIXTURE: '합성 키 검증 생략',
     STAGE_NOT_RECORDED: '단계 실행 근거 미기록',
+    AWS_CONTENT_NOT_FOUND: '승인된 AWS 값을 읽지 못해 위치의 제거 여부 확인 불가',
+    AWS_CONTENT_ACCESS_DENIED: 'AWS 값 읽기 권한이 없어 위치의 제거 여부 확인 불가',
+    DETECTOR_NORMALIZATION_INCOMPLETE: '키 후보를 충분히 해석하지 못해 위치의 제거 여부 확인 불가',
   }
   if (Object.hasOwn(reasonLabels, code)) return reasonLabels[code]
   if (code.includes('ACCESS_DENIED') || code.includes('ACCOUNT_MISMATCH')) return '접근 권한 확인 필요'

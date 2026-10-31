@@ -75,6 +75,13 @@ test('KST input and UTC API boundaries round trip independently of the machine t
   assert.equal(kstInputToUtc('2026-10-21T00:00'), '2026-10-20T15:00:00.000Z')
   assert.equal(kstInput('invalid'), '')
 })
+
+test('AWS missing source, denied source and incomplete normalization are not proof of key removal', () => {
+  for (const code of ['AWS_CONTENT_NOT_FOUND', 'AWS_CONTENT_ACCESS_DENIED', 'DETECTOR_NORMALIZATION_INCOMPLETE']) {
+    assert.match(scanReason(code), /제거 여부 확인 불가/)
+    assert.doesNotMatch(scanReason(code), /폐기 완료|삭제 확인|정상 0건/)
+  }
+})
 test('failed/skipped/pending scopes and incomplete runs never imply a clean zero result', () => {
   assert.equal(objectCountLabel({ scopeOutcome: 'FAILED', objectCount: 0 }), '확인 불가')
   assert.equal(objectCountLabel({ scopeOutcome: 'PENDING', objectCount: 0 }), '확인 불가')
