@@ -196,6 +196,21 @@ export const fetchReachFindings = (filter: ReachFindingFilter, cursor: string | 
     () => sampleReachFindings(filter, cursor, REACH_PAGE_SIZE),
   )
 
+/** API-06 본문. 검토자와 시각은 서버가 채운다 */
+export interface ReachReviewInput {
+  reviewState: ReachReviewState
+  status?: Exclude<ReachStatus, 'NOT_ANALYZED'>
+  note?: string
+  version: number
+}
+
+/** API-06. 응답은 바뀐 Review(상세의 review와 같은 모양). 예시 데이터로 대신하지 않는다 */
+export const saveReachReview = (findingId: number, input: ReachReviewInput) =>
+  apiRequest<ReachFindingDetail['review']>(`/api/v1/reach/findings/${findingId}/review`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+
 /** API-05 */
 export const fetchReachFinding = (findingId: number) =>
   orSample(() => apiRequest<ReachFindingDetail>(`/api/v1/reach/findings/${findingId}`), () => sampleReachFinding(findingId))

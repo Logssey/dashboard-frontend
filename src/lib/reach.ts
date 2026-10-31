@@ -2,6 +2,8 @@
 import type {
   ReachFindingListItem,
   ReachNotAnalyzedReason,
+  ReachReviewInput,
+  ReachReviewState,
   ReachSeverity,
   ReachStatus,
   ReachSummary,
@@ -149,4 +151,28 @@ export function summarizeFindings(items: ReachFindingListItem[], scope: ReachSum
   summary.noiseReduction = { unreachable: summary.byStatus.UNREACHABLE, judged, ratio: ratio(summary.byStatus.UNREACHABLE, judged) }
   summary.coverage = { judged, total: items.length, ratio: ratio(judged, items.length) }
   return summary
+}
+
+/** 검토 메모 길이 (API-06, DB VARCHAR(2000)) */
+export const REVIEW_NOTE_MAX = 2000
+
+/** 글자 수. DB와 같이 code point로 센다(이모지도 한 글자). string.length는 이모지를 2로 센다 */
+export function noteLength(note: string): number {
+  return [...note].length
+}
+
+/**
+ * API-06 본문을 만든다. 확정·잠정에는 사람이 본 판정과 근거 메모가 있어야 하고(NFR-02),
+ * 검토 전으로 되돌릴 때는 둘 다 보내지 않는다. 보낼 수 없는 입력이면 null
+ */
+export function reviewInput(
+  reviewState: ReachReviewState,
+  status: ReachReviewInput['status'] | '',
+  note: string,
+  version: number,
+): ReachReviewInput | null {
+  if (reviewState === 'UNREVIEWED') return { reviewState, version }
+  const trimmed = note.trim()
+  if (!status || !trimmed || noteLength(trimmed) > REVIEW_NOTE_MAX) return null
+  return { reviewState, status, note: trimmed, version }
 }
