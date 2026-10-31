@@ -15,6 +15,7 @@ import {
 import { EmptyState } from './EmptyState'
 import { Icon } from './Icon'
 import { ReachDeploymentBadge, ReachMethodTag, ReachReviewBadge, ReachSeverityChip, ReachStatusBadge } from './ReachBadges'
+import { ReachReviewForm } from './ReachReviewForm'
 
 function yesNo(value: boolean | undefined): string {
   if (value === undefined) return '—'
@@ -149,10 +150,12 @@ function EvidenceSection({ detail }: { detail: ReachFindingDetail }) {
 }
 
 /** SCR-03 내용. 상세 패널 안에 그린다 */
-export function ReachFindingDetailView({ detail, onShowSameCve }: {
+export function ReachFindingDetailView({ detail, onShowSameCve, reviewForm }: {
   detail: ReachFindingDetail
   /** 같은 CVE의 사본을 목록에서 본다 (SCR-03-16 대신 목록 필터로 보낸다) */
   onShowSameCve?: (cve: string) => void
+  /** 검토 입력(API-06). 예시 데이터일 때는 넘기지 않아 안내 문구만 보인다 */
+  reviewForm?: React.ReactNode
 }) {
   const { verdict, review, vulnerability, component } = detail
   const fix = nearestFixedVersion(component.version, vulnerability.fixedVersions)
@@ -273,7 +276,7 @@ export function ReachFindingDetailView({ detail, onShowSameCve }: {
         {review.resetReason && (
           <span className="badge reach-flag differs">{labelOf(reachResetReasonLabel, review.resetReason)}</span>
         )}
-        <p className="notice">검토 저장(API-06)은 백엔드가 연결되면 쓸 수 있어요.</p>
+        {reviewForm ?? <p className="notice">검토 저장(API-06)은 백엔드가 연결되면 쓸 수 있어요.</p>}
       </section>
 
       {detail.sameCveFindings && detail.sameCveFindings.length > 0 && (
@@ -364,7 +367,11 @@ export function ReachFindingDrawer({ findingId, onClose, onShowSameCve }: {
           {data && (
             <>
               {detail.data?.sample && <p className="notice reach-sample-inline">명세 예시 데이터예요. 실제 판정 결과가 아니에요.</p>}
-              <ReachFindingDetailView detail={data} onShowSameCve={onShowSameCve} />
+              <ReachFindingDetailView
+                detail={data}
+                onShowSameCve={onShowSameCve}
+                reviewForm={detail.data?.sample ? undefined : <ReachReviewForm key={findingId} findingId={findingId} detail={data} />}
+              />
             </>
           )}
           <div className="drawer-foot">

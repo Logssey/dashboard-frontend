@@ -16,6 +16,7 @@ const bundled = await build({
       "export * from '@/api/reachSample'",
       "export { ReachSummaryView } from '@/components/ReachSummaryView'",
       "export { ReachFindingDetailView } from '@/components/ReachFindingDrawer'",
+      "export { ReachReviewForm } from '@/components/ReachReviewForm'",
       "export { reachEvidenceText } from '@/components/ReachFindingTable'",
       "export { VulnerabilitySummaryPage, VulnerabilityFindingsPage } from '@/pages/VulnerabilitiesPage'",
       "export { AppLayout } from '@/layout/AppLayout'",
@@ -203,4 +204,38 @@ test('unknown or new enum values never render as undefined', () => {
 
 test('unknown finding id is NOT_FOUND', () => {
   assert.throws(() => reach.sampleReachFinding(999), (error) => error.status === 404)
+})
+
+test('review input needs a human status and a note unless it goes back to unreviewed (API-06)', () => {
+  assert.deepEqual(reach.reviewInput('UNREVIEWED', 'REACHABLE', 'ignored', 3), { reviewState: 'UNREVIEWED', version: 3 })
+  assert.deepEqual(reach.reviewInput('CONFIRMED', 'UNREACHABLE', '  근거  ', 1),
+    { reviewState: 'CONFIRMED', status: 'UNREACHABLE', note: '근거', version: 1 })
+  assert.equal(reach.reviewInput('CONFIRMED', '', 'note', 1), null)
+  assert.equal(reach.reviewInput('PROVISIONAL', 'UNKNOWN', '   ', 1), null)
+  // 2,000자는 글자 수로 센다. 이모지는 string.length로 2지만 한 글자다
+  assert.notEqual(reach.reviewInput('CONFIRMED', 'UNKNOWN', '😀'.repeat(2000), 1), null)
+  assert.equal(reach.reviewInput('CONFIRMED', 'UNKNOWN', 'x'.repeat(2001), 1), null)
+})
+
+test('detail view shows the review form only when one is given', () => {
+  const detail = reach.sampleReachFinding(8)
+  assert.match(renderToStaticMarkup(createElement(reach.ReachFindingDetailView, { detail })), /백엔드가 연결되면/)
+
+  const client = new QueryClient()
+  const form = createElement(QueryClientProvider, { client }, createElement(reach.ReachReviewForm, { findingId: 8, detail }))
+  const html = renderToStaticMarkup(createElement(reach.ReachFindingDetailView, { detail, reviewForm: form }))
+  assert.doesNotMatch(html, /백엔드가 연결되면/)
+  assert.match(html, /검토 저장/)
+  assert.match(html, /검토 전으로 되돌리기/)
+})
+
+test('copy rows offer to fill the form from the pending proposal', () => {
+  const copy = reach.sampleReachFindings({ ...noFilter, cveContains: '89407', status: ['NOT_ANALYZED'] }, null, 50).items[0]
+  const detail = reach.sampleReachFinding(copy.id)
+  const client = new QueryClient()
+  const html = renderToStaticMarkup(createElement(QueryClientProvider, { client },
+    createElement(reach.ReachReviewForm, { findingId: copy.id, detail })))
+  assert.match(html, /제안으로 채우기/)
+  assert.match(html, /저장한 판정이 현재 판정\(방식: 수동\)이 돼요/)
+  assert.doesNotMatch(html, /검토 전으로 되돌리기/)   // 아직 검토 전이라 되돌릴 것이 없다
 })
