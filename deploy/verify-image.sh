@@ -40,13 +40,18 @@ docker run -d --name "$task_api" --network "$task_network" --network-alias api \
 docker run -d --name "$task_frontend" --network "$task_network" --read-only \
   --cap-drop ALL --security-opt no-new-privileges \
   --tmpfs /tmp:rw,noexec,nosuid,size=16m,uid=101,gid=101,mode=0700 \
-  -p 127.0.0.1::8080 logssey-secret-frontend:ci >/dev/null
-task_port="$(docker port "$task_frontend" 8080/tcp | sed 's/.*://')"
-test -n "$task_port"
-task_base="http://127.0.0.1:$task_port"
-curl --fail --silent --show-error --retry 15 --retry-connrefused --retry-delay 1 "$task_base/healthz" | grep -Fx ready
-curl --fail --silent --show-error "$task_base/login" | grep -q '<div id="root">'
-curl --fail --silent --show-error "$task_base/secrets/cases/1?origin=PRODUCTION" | grep -q '<div id="root">'
-curl --fail --silent --show-error "$task_base/api/v1/auth/me" | grep -Fx '{"syntheticRouteCheck":true}'
-test "$(curl --silent -o /dev/null -w '%{http_code}' "$task_base/internal/v1/runtime")" = 404
+  logssey-secret-frontend:ci >/dev/null
+# Test inside the private network rather than requesting a public port on an internal bridge.
+task_base=http://127.0.0.1:8080
+for task_attempt in $(seq 1 20); do
+  if docker exec "$task_frontend" wget -qO- "$task_base/healthz" > "$task_dir/ready"; then break; fi
+  if [ "$task_attempt" = 20 ]; then echo FRONTEND_NOT_READY; exit 1; fi
+  sleep 1
+done
+grep -Fx ready "$task_dir/ready"
+docker exec "$task_frontend" wget -qO- "$task_base/login" | grep -q '<div id="root">'
+docker exec "$task_frontend" wget -qO- "$task_base/secrets/cases/1?origin=PRODUCTION" | grep -q '<div id="root">'
+docker exec "$task_frontend" wget -qO- "$task_base/api/v1/auth/me" | grep -Fx '{"syntheticRouteCheck":true}'
+docker exec "$task_frontend" wget -S -O /dev/null "$task_base/internal/v1/runtime" > "$task_dir/blocked" 2>&1 || true
+grep -q '404 Not Found' "$task_dir/blocked"
 echo 'ISOLATED_FRONTEND_IMAGE_PASSED'
