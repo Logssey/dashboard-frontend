@@ -11,7 +11,7 @@ import { build } from 'esbuild'
 const output = await build({ stdin: { contents: "export * from './src/api/secretOperations'; export * from './src/components/SecretOperationsHealth'; export {ApiError} from './src/api/client';", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
 const modulePath = resolve('node_modules/.secret-operations-health-test.mjs'); await writeFile(modulePath, output.outputFiles[0].contents); const api = await import(pathToFileURL(modulePath).href); after(() => unlink(modulePath))
 const health = { status: 'AVAILABLE', asOf: '2026-10-31T00:00:00Z', components: [{ component: 'EXECUTOR', enabled: true, status: 'STALE', liveInstances: 0, expectedInstances: 1, lastHeartbeatAt: '2026-10-30T23:00:00Z', lastSuccessAt: null, activeJobs: 0 }, { component: 'ASSESSMENT', enabled: false, status: 'DISABLED', liveInstances: 0, expectedInstances: 0, lastHeartbeatAt: null, lastSuccessAt: null, activeJobs: 0 }], queue: { status: 'AVAILABLE', ready: 2, delayed: 1, leased: 0, expiredLeases: 1, oldestReadySeconds: 7210, failed24h: 1, partial24h: 2 }, alerts: { open: 2, total: 3, recovered: 1 }, maintenance: { ledgerPurgeEnabled: false, snapshotCleanupEnabled: true, lastSnapshotCleanupAt: null }, reasonCode: null }
-function render(value, error) { const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } }); if (value) client.setQueryData(['secret-operations-health'], value); if (error) { const query = client.getQueryCache().build(client, { queryKey: ['secret-operations-health'] }); query.setState({ status: 'error', error, fetchStatus: 'idle' }) } const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, null, createElement(api.SecretOperationsHealth)))); client.clear(); return html }
+function render(value, error, alerts) { const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } }); if (value) client.setQueryData(['secret-operations-health'], value); if (alerts) client.setQueryData(['secret-operations-alerts', 'OPEN', 0], alerts); if (error) { const query = client.getQueryCache().build(client, { queryKey: ['secret-operations-health'] }); query.setState({ status: 'error', error, fetchStatus: 'idle' }) } const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, null, createElement(api.SecretOperationsHealth)))); client.clear(); return html }
 test('component liveness, disabled settings and last successful processing stay distinct', () => {
   const html = render(health)
   assert.match(html, /수집·재검사/); assert.match(html, /응답 지연/); assert.match(html, /중지됨/); assert.match(html, /최근 작업 확인 성공/)
@@ -23,6 +23,13 @@ test('unavailable operational database data and denied scope never become health
   assert.match(unavailable, /운영 상태를 확인하지 못했어요/); assert.doesNotMatch(unavailable, /0건|정상 응답/)
   const denied = render(null, new api.ApiError(403, null, 'secret-sentinel'))
   assert.match(denied, /공통 보안·운영 담당자만 조회/); assert.doesNotMatch(denied, /secret-sentinel|0건/)
+})
+test('cached healthy components do not turn a failed alert lookup into an empty alert history', () => {
+  const unavailable = render(health, null, { status: 'UNAVAILABLE', items: [], total: null, page: 0, size: 20, reasonCode: 'DATABASE_UNAVAILABLE' })
+  assert.match(unavailable, /응답 지연/); assert.match(unavailable, /운영 알림을 불러오지 못했어요/); assert.match(unavailable, /알림 다시 조회/)
+  assert.doesNotMatch(unavailable, /기록된 운영 알림이 없어요|페이지 · null건/)
+  const actuallyEmpty = render(health, null, { status: 'AVAILABLE', items: [], total: 0, page: 0, size: 20 })
+  assert.match(actuallyEmpty, /기록된 운영 알림이 없어요/); assert.doesNotMatch(actuallyEmpty, /운영 알림을 불러오지 못했어요/)
 })
 test('only registered connection targets become links and no raw reason body is reflected', () => {
   assert.equal(api.operationAlertTarget({ subjectType: 'CONNECTION', subjectId: '12' }), '/secrets/connections/12/scopes')

@@ -8,6 +8,8 @@ export interface SecretOperationsHealth {
   reasonCode: string | null
 }
 export interface SecretOperationAlert { id: number; kind: string; status: string; subjectType: 'COMPONENT' | 'CONNECTION' | 'GLOBAL'; subjectId: string; openedAt: string; lastSeenAt: string; recoveredAt: string | null; occurrences: number; reasonCode: string | null }
-export interface SecretOperationAlerts { items: SecretOperationAlert[]; total: number; page: number; size: number }
+export type SecretOperationAlerts =
+  | { status: 'AVAILABLE'; items: SecretOperationAlert[]; total: number; page: number; size: number }
+  | { status: 'UNAVAILABLE'; items: SecretOperationAlert[]; total: null; page: number; size: number; reasonCode: string }
 export const fetchSecretOperationsHealth = () => apiRequest<SecretOperationsHealth>('/api/v1/secrets/operations/health')
 export const fetchSecretOperationAlerts = (page: number, state = 'OPEN') => apiRequest<SecretOperationAlerts>(`/api/v1/secrets/operations/alerts?page=${page}&size=20&state=${state}`)
