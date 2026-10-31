@@ -66,9 +66,9 @@ test('an actual empty operating work queue provides explicit TEST and unclassifi
 })
 
 test('severity exclusions use only the server count and stay separate from graded cases', () => {
-  const data = { ...summary, caseSummary: { ...summary.caseSummary, severityStatus: 'AVAILABLE', severityCounts: { HIGH: 1 }, notApplicableCaseCount: 2 } }
+  const data = { ...summary, caseSummary: { ...summary.caseSummary, severityStatus: 'AVAILABLE', severityCounts: { CRITICAL: 0, HIGH: 1, MEDIUM: 0, LOW: 0, UNASSESSED: 0 }, notApplicableCaseCount: 2 } }
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], data]])
-  assert.match(html, /심각도 평가 대상 외 2건 · 등급별 건수와 별도로 집계/)
+  assert.match(html, /심각도 평가 대상 외.*?2.*?건.*?등급 분포에서 제외/)
   for (const value of [null, undefined, -1, 1.5]) {
     const unavailable = { ...data, caseSummary: { ...data.caseSummary, notApplicableCaseCount: value } }
     assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], unavailable]]), /심각도 평가 대상 외/)

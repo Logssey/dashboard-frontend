@@ -12,6 +12,9 @@ export interface WorkbenchQueueItem {
   source?: string; provider?: string; origin?: string; environment?: string
   whyHereCode?: string; whyHere?: string; nextActionCode?: string
   inventorySubtype?: string; stage?: string
+  severity?: string | null; assessmentStatus?: string; validationStatus?: string
+  validationFreshness?: 'CURRENT' | 'STALE' | 'POST_ACTION_REQUIRED' | 'UNAVAILABLE'
+  lastValidationStatus?: string | null; validationCheckedAt?: string | null; validationDueAt?: string | null
   assigneeDisplayName?: string | null; assigneeTeam?: string | null; assigneeUserId?: number | null
   visibleOccurrenceCount?: number
   contentType?: string; coverage?: ScopeCoverage
@@ -25,11 +28,13 @@ export interface WorkbenchQueuePage {
   restrictedCoverage: boolean; partialCoverage: boolean | null
   filters: Record<string, string>
 }
-export const fetchWorkbenchQueue = (filters: WorkbenchFilters, bucket: string, stages: string, page: number) => {
+export const fetchWorkbenchQueue = (filters: WorkbenchFilters, bucket: string, stages: string, page: number, risk?: { severity: string; validity: string }) => {
   const params = new URLSearchParams({ origin: filters.origin, source: filters.source, provider: filters.provider, environment: filters.environment, bucket, page: String(page), size: '20' })
   if (filters.connectionId) params.set('connectionId', String(filters.connectionId))
   if (filters.assignee) params.set('assignee', filters.assignee)
   if (filters.snapshotId) params.set('snapshotId', filters.snapshotId)
   if (stages) params.set('stages', stages)
+  if (risk?.severity) params.set('severity', risk.severity)
+  if (risk?.validity) params.set('validity', risk.validity)
   return apiRequest<WorkbenchQueuePage>(`/api/v1/secrets/review-queue?${params}`)
 }
