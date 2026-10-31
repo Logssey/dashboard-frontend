@@ -8,7 +8,7 @@ import './secret-operations-health.css'
 
 export const operationComponentLabels: Record<string, string> = { SCHEDULER: '정기 검사', EXECUTOR: '수집·재검사', ASSESSMENT: '심각도 평가', PERMISSIONS: '권한 정보 조회' }
 export const operationStatusLabels: Record<string, string> = { HEALTHY: '정상 응답', DISABLED: '중지됨', STALE: '응답 지연', NOT_REGISTERED: '실행 기록 없음', FAILED: '오류 확인 필요' }
-export const operationAlertLabels: Record<string, string> = { COMPONENT_STALE: '워커 응답 지연', POLL_FAILED: '작업 확인 실패', QUEUE_STALLED: '작업 대기 지연', LEASE_EXPIRED: '실행 기한 초과', RUN_FAILED: '최근 검사 실패', RUN_PARTIAL: '최근 검사 부분 실패' }
+export const operationAlertLabels: Record<string, string> = { COMPONENT_STALE: '워커 응답 지연', POLL_FAILED: '작업 확인 실패', QUEUE_STALLED: '작업 대기 지연', LEASE_EXPIRED: '실행 기한 초과', RUN_FAILED: '최근 작업 실패', RUN_PARTIAL: '최근 검사 부분 실패' }
 export const operationCount = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? String(value) : '—'
 export function operationAlertTarget(alert: SecretOperationAlert): string | null {
   return alert.subjectType === 'CONNECTION' && /^[1-9]\d*$/.test(String(alert.subjectId)) ? `/secrets/connections/${alert.subjectId}/scopes` : null
