@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { PriorityFinding } from '@/api/types'
-import { COMING_SOON_MESSAGE, domainLabel, environmentLabel, severityLabel, severityTone } from '@/lib/labels'
+import { domainLabel } from '@/lib/labels'
+import { priorityEnvironment, prioritySeverity } from '@/lib/overviewPresentation'
 import { Badge } from './Badge'
 import { EmptyState } from './EmptyState'
 import { assetText } from './FindingTable'
@@ -10,7 +11,7 @@ import { Icon } from './Icon'
  * 탐지 상세 패널 (02 기능 설계 3.3)
  * - 영역·탐지 근거·권장 대응이 모두 비어 있으면 상세 대신 "정보 없음" 안내
  * - 일부만 비어 있으면 상세를 열고 빈 칸은 비워 둔다
- * - "검토 완료로 표시"는 누르면 "준비 중" 알림창만 띄운다 (3.4)
+ * - 상태 변경은 해당 보안 기능에서 수행한다. 준비 중인 저장 버튼은 제공하지 않는다.
  */
 export function DetailDrawer({ finding, onClose }: { finding: PriorityFinding | null; onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -51,7 +52,7 @@ export function DetailDrawer({ finding, onClose }: { finding: PriorityFinding | 
             <div className="drawer-body">
               <div className="row">
                 <span className="caption">{finding.displayId ?? ''}</span>
-                <Badge label={severityLabel[finding.severity]} tone={severityTone[finding.severity]} />
+                <Badge label={prioritySeverity(finding).label} tone={prioritySeverity(finding).tone} />
                 <Badge
                   label={finding.reviewStatus === 'REVIEWED' ? '검토 완료' : '미검토'}
                   tone={finding.reviewStatus === 'REVIEWED' ? 'success' : ''}
@@ -62,7 +63,7 @@ export function DetailDrawer({ finding, onClose }: { finding: PriorityFinding | 
                 <dt>영향받는 자산</dt>
                 <dd>{assetText(finding)}</dd>
                 <dt>환경</dt>
-                <dd>{environmentLabel[finding.environment]}</dd>
+                <dd>{priorityEnvironment(finding.environment)}</dd>
                 <dt>담당 팀</dt>
                 <dd>{finding.ownerTeam}</dd>
                 <dt>보안 영역</dt>
@@ -70,7 +71,7 @@ export function DetailDrawer({ finding, onClose }: { finding: PriorityFinding | 
               </dl>
               <section>
                 <h3>
-                  탐지 근거 <Badge label="예시" />
+                  탐지 근거
                 </h3>
                 <pre className="evidence">{finding.evidence ?? ''}</pre>
               </section>
@@ -88,12 +89,6 @@ export function DetailDrawer({ finding, onClose }: { finding: PriorityFinding | 
             <button className="btn outline" onClick={onClose}>
               닫기
             </button>
-            {!noDetail && (
-              <button className="btn primary" onClick={() => window.alert(COMING_SOON_MESSAGE)}>
-                <Icon name="check" />
-                검토 완료로 표시
-              </button>
-            )}
           </div>
         </>
       )}

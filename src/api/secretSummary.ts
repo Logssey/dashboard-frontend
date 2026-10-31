@@ -21,6 +21,14 @@ export interface WorkbenchMetric {
   notApplicableFilters: string[]
   queueFilter: Record<string, string | number | boolean>
 }
+export type CaseRiskSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNASSESSED' | 'NOT_APPLICABLE'
+export type CaseRiskValidity = 'VALID' | 'INVALID' | 'UNKNOWN' | 'UNCHECKED'
+export interface SeverityValidityMatrix {
+  status: string; reasonCode: string | null; scope: 'currentCases'; unit: 'ResponseCase'; total: number | null
+  rows: CaseRiskSeverity[]; columns: CaseRiskValidity[]
+  cells: { severity: CaseRiskSeverity; validity: CaseRiskValidity; value: number; queueFilter: Record<string, string | number | boolean> }[]
+  staleValidationCaseCount: number | null
+}
 export interface WorkbenchSummary {
   scope: 'workbench'; unit: 'Mixed'; total: null
   origin: 'PRODUCTION' | 'TEST'
@@ -32,7 +40,7 @@ export interface WorkbenchSummary {
   workPreviews?: { response: WorkPreview; revalidation: WorkPreview; decision: WorkPreview }
   collectionHealth?: CollectionHealth
   setupSummary?: SetupSummary
-  caseSummary: { scope: string; unit: 'ResponseCase'; total: number | null; status: string; actionCounts: Record<string, number> | null; severityCounts: Record<string, number> | null; notApplicableCaseCount: number | null; severityStatus: string; severityReasonCode: string | null }
+  caseSummary: { scope: string; unit: 'ResponseCase'; total: number | null; status: string; actionCounts: Record<string, number> | null; severityCounts: Record<string, number> | null; notApplicableCaseCount: number | null; severityStatus: string; severityReasonCode: string | null; severityValidityMatrix?: SeverityValidityMatrix }
   normalInventory: { unit: 'CredentialSet'; value: number | null; status?: string }
   crossEnvironmentAlerts: { unit: 'CrossEnvironmentAlert'; value: number | null; status?: string; items: { alertId: number; status: string; nextActionCode: string }[] }
   partialCoverage: boolean | null

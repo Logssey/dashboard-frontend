@@ -76,6 +76,11 @@ export function safeWorkbenchReturn(query: string | null, focus?: string): strin
   const page = positiveId(raw.get('page')); if (page && page <= 1_000_001) result.set('page', String(page))
   const stages = raw.get('stages') ?? ''
   if (['CURRENT_CASES', 'ACTION_REQUIRED'].includes(bucket) && stages && stages.split(',').every((stage) => ['OPEN', 'IN_PROGRESS', 'REVALIDATION_PENDING', 'RESOLVED', 'RISK_ACCEPTED'].includes(stage))) result.set('stages', stages)
+  if (['CURRENT_CASES', 'ACTION_REQUIRED'].includes(bucket)) {
+    const severity = raw.get('severity'), validity = raw.get('validity')
+    if (severity && ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNASSESSED', 'NOT_APPLICABLE'].includes(severity)) result.set('severity', severity)
+    if (validity && ['VALID', 'INVALID', 'UNKNOWN', 'UNCHECKED'].includes(validity)) result.set('validity', validity)
+  }
   if (focus && /^[1-9]\d*(?::[1-9]\d*)?$/.test(focus)) result.set('focus', focus)
   return `/secrets/triage?${result}`
 }
