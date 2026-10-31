@@ -9,6 +9,7 @@ const targetLabels: Record<string, string> = { ASSET: '특정 자산', ACCOUNT: 
 const environmentLabels: Record<string, string> = { PROD: '운영', PRODUCTION: '운영', DEV: '개발', TEST: '시험', UNKNOWN: '환경 미확인' }
 const limitationLabels: Record<string, string> = {
   AUTOMATED_PERMISSION_ANALYSIS_UNSUPPORTED: '현재 권한·영향은 자동 조회 결과가 아닌 수용된 근거로 확인해요.',
+  AUTOMATED_IMPACT_ASSESSMENT_UNSUPPORTED: '자동으로 읽은 권한 자료는 검토를 도와줘요. 실제 영향은 수용한 근거로 판단해요.',
   MANUAL_ASSET_LINK_NOT_PERMISSION_PROOF: '자산 연결만으로 키가 해당 자산에 접근할 수 있다고 판단하지 않아요.',
   VALIDITY_NOT_PERMISSION_PROOF: '공급자 인증 성공만으로 업무 권한을 확인하지 않아요.',
 }

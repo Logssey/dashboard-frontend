@@ -25,7 +25,9 @@ export function SecretValidationCard(props: ValidationCardProps) {
 }
 function LocationValidationCard({ secretId, locations, metadataOnly = false, selectedId }: ValidationCardProps & { selectedId: number | null }) {
   const [params, setParams] = useSearchParams(), client = useQueryClient()
+  const disclosure = useRef<HTMLDetailsElement>(null)
   const location = locations.find((item) => item.occurrenceId === selectedId)
+  useEffect(() => { if (params.get('validation') !== 'open' || !location || !disclosure.current) return; const node = disclosure.current; node.open = true; const next = new URLSearchParams(params); next.delete('validation'); setParams(next, { replace: true }); requestAnimationFrame(() => { node.scrollIntoView({ block: 'start' }); node.querySelector<HTMLElement>('summary')?.focus() }) }, [params, location, setParams])
   const [confirm, setConfirm] = useState(false), [requestId, setRequestId] = useState<number | null>(null)
   const processed = useRef<number | null>(null), requestKey = useRef({ payload: '', key: '' })
   const query = useQuery({ queryKey: ['secret-validation', secretId, selectedId], queryFn: () => fetchSecretValidation(secretId, selectedId), enabled: !!location && !metadataOnly, retry, refetchOnWindowFocus: false,
@@ -45,7 +47,7 @@ function LocationValidationCard({ secretId, locations, metadataOnly = false, sel
   }, [progress.data, client, secretId])
   const presentation = query.data ? validationPresentation(query.data) : null
   const pending = requestId != null && !completedRequest(progress.data?.status) || activeRequest(query.data?.latestRequest?.status)
-  return <details className="card secret-validation-card" aria-labelledby="key-validation-title"><summary><strong id="key-validation-title">키 유효성</strong><span>{metadataOnly ? '값 인증 대상 아님' : presentation?.title ?? '확인 조건 조회'}</span><small>{query.data?.latestAttempt?.providerCheckedAt ? validationDate(query.data.latestAttempt.providerCheckedAt) : '공급자 확인 시각 —'}</small><span className="secret-validation-expand">확인·이력</span></summary><div className="secret-validation-expanded"><p className="caption">선택한 위치의 키로 공급자 인증 가능 여부를 확인해요.</p>
+  return <details ref={disclosure} className="card secret-validation-card" aria-labelledby="key-validation-title"><summary><strong id="key-validation-title">키 유효성</strong><span>{metadataOnly ? '값 인증 대상 아님' : presentation?.title ?? '확인 조건 조회'}</span><small>{query.data?.latestAttempt?.providerCheckedAt ? validationDate(query.data.latestAttempt.providerCheckedAt) : '공급자 확인 시각 —'}</small><span className="secret-validation-expand">확인·이력</span></summary><div className="secret-validation-expanded"><p className="caption">선택한 위치의 키로 공급자 인증 가능 여부를 확인해요.</p>
     {metadataOnly ? <p>메타데이터만 확인한 항목이에요. 값 인증은 수행하지 않아요.</p> : !locations.length ? <p>인증 확인에 사용할 열람 가능한 발견 위치를 먼저 불러와 주세요.</p> : <>
       <label>확인할 발견 위치<select className="select" value={selectedId ?? ''} onChange={(event) => { const next = new URLSearchParams(params); next.set('occurrence', event.target.value); next.delete('validationOccurrence'); next.set('locationPanel', 'closed'); setParams(next); setConfirm(false); setRequestId(null); mutation.reset() }}><option value="">위치 선택</option>{locations.map((item) => <option key={item.occurrenceId} value={item.occurrenceId}>{item.safeLocationLabel}</option>)}</select></label>
       {!location ? <p className="notice">선택한 위치가 현재 필터·페이지에 없어요. 열람 가능한 위치를 다시 선택하세요.</p> : query.isPending ? <p role="status">인증 확인 조건을 불러오는 중이에요.</p> : query.isError ? <div className="notice error" role="alert"><p>{safeMutationMessage(query.error)}</p><button className="btn outline" onClick={() => void query.refetch()}>확인 조건 다시 조회</button></div> : <>
