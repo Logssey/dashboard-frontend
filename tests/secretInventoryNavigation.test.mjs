@@ -9,10 +9,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { build } from 'esbuild'
 
-const bundled = await build({ stdin: { contents: "export * from './src/lib/secretInventory'; export { SecretsPage } from './src/pages/SecretsPage'; export { SecretKeyDetailPage } from './src/pages/SecretKeyDetailPage'", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
+const bundled = await build({ stdin: { contents: "export * from './src/lib/secretInventory'; export { SecretsPage } from './src/pages/SecretsPage'; export { SecretKeyDetailPage, SecretKeyActionGuide } from './src/pages/SecretKeyDetailPage'", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
 const bundlePath = resolve('node_modules/.secret-inventory-navigation-test.mjs')
 await writeFile(bundlePath, bundled.outputFiles[0].contents)
-const { SecretsPage, SecretKeyDetailPage, parseInventoryFilters, keyDetailPath, inventoryReturnPath, parseLocationFilters } = await import(pathToFileURL(bundlePath).href)
+const { SecretsPage, SecretKeyDetailPage, SecretKeyActionGuide, parseInventoryFilters, keyDetailPath, inventoryReturnPath, parseLocationFilters } = await import(pathToFileURL(bundlePath).href)
 after(() => unlink(bundlePath))
 const snapshotId = '11111111-1111-1111-1111-111111111111'
 const item = { id: 12, issuer: 'GITHUB', credentialType: 'GITHUB_CLASSIC_PAT', componentState: 'CONFIRMED', maskedLabel: 'ghp_••••1234', severity: 'UNASSESSED', validationStatus: 'UNCHECKED', validationReasonCode: 'NO_VERIFICATION_ATTEMPT', validatedAt: null, occurrenceCount: 3, visibleLocationCount: 3, firstSeenAt: '2026-10-20T00:00:00Z', lastSeenAt: '2026-10-21T00:00:00Z', origin: 'TEST', whyHereCode: 'STORAGE_POLICY_REQUIRED', nextActionCode: 'REVIEW_EVIDENCE', safeLocationLabel: '위치 #1', restrictedCoverage: true, expiryPolicy: 'UNKNOWN', expiresAt: null, lifecycleStatus: 'UNKNOWN', occurrences: [], iamMetadata: null }
@@ -110,4 +110,38 @@ test('initial loading and malformed key links do not invent zero counts', () => 
   const invalid = renderPage(SecretKeyDetailPage, '/secrets/:secretId', '/secrets/1e3')
   assert.match(invalid, /키 주소 또는 위치 조회 조건이 올바르지 않아요/)
   assert.match(invalid, /href="\/secrets\/findings"/)
+})
+
+test('keys without a current case expose a closed provider procedure after the existing location content', () => {
+  const params = new URLSearchParams('origin=TEST&detailVersion=v1')
+  const { filters } = parseLocationFilters(params)
+  for (const issuer of ['AWS', 'GITHUB']) {
+    const key = { ...item, issuer, currentCaseId: null, casesByOrigin: [] }
+    const locations = { credentialSetId: 12, credential: key, detailVersion: 'v1', items: [location(1, 'UNKNOWN')], total: 1, visibleLocationCount: 1, page: 0, size: 20, origin: 'TEST', restrictedCoverage: true }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } })
+    client.setQueryData(['secret-detail', 12, 'TEST'], key)
+    client.setQueryData(['secret-key-locations', 12, filters, 0], locations)
+    const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [`/secrets/12?${params}`] }, createElement(Routes, null, createElement(Route, { path: '/secrets/:secretId', element: createElement(SecretKeyDetailPage) })))))
+    assert.match(html, /<details class="card secret-key-action-guide"><summary><strong>키 조치 안내<\/strong>/)
+    assert.match(html, issuer === 'AWS' ? /AWS IAM|CloudTrail/ : /GitHub 설정|토큰 종류/)
+    assert.ok(html.indexOf('키와 발견 위치') < html.indexOf('키 조치 안내'))
+    assert.doesNotMatch(html, /secret-key-action-guide" open|AI 보조 가이드 요청|must-not-render/)
+    assert.equal(client.getQueryCache().getAll().some((query) => ['secret-case-guide', 'secret-case'].includes(query.queryKey[0])), false)
+    client.clear()
+    const linked = { ...key, currentCaseId: 7, casesByOrigin: [{ origin: 'TEST', caseId: 7 }] }
+    const linkedHtml = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [[['secret-detail', 12, 'TEST'], linked], [['secret-key-locations', 12, filters, 0], { ...locations, credential: linked }]])
+    assert.doesNotMatch(linkedHtml, /secret-key-action-guide/)
+  }
+})
+
+test('key action guidance needs only its authorized issuer and never creates cases or requests AI', () => {
+  const originalFetch = globalThis.fetch, calls = []
+  globalThis.fetch = (...args) => { calls.push(args); throw new Error('Unexpected external request') }
+  try {
+    const html = renderToStaticMarkup(createElement(SecretKeyActionGuide, { issuer: 'GITHUB' }))
+    assert.match(html, /대응 건이 없어도 기본 절차/)
+    assert.match(html, /대응 건을 만들거나 조치 완료로 기록하지 않아요/)
+    assert.doesNotMatch(html, /<button|<form|AI 보조 가이드 요청|\/cases\//)
+    assert.deepEqual(calls, [])
+  } finally { globalThis.fetch = originalFetch }
 })

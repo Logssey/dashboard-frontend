@@ -10,6 +10,7 @@ import { SecretDetailPanel } from '@/components/SecretDetailPanel'
 import { SecretDiscoveryContext, SecretSourceCoordinates } from '@/components/SecretDiscoveryContext'
 import { SecretRiskPanel } from '@/components/SecretRiskPanel'
 import { severityText } from '@/lib/secretRisk'
+import { immediateSecretCaseGuide } from '@/lib/secretCaseGuide'
 import { Badge } from '@/components/Badge'
 import { SecretValidationCard, SecretValidationHistory } from '@/components/SecretValidation'
 import { componentStateLabel, credentialTypeLabel, issuerLabel, secretEnvironmentLabel, secretValidationLabel, secretValidationReasonLabel } from '@/lib/labels'
@@ -67,6 +68,11 @@ function KeyInfo({ detail }: { detail: SecretDetail }) {
   </section>
 }
 
+export function SecretKeyActionGuide({ issuer }: Pick<SecretDetail, 'issuer'>) {
+  const guide = immediateSecretCaseGuide({ issuer })
+  return <details className="card secret-key-action-guide"><summary><strong>키 조치 안내</strong><span>기본 절차 확인</span></summary><div className="secret-key-action-guide-content"><h2>{guide.title}</h2><p className="caption">대응 건이 없어도 기본 절차를 확인할 수 있어요. 실제 키 여부와 현재 상태는 유효성·합성 표본 확인 결과를 따로 확인하세요.</p><ol>{guide.steps.map((step) => <li key={step.code}><strong>{step.title}</strong><p>{step.description}</p></li>)}</ol><p className="notice">{guide.notice}</p><p className="caption">외부 AI를 사용하지 않는 기본 안내예요. 이 안내를 열어도 대응 건을 만들거나 조치 완료로 기록하지 않아요.</p></div></details>
+}
+
 export function SecretKeyDetailPage() {
   const { secretId: rawId } = useParams()
   const secretId = positiveId(rawId)
@@ -97,6 +103,7 @@ export function SecretKeyDetailPage() {
   const error = detail.error
   const data = locations.data
   const displayDetail = detail.isSuccess ? detail.data : undefined
+  const hasCurrentCase = !!displayDetail?.currentCaseId || displayDetail?.casesByOrigin?.some((item) => item.origin === filters.origin && item.caseId > 0) || locations.isSuccess && locations.data.items.some((item) => item.caseId != null && item.caseId > 0)
   const activeTab = ['info', 'validation', 'cases'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'locations'
   useEffect(() => { if (previousTab.current != null && previousTab.current !== activeTab) { tabContent.current?.focus(); tabContent.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }) }; previousTab.current = activeTab }, [activeTab])
   return <>
@@ -119,6 +126,7 @@ export function SecretKeyDetailPage() {
       </section>}
       </div>
       {selected && locations.isSuccess && !selectedLocation && <p className="notice">선택한 위치가 현재 필터·페이지에 없어요. 목록에서 위치를 다시 선택하세요.</p>}
+      {!hasCurrentCase && ['AWS', 'GITHUB'].includes(detail.data.issuer) && <SecretKeyActionGuide issuer={detail.data.issuer} />}
       <SecretDetailPanel open={!!selectedLocation && panelOpen} title={selectedLocation?.safeLocationLabel ?? '위치 근거'} onClose={() => { const next = new URLSearchParams(params); next.set('locationPanel', 'closed'); setParams(next) }}>{selectedLocation && <LocationDetailContent key={selectedLocation.occurrenceId} location={selectedLocation} credentialSetId={secretId!} />}</SecretDetailPanel>
     </>}
   </>
