@@ -21,6 +21,7 @@ export interface PermissionAssistance {
   latestRequest: PermissionRequest | null; latestObservation: PermissionObservation | null
   capabilities: { canRequest: boolean; blockedReasonCodes: string[] }
   supplementation?: PermissionSupplementation
+  requestReadiness?: { nextAction: string; checks: { code: string; status: 'READY' | 'BLOCKED' | 'WAITING' | 'UNSUPPORTED'; action: string | null }[] }
 }
 export interface PermissionPreview extends PermissionObservation {
   contextVersion: string; evidenceRevision: number; availableSourceRefs: RiskSourceRef[]; canConfirm: boolean; canReject?: boolean; blockedReasonCodes: string[]

@@ -44,7 +44,12 @@ function LocationValidationCard({ secretId, locations, metadataOnly = false, sel
     requestKey.current = { payload: '', key: '' }
     void client.invalidateQueries({ queryKey: ['secret-validation', secretId] }); void client.invalidateQueries({ queryKey: ['secret-validation-history', secretId] })
     void client.invalidateQueries({ queryKey: ['secret-detail', secretId] })
-  }, [progress.data, client, secretId])
+    void client.invalidateQueries({ queryKey: ['secret-key-locations', secretId] })
+    if (selectedId) {
+      void client.invalidateQueries({ queryKey: ['secret-permission-assistance', selectedId] })
+      void client.invalidateQueries({ queryKey: ['secret-risk', selectedId] })
+    }
+  }, [progress.data, client, secretId, selectedId])
   const presentation = query.data ? validationPresentation(query.data) : null
   const pending = requestId != null && !completedRequest(progress.data?.status) || activeRequest(query.data?.latestRequest?.status)
   return <details ref={disclosure} className="card secret-validation-card" aria-labelledby="key-validation-title"><summary><strong id="key-validation-title">키 유효성</strong><span>{metadataOnly ? '값 인증 대상 아님' : presentation?.title ?? '확인 조건 조회'}</span><small>{query.data?.latestAttempt?.providerCheckedAt ? validationDate(query.data.latestAttempt.providerCheckedAt) : '공급자 확인 시각 —'}</small><span className="secret-validation-expand">확인·이력</span></summary><div className="secret-validation-expanded"><p className="caption">선택한 위치의 키로 공급자 인증 가능 여부를 확인해요.</p>

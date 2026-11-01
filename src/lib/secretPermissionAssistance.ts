@@ -1,4 +1,4 @@
-import type { PermissionConfirmation, PermissionPreview } from '../api/secretPermissionAssistance'
+import type { PermissionAssistance, PermissionConfirmation, PermissionPreview } from '../api/secretPermissionAssistance'
 import type { RiskSourceRef } from '../api/secretRisk'
 import { allowedRiskSources, riskInputUtc, riskSourcePayload, validRiskEvidenceWindow } from './secretRiskForms'
 import { validEvidenceRef } from './secretEvidence'
@@ -47,10 +47,34 @@ const reasonLabels: Record<string, string> = {
   PERMISSION_JOB_INCOMPLETE: '권한 조회 작업을 마치지 못했어요. 현재 요청의 이유를 확인하세요.', PERMISSION_POLL_FAILED: '권한 조회 워커가 작업 확인을 마치지 못했어요. 운영 상태를 확인하세요.',
 }
 export const permissionPrincipalLabel = (type?: string) => ({ IAM_USER: 'IAM 사용자', ASSUMED_ROLE: '위임 역할', IAM_ROLE: 'IAM 역할', ROOT: '계정 루트', FEDERATED_USER: '연합 사용자', GITHUB_USER: 'GitHub 사용자', GITHUB_INSTALLATION: 'GitHub App 설치' } as Record<string, string>)[type ?? ''] ?? '주체 유형 미확인'
-export const permissionReason = (code: string) => reasonLabels[code] ?? '조회 범위와 부족한 근거를 확인해 주세요.'
+export const permissionReason = (code: string) => Object.hasOwn(reasonLabels, code) ? reasonLabels[code] : '조회 범위와 부족한 근거를 확인해 주세요.'
 export const activePermissionRequest = (status?: string) => status === 'PENDING' || status === 'LEASED'
 export const completedPermissionRequest = (status?: string) => ['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(status ?? '')
 export const permissionRequestStatus = (status?: string) => ({ PENDING: '조회 대기', LEASED: '권한 조회 중', SUCCEEDED: '조회 처리 완료', FAILED: '조회 실패', CANCELLED: '조회 취소' } as Record<string, string>)[status ?? ''] ?? '상태 확인 필요'
+export function permissionPrerequisites(context: PermissionAssistance, collector: string, synthetic = false) {
+  const reasons = [...context.support.reasonCodes, ...context.capabilities.blockedReasonCodes]
+  const isSynthetic = synthetic || reasons.includes('SYNTHETIC_FIXTURE')
+  const supported = ['AWS', 'GITHUB'].includes(context.identity.provider) && context.support.status !== 'UNSUPPORTED'
+  const identityReady = context.identity.status === 'MATCHED' && !reasons.some((code) => ['FRESH_IDENTITY_VALIDATION_REQUIRED', 'FRESH_IDENTITY_REQUIRED', 'IDENTITY_OBSERVATION_EXPIRED', 'IDENTITY_MISMATCH'].includes(code))
+  const collectorReady = context.identity.provider !== 'AWS' || context.collectorOptions.some((option) => String(option.connectionId) === collector)
+  const canRequest = !isSynthetic && supported && identityReady && collectorReady && context.capabilities.canRequest && !!context.contextVersion
+  const actionHelp: Record<string, string> = {
+    CONTACT_OPERATIONS: '운영 담당자에게 권한 조회 기능과 워커 설정을 확인해 달라고 요청하세요.',
+    CONTACT_SECURITY: '이 위치의 보안 담당자에게 권한 조회를 요청하세요.',
+    MANUAL_PERMISSION_REVIEW: '이 키 유형은 자동 권한 조회를 지원하지 않아요. 조사에서 확인한 권한 자료를 기록하세요.',
+    COLLECT_COMPLETE_CREDENTIAL: '현재 위치의 키 구성요소가 부족해요. 승인된 원천에서 같은 구성의 키 쌍과 필요한 세션 토큰을 확인하세요.',
+    REVIEW_CONNECTION: '현재 위치의 원천 연결과 검사 범위가 활성 상태이고 열람 가능한지 확인하세요.',
+  }
+  const blocker = isSynthetic ? '합성 표본에는 실제 공급자 권한 조회를 실행하지 않아요.'
+    : (Object.hasOwn(actionHelp, context.requestReadiness?.nextAction ?? '') ? actionHelp[context.requestReadiness!.nextAction] : '') || (
+    !supported ? '이 키 유형은 자동 권한 조회를 지원하지 않아요. 확인한 자료를 직접 기록하세요.'
+      : !identityReady ? '1단계에서 현재 위치의 키 유효성을 확인하세요. 인증한 주체가 연결되어야 다음 단계로 진행할 수 있어요.'
+        : !collectorReady ? context.collectorOptions.length ? '2단계에서 승인된 읽기 연결을 선택하세요.' : '2단계에서 같은 계정의 승인된 IAM 읽기 연결을 확인하세요.'
+          : !context.capabilities.canRequest ? reasons.length ? permissionReason(reasons[0]) : '현재 사용자 또는 운영 설정에서 조회를 허용하지 않아요. 보안 담당자에게 확인하세요.'
+            : !context.contextVersion ? '현재 조회 조건을 다시 불러오세요.' : '')
+  const displayReasonCodes = reasons.filter((code) => identityReady || !['APPROVED_COLLECTOR_REQUIRED', 'COLLECTOR_REQUIRED', 'NO_COLLECTOR'].includes(code))
+  return { isSynthetic, supported, identityReady, collectorReady, collectorWaiting: context.identity.provider === 'AWS' && !identityReady, canRequest, blocker, displayReasonCodes }
+}
 export function permissionSourceRequirements(sources: RiskSourceRef[]): string[] {
   const available = allowedRiskSources(sources)
   return [
@@ -70,7 +94,7 @@ export interface PermissionReviewInput { capability: string; targetScope: string
 export function permissionConfirmationFacts(preview: PermissionPreview, revision: number, input: PermissionReviewInput, now = Date.now()): Omit<PermissionConfirmation, 'idempotencyKey'> | null {
   const observedAt = input.attestedAt, validUntil = riskInputUtc(input.until)
   const refs = riskSourcePayload(preview.availableSourceRefs, input.selectedSourceKeys)
-  if (!currentPermissionPreview(preview, preview.observationId, revision, now) || !preview.canConfirm || !input.attested || !validEvidenceRef(input.evidenceRef)
+  if (!currentPermissionPreview(preview, preview.observationId, revision, now) || !preview.canConfirm || preview.decision || !input.attested || !validEvidenceRef(input.evidenceRef)
     || !observedPermissionOptions(preview).includes(input.capability) || !Object.hasOwn(permissionTargetLabels, input.targetScope)
     || !refs || permissionSourceRequirements(refs).length || !validRiskEvidenceWindow('PERMISSION_MAPPING', observedAt, validUntil, now)
     || !observedAt || Date.parse(observedAt) < Date.parse(preview.observedAt)

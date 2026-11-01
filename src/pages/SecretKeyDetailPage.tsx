@@ -10,6 +10,7 @@ import { SecretDetailPanel } from '@/components/SecretDetailPanel'
 import { SecretDiscoveryContext, SecretSourceCoordinates } from '@/components/SecretDiscoveryContext'
 import { SecretRiskPanel } from '@/components/SecretRiskPanel'
 import { severityText } from '@/lib/secretRisk'
+import { immediateSecretCaseGuide } from '@/lib/secretCaseGuide'
 import { Badge } from '@/components/Badge'
 import { SecretValidationCard, SecretValidationHistory } from '@/components/SecretValidation'
 import { componentStateLabel, credentialTypeLabel, issuerLabel, secretEnvironmentLabel, secretValidationLabel, secretValidationReasonLabel } from '@/lib/labels'
@@ -51,7 +52,7 @@ function LocationEvidence({ location }: { location: KeyLocation }) {
 
 function LocationDetailContent({ location, credentialSetId }: { location: KeyLocation; credentialSetId: number }) {
   const [riskOpen, setRiskOpen] = useState(false)
-  return <><div className="secret-location-actions"><SecretTaskGuidance guidance={location.taskGuidance} compact /><div className="row">{location.capabilities?.canViewCase && location.caseId && <Link className="btn primary" to={`/secrets/cases/${location.caseId}?origin=${location.origin}&occurrence=${location.occurrenceId}`}>현재 대응·조치</Link>}{location.capabilities?.canReview && <Link className={`btn ${location.caseId ? 'outline' : 'primary'}`} to={`/secrets/triage/${credentialSetId}?origin=${location.origin}&occurrence=${location.occurrenceId}`}>{location.caseId ? '판정 근거 확인' : '보관·노출 판단'}</Link>}{location.capabilities?.canViewCoverage && <Link className="btn outline" to={withSecretOrigin(`/secrets/connections/${location.connectionId}/scopes/${location.scopeId}`, location.origin)}>검사 범위</Link>}</div></div>{location.legacyExposureAssessment?.needsReconfirmation && <p className="notice">이전 노출 판단은 보존돼 있어요. 현재 범위의 확인 근거가 부족해 다시 확인해야 해요.</p>}<LocationEvidence location={location} /><details className="secret-risk-existing-evidence" onToggle={(event) => setRiskOpen(event.currentTarget.open)}><summary>심각도 판단 이유·추가 근거</summary>{riskOpen && <SecretRiskPanel occurrenceId={location.occurrenceId} />}</details></>
+  return <><div className="secret-location-actions"><SecretTaskGuidance guidance={location.taskGuidance} compact /><div className="row">{location.capabilities?.canViewCase && location.caseId && <Link className="btn primary" to={`/secrets/cases/${location.caseId}?origin=${location.origin}&occurrence=${location.occurrenceId}`}>현재 대응·조치</Link>}{location.capabilities?.canReview && <Link className={`btn ${location.caseId ? 'outline' : 'primary'}`} to={`/secrets/triage/${credentialSetId}?origin=${location.origin}&occurrence=${location.occurrenceId}`}>{location.caseId ? '판정 근거 확인' : '보관·노출 판단'}</Link>}{location.capabilities?.canViewCoverage && <Link className="btn outline" to={withSecretOrigin(`/secrets/connections/${location.connectionId}/scopes/${location.scopeId}`, location.origin)}>검사 범위</Link>}</div></div>{location.legacyExposureAssessment?.needsReconfirmation && <p className="notice">이전 노출 판단은 보존돼 있어요. 현재 범위의 확인 근거가 부족해 다시 확인해야 해요.</p>}<LocationEvidence location={location} /><details className="secret-risk-existing-evidence" onToggle={(event) => setRiskOpen(event.currentTarget.open)}><summary>심각도 판단 이유·추가 근거</summary>{riskOpen && <SecretRiskPanel occurrenceId={location.occurrenceId} location={location} />}</details></>
 }
 
 function PresenceSummary({ data }: { data: KeyLocationsResponse }) {
@@ -65,6 +66,11 @@ function KeyInfo({ detail }: { detail: SecretDetail }) {
   return <section className="card secret-scan-section"><h2>키 정보</h2><dl className="secret-scan-facts"><div><dt>발급자</dt><dd>{issuerLabel[detail.issuer] ?? '미확인'}</dd></div><div><dt>키 유형</dt><dd>{credentialTypeLabel(detail.credentialType)}</dd></div><div><dt>구성</dt><dd>{componentStateLabel[detail.componentState]}</dd></div><div><dt>심각도</dt><dd>{severityText(detail.severity, detail.assessmentStatus)}</dd></div><div><dt>첫 발견</dt><dd>{scanDate(detail.firstSeenAt)}</dd></div><div><dt>최근 발견</dt><dd>{scanDate(detail.lastSeenAt)}</dd></div><div><dt>만료 시각</dt><dd>{detail.expiresAt ? scanDate(detail.expiresAt) : '미확인'}</dd></div><div><dt>키 수명주기</dt><dd>{detail.lifecycleStatus === 'REVOKED' ? '폐기 확인' : detail.lifecycleStatus === 'ROTATED' ? '교체 확인' : '근거 확인 필요'}</dd></div></dl>
     {detail.iamMetadata && <><h3 className="secret-key-info-subtitle">IAM 메타데이터</h3><dl className="secret-scan-facts"><div><dt>기록된 키 상태</dt><dd>{{ ACTIVE: '활성', INACTIVE: '비활성', EXPIRED: '만료', UNKNOWN: '미확인' }[detail.iamMetadata.keyStatus] ?? '미확인'}</dd></div><div><dt>발급</dt><dd>{scanDate(detail.iamMetadata.issuedAt)}</dd></div><div><dt>최근 사용</dt><dd>{scanDate(detail.iamMetadata.lastUsedAt)}</dd></div><div><dt>관측</dt><dd>{scanDate(detail.iamMetadata.observedAt)}</dd></div></dl><p className="notice">접근키의 존재 정보예요. 비밀 값 노출이나 현재 유효성을 확인한 결과는 아니에요.</p></>}
   </section>
+}
+
+export function SecretKeyActionGuide({ issuer }: Pick<SecretDetail, 'issuer'>) {
+  const guide = immediateSecretCaseGuide({ issuer })
+  return <details className="card secret-key-action-guide"><summary><strong>키 조치 안내</strong><span>기본 절차 확인</span></summary><div className="secret-key-action-guide-content"><h2>{guide.title}</h2><p className="caption">대응 건이 없어도 기본 절차를 확인할 수 있어요. 실제 키 여부와 현재 상태는 유효성·합성 표본 확인 결과를 따로 확인하세요.</p><ol>{guide.steps.map((step) => <li key={step.code}><strong>{step.title}</strong><p>{step.description}</p></li>)}</ol><p className="notice">{guide.notice}</p><p className="caption">외부 AI를 사용하지 않는 기본 안내예요. 이 안내를 열어도 대응 건을 만들거나 조치 완료로 기록하지 않아요.</p></div></details>
 }
 
 export function SecretKeyDetailPage() {
@@ -97,6 +103,7 @@ export function SecretKeyDetailPage() {
   const error = detail.error
   const data = locations.data
   const displayDetail = detail.isSuccess ? detail.data : undefined
+  const hasCurrentCase = !!displayDetail?.currentCaseId || displayDetail?.casesByOrigin?.some((item) => item.origin === filters.origin && item.caseId > 0) || locations.isSuccess && locations.data.items.some((item) => item.caseId != null && item.caseId > 0)
   const activeTab = ['info', 'validation', 'cases'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'locations'
   useEffect(() => { if (previousTab.current != null && previousTab.current !== activeTab) { tabContent.current?.focus(); tabContent.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }) }; previousTab.current = activeTab }, [activeTab])
   return <>
@@ -119,6 +126,7 @@ export function SecretKeyDetailPage() {
       </section>}
       </div>
       {selected && locations.isSuccess && !selectedLocation && <p className="notice">선택한 위치가 현재 필터·페이지에 없어요. 목록에서 위치를 다시 선택하세요.</p>}
+      {!hasCurrentCase && ['AWS', 'GITHUB'].includes(detail.data.issuer) && <SecretKeyActionGuide issuer={detail.data.issuer} />}
       <SecretDetailPanel open={!!selectedLocation && panelOpen} title={selectedLocation?.safeLocationLabel ?? '위치 근거'} onClose={() => { const next = new URLSearchParams(params); next.set('locationPanel', 'closed'); setParams(next) }}>{selectedLocation && <LocationDetailContent key={selectedLocation.occurrenceId} location={selectedLocation} credentialSetId={secretId!} />}</SecretDetailPanel>
     </>}
   </>
