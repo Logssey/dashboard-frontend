@@ -57,6 +57,7 @@ function PathChangeItem({ change }: { change: IacPathChange }) {
 function ruleIds(pr: IacPullRequest): string[] {
   const ids = [
     ...pr.gate.findings.map((finding) => finding.ruleId),
+    ...pr.resourceFindings.map((finding) => finding.ruleId),
     ...pr.paths.map((change) => change.ruleId),
     ...(pr.state?.ruleId ? [pr.state.ruleId] : []),
   ]
@@ -159,10 +160,30 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
                   <h3>① 경로 변화</h3>
                   {gateBlocked ? (
                     <p className="muted iac-section-text">② 에서 차단돼 plan 과 경로를 계산하지 않았어요.</p>
-                  ) : pr.paths.length === 0 ? (
+                  ) : pr.paths.length === 0 && pr.resourceFindings.length === 0 ? (
                     <p className="muted iac-section-text">새로 생기거나 사라진 경로가 없어요.</p>
                   ) : (
                     <>
+                      {pr.resourceFindings.length > 0 && (
+                        <ul className="iac-findings">
+                          {pr.resourceFindings.map((finding, index) => (
+                            <li key={`${finding.ruleId}-${index}`}>
+                              <div className="row">
+                                <Badge label={finding.enforcement === 'BLOCK' ? '차단' : '경고'}
+                                  tone={finding.enforcement === 'BLOCK' ? 'critical' : 'high'} />
+                                <SeverityBadge severity={finding.severity} />
+                                <strong>{ruleTitle[finding.ruleId] ?? finding.ruleId}</strong>
+                              </div>
+                              {finding.address && (
+                                <span className="caption">
+                                  원인: <code className="iac-address">{finding.address}</code>
+                                  {finding.action && ` ${causeActionLabel[finding.action] ?? finding.action}`}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                       {added.length > 0 && (
                         <ul className="iac-findings">
                           {added.map((change, index) => <PathChangeItem key={`${change.ruleId}-${index}`} change={change} />)}

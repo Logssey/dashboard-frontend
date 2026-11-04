@@ -79,6 +79,14 @@ export interface IacGateFinding {
   address: string | null
 }
 
+export interface IacResourceFinding {
+  ruleId: string
+  enforcement: string
+  severity: IacSeverity | null
+  address: string | null
+  action: string | null
+}
+
 export interface IacPathChange {
   change: 'ADDED' | 'SHORTENED' | 'REMOVED'
   tier: number
@@ -101,6 +109,8 @@ export interface IacPullRequest {
   checkedAt: string | null
   gate: { status: 'BLOCK' | 'PASS'; findings: IacGateFinding[] }
   paths: IacPathChange[]
+  /** 경로 없이 리소스 하나에 걸리는 ① 발견 건 (path.imds_v1_added) */
+  resourceFindings: IacResourceFinding[]
   resources: { add: number; change: number; delete: number } | null
   state: { ruleId: string | null; severity: IacSeverity | null; readersBefore: number; readersAfter: number; secretsAdded: number } | null
 }
