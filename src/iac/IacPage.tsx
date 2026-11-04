@@ -28,6 +28,16 @@ function metricValue(value: number | null | undefined) {
   return value === null || value === undefined ? '—' : value
 }
 
+/** B 지표를 누르면 해당 영역 제목으로 옮기고 포커스를 준다 (키보드·스크린 리더도 같은 곳으로) */
+function goToSection(event: React.MouseEvent<HTMLAnchorElement>, id: string) {
+  const target = document.getElementById(id)
+  if (!target) return
+  event.preventDefault()
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+  target.focus({ preventScroll: true })
+}
+
 /** IaC 보안 탭 (S-01, security-solution-docs iac-security dashboard-flow). 계산은 백엔드가 하고 화면은 보여주기만 한다 */
 export function IacPage() {
   const summary = useQuery({ queryKey: ['iac', 'summary'], queryFn: fetchIacSummary })
@@ -79,26 +89,26 @@ export function IacPage() {
         {/* B 지표 4개 */}
         <section aria-label="IaC 지표">
           <div className="iac-metrics">
-            <article className="card iac-metric">
+            <a className="card iac-metric" href="#iac-paths-title" onClick={(e) => goToSection(e, 'iac-paths-title')}>
               <span className="caption">1등급까지 열린 경로</span>
               <strong>{summary.isPending ? '—' : metricValue(summary.data?.metrics.tier1OpenPaths)}<small>개</small></strong>
               <span className="caption">전체 열린 경로 {metricValue(summary.data?.metrics.openPaths)}개</span>
-            </article>
-            <article className="card iac-metric">
+            </a>
+            <a className="card iac-metric" href="#iac-state-title" onClick={(e) => goToSection(e, 'iac-state-title')}>
               <span className="caption">실제 드리프트</span>
               <strong>{metricValue(summary.data?.metrics.drifts)}<small>건</small></strong>
               <span className="caption">코드 밖에서 바뀐 리소스 (노이즈 제외)</span>
-            </article>
-            <article className="card iac-metric">
+            </a>
+            <a className="card iac-metric" href="#iac-state-title" onClick={(e) => goToSection(e, 'iac-state-title')}>
               <span className="caption">State 속 실제 시크릿</span>
               <strong>{metricValue(summary.data?.metrics.stateSecrets)}<small>건</small></strong>
               <span className="caption">tfstate 에 평문으로 남은 값</span>
-            </article>
-            <article className="card iac-metric">
+            </a>
+            <a className="card iac-metric" href="#iac-gates-title" onClick={(e) => goToSection(e, 'iac-gates-title')}>
               <span className="caption">② 위반 (main 기준)</span>
               <strong>{metricValue(summary.data?.metrics.gateViolations)}<small>건</small></strong>
               <span className="caption">plan 전 검사에서 걸린 규칙</span>
-            </article>
+            </a>
           </div>
           {summary.data && (
             <div className="iac-severity-row" aria-label="열린 발견 건 심각도별 건수">
@@ -113,7 +123,7 @@ export function IacPage() {
         {/* C 지금 열린 공격 경로 */}
         <section className="card list-card" aria-labelledby="iac-paths-title">
           <div className="card-head">
-            <h2 id="iac-paths-title">지금 열린 공격 경로</h2>
+            <h2 id="iac-paths-title" tabIndex={-1}>지금 열린 공격 경로</h2>
             <span className="caption">인터넷에서 등급이 매겨진 데이터까지 · 6단계 이내</span>
           </div>
           {paths.isPending ? (

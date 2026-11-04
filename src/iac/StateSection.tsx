@@ -45,7 +45,7 @@ export function StateSection() {
   return (
     <section className="card list-card" aria-labelledby="iac-state-title">
       <div className="card-head">
-        <h2 id="iac-state-title">③ State·드리프트</h2>
+        <h2 id="iac-state-title" tabIndex={-1}>③ State·드리프트</h2>
         <span className="caption">State 점검 {formatDateTime(state.data?.checkedAt ?? null)}</span>
       </div>
 
