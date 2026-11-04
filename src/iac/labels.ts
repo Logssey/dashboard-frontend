@@ -86,12 +86,18 @@ export function pullRequestBadge(pr: { status: IacRunStatus; verdict: IacVerdict
   return { label: runStatusLabel[pr.status] ?? pr.status, tone: pr.status === 'ERROR' ? 'critical' : '' }
 }
 
-/** S-01 D 의 한 줄 요약: 경로 변화와 State 읽기 주체 */
+/**
+ * S-01 D 의 한 줄 요약: 경로 변화와 State 읽기 주체.
+ * 경로 수는 S-02 패널("사라진 경로 N개")과 같게 세고, 같은 자격 증명으로 묶이면 갈래 수를 덧붙인다
+ */
 export function pullRequestChanges(pr: IacPullRequestSummary): string[] {
   const parts: string[] = []
   if (pr.status === 'GATE_FAILED') parts.push('② 차단, 경로 계산 안 함')
   if (pr.pathsAdded > 0) parts.push(`경로 +${pr.pathsAdded}`)
-  if (pr.removedRoutes > 0) parts.push(`경로 −${pr.removedRoutes}`)
+  if (pr.pathsRemoved > 0) {
+    const routes = pr.removedRoutes > 0 && pr.removedRoutes < pr.pathsRemoved ? ` (${pr.removedRoutes}갈래)` : ''
+    parts.push(`경로 −${pr.pathsRemoved}${routes}`)
+  }
   if (pr.stateReaderIncrease) parts.push('State 읽기 주체 증가')
   return parts
 }
