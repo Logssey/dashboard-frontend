@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { build } from 'esbuild'
-import { findingCountLabel, hasScopeAggregation, historyReturnPath, kstInput, kstInputToUtc, objectCountLabel, parseRunFilters, positiveId, scanDetailPath, scanStatus, scanConnectionLabel, scanReason } from '../src/lib/secretScan.ts'
+import { findingCountLabel, hasScopeAggregation, historyReturnPath, kstInput, kstInputToUtc, objectCountLabel, parseRunFilters, positiveId, scanDetailPath, scanStatus, scanConnectionLabel, scanReason, scopeTypeLabel } from '../src/lib/secretScan.ts'
 import { withSecretOrigin, secretOriginParams } from '../src/lib/secretNavigation.ts'
 
 const bundled = await build({
@@ -135,6 +135,70 @@ test('connection authentication success is separate from failed latest scan and 
   assert.match(html, /SCAN-10 · 정상 종료/)
   assert.match(html, /검사 대상 보기/)
   assert.doesNotMatch(html, /<button[^>]*>[^<]*연결 테스트<\/button>/)
+})
+
+test('Notion content scopes retain their label across current and legacy content types', () => {
+  assert.equal(scopeTypeLabel('NOTION_PAGE_CONTENT'), 'Notion 페이지')
+  assert.equal(scopeTypeLabel('NOTION_PAGE_BLOCKS'), 'Notion 페이지')
+})
+
+test('Notion scope detail keeps excluded bodies separate from collection gaps', () => {
+  const notionScope = { ...scope, contentType: 'NOTION_PAGE_CONTENT', region: null, scopeOutcome: 'SUCCEEDED', collection: stage('SUCCEEDED'), gapCode: null, excludedObjectCount: 3 }
+  const run = { ...baseRun, provider: 'NOTION', scopeResults: [notionScope] }
+  const html = renderPage(SecretRunDetailPage, '/secrets/history/:runId', '/secrets/history/12', [[['secret-run', 12], run]])
+  assert.match(html, /현재 페이지 텍스트 · 하위 페이지·외부 본문은 별도 대상/)
+  assert.match(html, /본문 제외 3개/)
+  assert.match(html, /적용 단계 완료/)
+  for (const excludedObjectCount of [undefined, null, 0]) {
+    const compatibleRun = { ...run, scopeResults: [{ ...notionScope, excludedObjectCount }] }
+    const compatibleHtml = renderPage(SecretRunDetailPage, '/secrets/history/:runId', '/secrets/history/12', [[['secret-run', 12], compatibleRun]])
+    assert.doesNotMatch(compatibleHtml, /본문 제외/)
+  }
+})
+
+test('approved Notion scope list states the current page collection boundary', () => {
+  for (const contentType of ['NOTION_PAGE_CONTENT', 'NOTION_PAGE_BLOCKS']) {
+    const managedScope = { scopeId: 5, origin: 'TEST', safeDisplayAlias: '승인 문서', contentType, scopeRevision: 1 }
+    const html = renderPage(SecretConnectionScopesPage, '/secrets/connections/:connectionId/scopes', '/secrets/connections/9/scopes', [[['secret-connection-scopes', 9, 0, '', false], { items: [managedScope], total: 1, page: 0, size: 20 }]])
+    assert.match(html, /현재 페이지 텍스트 · 하위 페이지·외부 본문은 별도 대상/)
+  }
+})
+
+test('Notion probe failure reasons explain connection configuration and access', () => {
+  assert.match(scanReason('NOTION_COLLECTION_DISABLED'), /수집 연결 설정/)
+  assert.match(scanReason('NOTION_CREDENTIALS_UNAVAILABLE'), /토큰을 읽을 수 없어요/)
+  assert.match(scanReason('NOTION_ACCESS_DENIED'), /토큰과 페이지 공유 설정/)
+  assert.match(scanReason('NOTION_RATE_LIMITED'), /요청 한도/)
+  assert.match(scanReason('NOTION_UNAVAILABLE'), /응답을 확인하지 못했어요/)
+})
+
+test('Notion incomplete source reasons identify the remaining collection gap', () => {
+  assert.match(scanReason('NOTION_CONTENT_CHANGED'), /검사 중 Notion 페이지가 변경/)
+  assert.match(scanReason('NOTION_UNSUPPORTED_BLOCK'), /일부 내용을 검사하지 못했어요/)
+  assert.match(scanReason('NOTION_CURSOR_LOOP'), /이후 내용을 확인하지 못했어요/)
+  assert.match(scanReason('NOTION_NOT_FOUND'), /연결 공유 설정/)
+  for (const code of ['NOTION_BLOCK_LIMIT', 'NOTION_DEPTH_LIMIT', 'NOTION_TEXT_LIMIT', 'NOTION_REQUEST_LIMIT']) {
+    assert.match(scanReason(code), /제한/)
+    assert.match(scanReason(code), /확인하지 못했어요/)
+    assert.doesNotMatch(scanReason(code), /폐기 완료|삭제 확인|정상 0건/)
+  }
+})
+
+test('Notion connection probe explains authentication and uses server scan capabilities', () => {
+  const connection = { connectionId: 9, provider: 'NOTION', safeDisplayAlias: '승인 문서 연결', connectionStatus: 'ACTIVE', approvedScopeCount: 1, scopeRevision: 1, latestProbe: { status: 'CONNECTED', reasonCode: null, checkedAt: '2026-11-06T00:00:00Z' }, lastFullScanAttempt: null, lastSuccessfulFullScan: null, nextDueAt: null, activeJob: null, capabilities: { canTest: true, canRun: true } }
+  const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
+  assert.match(html, /Notion 인증을 확인했어요/)
+  assert.match(html, /승인 페이지 읽기 결과는 스캔 이력에서 확인하세요/)
+  assert.match(html, /href="\/secrets\/history\?request=scan&amp;connectionId=9"/)
+  assert.doesNotMatch(html, /신원·설치/)
+})
+
+test('disabled Notion collection explains setup and blocks test and scan actions', () => {
+  const connection = { connectionId: 9, provider: 'NOTION', safeDisplayAlias: '승인 문서 연결', connectionStatus: 'ACTIVE', approvedScopeCount: 1, scopeRevision: 1, latestProbe: null, lastFullScanAttempt: null, lastSuccessfulFullScan: null, nextDueAt: null, activeJob: null, capabilities: { canTest: false, canRun: false }, testBlockedReasonCode: 'NOTION_COLLECTION_DISABLED', scanBlockedReasonCode: 'NOTION_COLLECTION_DISABLED' }
+  const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
+  assert.match(html, /Notion 수집 연결 설정을 확인하세요/)
+  assert.match(html, /disabled=""[^>]*>[^<]*<span[^>]*>↻<\/span>연결 테스트/)
+  assert.doesNotMatch(html, /href="\/secrets\/history\?request=scan/)
 })
 test('history displays server total and real detail links without page-level metric cards', () => {
   const params = new URLSearchParams('page=3&type=MANUAL')

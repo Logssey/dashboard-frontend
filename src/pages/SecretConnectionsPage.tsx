@@ -18,7 +18,17 @@ export function AttemptLink({ attempt, origin }: { attempt: ScanAttempt | null |
 function probeLabel(status: string): string {
   return status === 'CONNECTED' ? '연결 확인됨' : status === 'FAILED' ? '연결 실패' : '연결 확인 불가'
 }
-const blockedLabel = (reason?: string | null) => ({ OPERATIONS_ROLE_REQUIRED: '연결 테스트·스캔 실행 권한이 없어요. 운영 담당자에게 실행 권한을 요청하세요.', PROVIDER_UNSUPPORTED: '아직 실행을 지원하지 않는 소스예요.', CONNECTION_PAUSED: '이 연결은 일시중지 상태예요.', NO_SCAN_TARGETS: '검사할 저장소·리소스가 등록되지 않았어요.', INVALID_APPROVED_SCOPE: '등록된 검사 대상 형식을 확인해야 해요.' } as Record<string, string>)[reason ?? ''] ?? '실행 권한과 연결 설정을 확인하세요.'
+function probeDescription(provider: string, connected: boolean): string {
+  if (provider === 'NOTION') {
+    return connected
+      ? 'Notion 인증을 확인했어요. 승인 페이지 읽기 결과는 스캔 이력에서 확인하세요.'
+      : '연결 테스트로 Notion 인증 여부를 확인하세요.'
+  }
+  return connected
+    ? '신원·설치만 확인했어요. 범위 읽기 성공과는 별개예요.'
+    : '연결 테스트로 신원·설치를 확인할 수 있어요.'
+}
+const blockedLabel = (reason?: string | null) => ({ OPERATIONS_ROLE_REQUIRED: '연결 테스트·스캔 실행 권한이 없어요. 운영 담당자에게 실행 권한을 요청하세요.', PROVIDER_UNSUPPORTED: '아직 실행을 지원하지 않는 소스예요.', CONNECTION_PAUSED: '이 연결은 일시중지 상태예요.', NO_SCAN_TARGETS: '검사할 대상이 등록되지 않았어요.', INVALID_APPROVED_SCOPE: '등록된 검사 대상 형식을 확인해야 해요.', NOTION_COLLECTION_DISABLED: scanReason('NOTION_COLLECTION_DISABLED') } as Record<string, string>)[reason ?? ''] ?? '실행 권한과 연결 설정을 확인하세요.'
 function ConnectionCard({ connection, result, testing, error, onTest, origin }: {
   connection: ManagedSecretConnection; origin: string; result?: SecretConnectionTestResult; testing: boolean; error?: string; onTest: (id: number) => void
 }) {
@@ -29,7 +39,7 @@ function ConnectionCard({ connection, result, testing, error, onTest, origin }: 
     {connection.targetSummary?.length ? <div className="secret-source-coordinates"><strong>검사 대상</strong>{connection.targetSummary.map((target) => <span key={target}>{target}</span>)}{connection.approvedScopeCount > connection.targetSummary.length && <small>그 외 {connection.approvedScopeCount - connection.targetSummary.length}개</small>}</div> : null}
     <dl className="secret-connection-facts"><dt>검사 대상</dt><dd>{connection.approvedScopeCount}개</dd><dt>최근 검사 시도</dt><dd><AttemptLink attempt={connection.lastFullScanAttempt} origin={origin} /></dd></dl>
     {connection.activeJob && <p className="secret-connection-active-job"><Link to={withSecretOrigin(scanDetailPath(connection.activeJob.runId), origin)}>SCAN-{connection.activeJob.runId} · {scanStatus(connection.activeJob.status)}</Link></p>}
-    <div className={`secret-connection-test-result ${probe?.status.toLowerCase() ?? 'unavailable'}`} role="status"><strong>{probe ? probeLabel(probe.status) : '연결 여부 아직 확인 안 함'}</strong><span>{probe?.reasonCode ? scanReason(probe.reasonCode) : probe?.status === 'CONNECTED' ? '신원·설치만 확인했어요. 범위 읽기 성공과는 별개예요.' : '연결 테스트로 신원·설치를 확인할 수 있어요.'}</span>{probe?.checkedAt && <time dateTime={probe.checkedAt}>{scanDate(probe.checkedAt)}</time>}</div>
+    <div className={`secret-connection-test-result ${probe?.status.toLowerCase() ?? 'unavailable'}`} role="status"><strong>{probe ? probeLabel(probe.status) : '연결 여부 아직 확인 안 함'}</strong><span>{probe?.reasonCode ? scanReason(probe.reasonCode) : probeDescription(connection.provider, probe?.status === 'CONNECTED')}</span>{probe?.checkedAt && <time dateTime={probe.checkedAt}>{scanDate(probe.checkedAt)}</time>}</div>
     {error && <p className="secret-connection-test-error" role="alert">{error}</p>}
     <div className="secret-connection-actions"><Link className="btn outline" to={withSecretOrigin(`/secrets/connections/${connection.connectionId}/scopes`, origin)}>검사 대상 보기</Link><button className="btn secret-connection-test-button" disabled={testing || !connection.capabilities?.canTest} onClick={() => onTest(connection.connectionId)}><span className="secret-connection-refresh" aria-hidden="true">↻</span>{testing ? '확인 중…' : '연결 테스트'}</button>{connection.capabilities?.canRun && <Link className="btn primary" to={withSecretOrigin(`/secrets/history?request=scan&connectionId=${connection.connectionId}`, origin)}>스캔 요청</Link>}</div>
     {!connection.capabilities?.canTest && <p className="caption" role="status">연결 테스트 · {blockedLabel(connection.testBlockedReasonCode)}</p>}

@@ -88,7 +88,7 @@ export function kstInputToUtc(value: string): string {
   return value ? new Date(`${value}:00+09:00`).toISOString() : ''
 }
 export function scopeTypeLabel(type: string): string {
-  return ({ GITHUB_REPOSITORY_FILES: 'GitHub 파일', IAM_ACCESS_KEY_METADATA: 'IAM 접근키 메타데이터', AWS_SECRETS_MANAGER_METADATA: 'Secrets Manager 목록', AWS_SSM_PARAMETER_METADATA: 'SSM Parameter 목록', AWS_S3_BUCKET_METADATA: 'S3 버킷 목록', AWS_SECRETS_MANAGER_VALUE: 'Secrets Manager 값', AWS_SSM_PARAMETER_VALUE: 'SSM Parameter 값', AWS_S3_OBJECT_CONTENT: 'S3 객체 내용', NOTION_PAGE_BLOCKS: 'Notion 페이지', KUBERNETES_SECRET: 'Kubernetes Secret' } as Record<string, string>)[type] ?? '수집 범위'
+  return ({ GITHUB_REPOSITORY_FILES: 'GitHub 파일', IAM_ACCESS_KEY_METADATA: 'IAM 접근키 메타데이터', AWS_SECRETS_MANAGER_METADATA: 'Secrets Manager 목록', AWS_SSM_PARAMETER_METADATA: 'SSM Parameter 목록', AWS_S3_BUCKET_METADATA: 'S3 버킷 목록', AWS_SECRETS_MANAGER_VALUE: 'Secrets Manager 값', AWS_SSM_PARAMETER_VALUE: 'SSM Parameter 값', AWS_S3_OBJECT_CONTENT: 'S3 객체 내용', NOTION_PAGE_CONTENT: 'Notion 페이지', NOTION_PAGE_BLOCKS: 'Notion 페이지', KUBERNETES_SECRET: 'Kubernetes Secret' } as Record<string, string>)[type] ?? '수집 범위'
 }
 export function scanReason(code: string | null | undefined): string {
   if (!code) return '상세 근거 미기록'
@@ -104,6 +104,26 @@ export function scanReason(code: string | null | undefined): string {
     STAGE_NOT_RECORDED: '단계 실행 근거 미기록',
     AWS_CONTENT_NOT_FOUND: '승인된 AWS 값을 읽지 못해 위치의 제거 여부 확인 불가',
     AWS_CONTENT_ACCESS_DENIED: 'AWS 값 읽기 권한이 없어 위치의 제거 여부 확인 불가',
+    NOTION_COLLECTION_DISABLED: 'Notion 수집 연결 설정을 확인하세요.',
+    NOTION_CREDENTIALS_UNAVAILABLE: '수집용 Notion 토큰을 읽을 수 없어요. 보관 경로와 파일 권한을 확인하세요.',
+    NOTION_ACCESS_DENIED: 'Notion 인증 또는 페이지 접근이 거부됐어요. 토큰과 페이지 공유 설정을 확인하세요.',
+    NOTION_RATE_LIMITED: 'Notion 요청 한도에 도달했어요. 대기 후 다시 확인하세요.',
+    NOTION_UNAVAILABLE: 'Notion 응답을 확인하지 못했어요. 연결 상태를 확인하세요.',
+    NOTION_CONFIGURATION_ERROR: 'Notion 수집 설정과 승인 페이지 형식을 확인하세요.',
+    NOTION_NOT_FOUND: '승인 페이지를 찾을 수 없어요. 페이지와 연결 공유 설정을 확인하세요.',
+    NOTION_PROVIDER_ACCESS_BLOCKED: 'Notion에서 API 접근을 제한했어요. 연결 설정과 관리자 정책을 확인하세요.',
+    NOTION_SOURCE_UNAVAILABLE: 'Notion 페이지 응답을 확인하지 못했어요.',
+    NOTION_TIMEOUT: 'Notion 읽기 시간이 초과돼 일부 내용을 확인하지 못했어요.',
+    NOTION_MALFORMED_RESPONSE: 'Notion 응답 형식을 확인하지 못해 검사를 마치지 못했어요.',
+    NOTION_RESPONSE_TOO_LARGE: 'Notion 응답이 읽기 크기 제한을 초과했어요.',
+    NOTION_IN_TRASH: '승인 페이지가 휴지통에 있어 본문을 확인하지 못했어요.',
+    NOTION_CONTENT_CHANGED: '검사 중 Notion 페이지가 변경됐어요. 다시 스캔해 확인하세요.',
+    NOTION_UNSUPPORTED_BLOCK: '지원 범위 밖 블록이 있어 일부 내용을 검사하지 못했어요.',
+    NOTION_BLOCK_LIMIT: '블록 수 제한에 도달해 나머지 내용을 확인하지 못했어요.',
+    NOTION_DEPTH_LIMIT: '블록 중첩 깊이 제한에 도달해 일부 내용을 확인하지 못했어요.',
+    NOTION_TEXT_LIMIT: '본문 크기 제한에 도달해 일부 내용을 확인하지 못했어요.',
+    NOTION_REQUEST_LIMIT: '요청 수 제한에 도달해 일부 내용을 확인하지 못했어요.',
+    NOTION_CURSOR_LOOP: '페이지 나눔 응답이 반복돼 이후 내용을 확인하지 못했어요.',
     DETECTOR_NORMALIZATION_INCOMPLETE: '키 후보를 충분히 해석하지 못해 위치의 제거 여부 확인 불가',
   }
   if (Object.hasOwn(reasonLabels, code)) return reasonLabels[code]
