@@ -58,6 +58,7 @@ export interface SecretRunScope {
   detection: ScanStage
   validation: ScanStage
   objectCount: number | null
+  excludedObjectCount?: number | null
   gapCode: string | null
   startedAt?: string | null
   finishedAt?: string | null

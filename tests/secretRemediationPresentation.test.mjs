@@ -78,6 +78,24 @@ test('discovery graph connects actual key, source and short location labels whil
   assert.match(coordinates, /fixtures\/config\/sample.env/); assert.match(coordinates, /4번째 줄/)
 })
 
+test('Notion coordinates link only fixed page and block addresses', () => {
+  const page = '123456781234123412341234567890ab'
+  const block = 'abcdefabcdefabcdefabcdefabcdefab'
+  const location = { source: 'NOTION', safeLocationLabel: '승인 문서', sourceDetails: { status: 'AVAILABLE', label: 'Notion 페이지 · 블록' } }
+  for (const sourceUrl of [`https://www.notion.so/${page}`, `https://www.notion.so/${page}#${block}`]) {
+    const html = renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location: { ...location, sourceDetails: { ...location.sourceDetails, sourceUrl } } }))
+    assert.match(html, /Notion에서 위치 열기/)
+    assert.ok(html.includes(`href="${sourceUrl}"`))
+    assert.match(html, /rel="noopener noreferrer"/)
+  }
+  for (const sourceUrl of [`https://www.notion.so.evil.invalid/${page}`, `http://www.notion.so/${page}`, `https://www.notion.so/${page}?redirect=elsewhere`, `https://www.notion.so/${page}#invalid`, `https://www.notion.so/path/${page}`]) {
+    const html = renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location: { ...location, sourceDetails: { ...location.sourceDetails, sourceUrl } } }))
+    assert.doesNotMatch(html, /<a /)
+  }
+  const unavailable = renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location: { ...location, sourceDetails: { ...location.sourceDetails, status: 'UNAVAILABLE', sourceUrl: `https://www.notion.so/${page}` } } }))
+  assert.doesNotMatch(unavailable, /<a /)
+})
+
 test('the primary case action follows the explicit location and never falls back to another case', () => {
   function page(selected, caseForSelected) {
     const params = new URLSearchParams(`origin=TEST&occurrence=${selected}&locationPanel=closed`), filters = api.parseLocationFilters(params).filters

@@ -8,6 +8,7 @@ export function SecretSourceCoordinates({ location }: { location: Pick<KeyLocati
   return <div className="secret-source-coordinates">
     {source?.status === 'AVAILABLE' ? <><strong>{source.repository ?? source.region ?? source.label ?? location.source}</strong>{source.branch && <span>브랜치 {source.branch}</span>}<span className="secret-source-path">{source.path ?? source.resource ?? source.label}</span>{source.line && <span>{source.line.replace(/^L/, '').replace(/-L?/, '–')}번째 줄</span>}
       {source.sourceUrl?.startsWith('https://github.com/') && <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer">GitHub에서 위치 열기 ↗</a>}
+      {source.sourceUrl && /^https:\/\/www\.notion\.so\/[0-9a-f]{32}(?:#[0-9a-f]{32})?$/.test(source.sourceUrl) && <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer">Notion에서 위치 열기 ↗</a>}
     </> : <><strong>{location.safeLocationLabel}</strong><span>원본 위치를 확인할 좌표가 부족해요. 검사 대상과 최신 스캔 기록을 확인하세요.</span></>}
   </div>
 }
