@@ -14,7 +14,7 @@ const now = Date.now(), observedAt = new Date(now - 60000).toISOString(), expire
 const toInput = (value) => new Date(Date.parse(value) + 9 * 3600000).toISOString().slice(0, 16)
 const sources = [{ type: 'VALIDATION_ATTEMPT', role: 'BINDS_IDENTITY', id: 9, version: 1 }, { type: 'RISK_EVIDENCE', role: 'CLASSIFIES', id: 5, version: 2 }, { type: 'INVESTIGATION_HISTORY', role: 'ASSERTS', id: 13, version: 1 }, { type: 'INVESTIGATION_HISTORY', role: 'LIMITS', id: 13, version: 1 }]
 const preview = { observationId: 10, status: 'PARTIAL', capabilities: ['RESOURCE_READ', 'secret-sentinel'], coverage: { permissionCoverage: 'PARTIAL', targetCoverage: 'UNKNOWN', restrictionCoverage: 'UNKNOWN', classificationCoverage: 'UNKNOWN' }, reasonCodes: ['secret-sentinel'], observedAt, expiresAt, contextVersion: 'opaque-current-context', evidenceRevision: 3, availableSourceRefs: sources, canConfirm: true, blockedReasonCodes: [] }
-const input = { capability: 'RESOURCE_READ', targetScope: 'ASSET', coverage: { permissionCoverage: 'COMPLETE', targetCoverage: 'COMPLETE', restrictionCoverage: 'COMPLETE', classificationCoverage: 'COMPLETE' }, selectedSourceKeys: sources.map(api.riskSourceKey), evidenceRef: 'TICKET:SEC-123', attestedAt: new Date(now).toISOString(), until: toInput(expiresAt), attested: true }
+const input = { capability: 'RESOURCE_READ', targetScope: 'ASSET', coverage: { permissionCoverage: 'COMPLETE', targetCoverage: 'COMPLETE', restrictionCoverage: 'COMPLETE', classificationCoverage: 'COMPLETE' }, selectedSourceKeys: sources.map(api.riskSourceKey), evidenceRef: 'TICKET:SEC-123', attestedAt: new Date(now).toISOString(), until: toInput(expiresAt), attested: true, applicableFrom: toInput(observedAt), applicableUntil: toInput(expiresAt) }
 const context = { occurrenceId: 8, contextVersion: 'opaque-current-context', evidenceRevision: 3, support: { status: 'PARTIAL', reasonCodes: [] }, identity: { provider: 'AWS', status: 'MATCHED', validationAttemptId: 9, observedAt }, collectorOptions: [{ connectionId: 2, displayName: '승인된 읽기 연결' }], latestRequest: null, latestObservation: preview, capabilities: { canRequest: true, blockedReasonCodes: [] } }
 function render(Component, props, seeds = []) { const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } }); seeds.forEach(([key, value]) => client.setQueryData(key, value)); const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, null, createElement(Component, props)))); client.clear(); return html }
 test('observation never prefills full coverage or accepts a grade without deliberate manual facts and parents', () => {
@@ -37,6 +37,11 @@ test('stale, wrong revision, unavailable capability and extra assertion fields c
   assert.equal(api.permissionConfirmationFacts(preview, 3, { ...input, targetScope: '__proto__' }, now), null)
   assert.equal(api.permissionConfirmationFacts(preview, 3, { ...input, until: toInput(new Date(now + 7200000).toISOString()) }, now), null)
   assert.equal(api.permissionConfirmationFacts(preview, 3, { ...input, evidenceRef: 'https://provider/secret' }, now), null)
+  assert.equal(api.permissionConfirmationFacts(preview, 3, { ...input, applicableFrom: '' }, now), null)
+  assert.equal(api.permissionConfirmationFacts(preview, 3, { ...input, applicableUntil: toInput(new Date(now + 7200000).toISOString()) }, now), null)
+  const saved = api.permissionConfirmationFacts(preview, 3, input, now)
+  assert.equal(saved.applicableFrom, api.riskInputUtc(input.applicableFrom))
+  assert.equal(saved.applicableUntil, api.riskInputUtc(input.applicableUntil))
 })
 test('manual review shows observation limitations and never preselects a coverage value', () => {
   const html = render(api.PermissionReviewForm, { occurrenceId: 8, preview, evidenceRevision: 3, onUpdated() {}, onStale() {} })

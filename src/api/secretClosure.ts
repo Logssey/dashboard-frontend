@@ -26,6 +26,7 @@ export interface RiskExceptions {
   caseId: number; caseVersion: number | null; items: RiskException[]; canApprove: boolean
   allowedReasonCodes: string[]; allowedRevokeReasonCodes: string[]; eligibleOccurrences: ClosureLocation[]
   maxDurationDays: number; fullyRiskAccepted: boolean; restrictedCoverage: boolean
+  blockedReasonCodes?: string[]
 }
 export interface TransferEvidence {
   evidenceId: number; version: number; reasonCode: string; evidenceRef: string | null; acceptedTransferRef: string | null

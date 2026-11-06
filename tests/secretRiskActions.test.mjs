@@ -36,6 +36,14 @@ test('partial manual incident support is explained instead of claiming confirmed
   const html = render({ ...risk, capabilities: { canSubmitEvidence: true }, evidenceForms: [{ evidenceType: 'ABUSE_LINK', subject: 'OCCURRENCE', assessmentSupport: 'PARTIAL', reasonCode: 'ABUSE_LINKAGE_UNVERIFIED', fields: ['unauthorizedUseConfirmed', 'materialImpactConfirmed', 'credentialLinked', 'occurrenceLinked'].map((name) => ({ name, type: 'BOOLEAN', required: true })) }] })
   assert.match(html, /사고 연관 근거/); assert.doesNotMatch(html, /textarea|원문 붙여넣기/)
 })
+test('historical incident evidence does not demand a current source applicability interval', () => {
+  const data = { ...risk, capabilities: { canSubmitEvidence: true }, evidenceForms: [{ evidenceType: 'ABUSE_LINK', subject: 'OCCURRENCE', assessmentSupport: 'PARTIAL', reasonCode: 'ABUSE_LINKAGE_UNVERIFIED', fields: ['unauthorizedUseConfirmed', 'materialImpactConfirmed', 'credentialLinked', 'occurrenceLinked'].map((name) => ({ name, type: 'BOOLEAN', required: true })) }] }
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(api.SecretRiskActions, { occurrenceId: 8, risk: data, evidenceType: 'ABUSE_LINK', onReload() {} })))
+  client.clear()
+  assert.match(html, /사고 발생 사실에는 일반 최신성 만료를 적용하지 않아요/)
+  assert.doesNotMatch(html, /사실이 적용된 기간|사실 적용 시작|근거 적용 기한 \(KST/)
+})
 test('manual current evidence expires at its declared window and historical incidents are separate', () => {
   const now = Date.parse('2026-10-22T00:00:00Z')
   assert.equal(api.validRiskEvidenceWindow('ACCESS_SCOPE', '2026-10-21T23:00:00Z', '2026-10-22T05:00:00Z', now), true)

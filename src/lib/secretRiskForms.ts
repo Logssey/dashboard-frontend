@@ -77,3 +77,12 @@ export function riskEvidenceSourcePayload(available: RiskSourceRef[] | undefined
   const excludedKeys = new Set(allowedRiskSources(available).filter((ref) => !compatibleKeys.has(riskSourceKey(ref))).map(riskSourceKey))
   return riskSourcePayload(compatible, selectedKeys.filter((key) => !excludedKeys.has(key)))
 }
+
+export function validRiskApplicability(from: string | null, until: string | null, sourceObservedAt?: string | null, observedAt?: string | null, validUntil?: string | null): boolean {
+  if (!from || !until || !Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(until)) || Date.parse(from) >= Date.parse(until)) return false
+  if (observedAt && (!Number.isFinite(Date.parse(observedAt)) || Date.parse(from) > Date.parse(observedAt))) return false
+  if (validUntil && (!Number.isFinite(Date.parse(validUntil)) || Date.parse(until) > Date.parse(validUntil))) return false
+  if (!sourceObservedAt) return true
+  const source = Date.parse(sourceObservedAt)
+  return Number.isFinite(source) && Date.parse(from) <= source && source < Date.parse(until)
+}

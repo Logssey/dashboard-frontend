@@ -26,11 +26,13 @@ export interface PermissionAssistance {
 export interface PermissionPreview extends PermissionObservation {
   contextVersion: string; evidenceRevision: number; availableSourceRefs: RiskSourceRef[]; canConfirm: boolean; canReject?: boolean; blockedReasonCodes: string[]
   supplementation?: PermissionSupplementation
+  sourcePresenceObservedAt?: string | null
 }
 export interface PermissionConfirmation {
   expectedContextVersion: string; expectedEvidenceRevision: number; idempotencyKey: string; attestation: true
   evidenceRef: string; observedAt: string; validUntil: string; facts: PermissionCoverage & { capability: string; targetScope: string }
   sourceRefs: Pick<RiskSourceRef, 'type' | 'id' | 'version' | 'role'>[]
+  applicableFrom?: string | null; applicableUntil?: string | null
 }
 const base = (id: number) => `/api/v1/secrets/occurrences/${id}/permission-assistance`
 export const fetchPermissionAssistance = (id: number) => apiRequest<PermissionAssistance>(base(id))
