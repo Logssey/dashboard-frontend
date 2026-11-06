@@ -67,6 +67,14 @@ test('unknown or absent dismissal evidence exposes no made-up action or manual I
   assert.match(html, /현재 근거로 교정 종료를 진행할 수 없어요/)
   assert.doesNotMatch(html, /교정 종료 저장|이관 검토 요청|type="number"/)
 })
+test('disabled risk acceptance preserves past approvals and authorized cancellation without an approval form', () => {
+  const data = { caseId: 7, caseVersion: 3, items: [{ exceptionId: 5, reasonCode: 'BUSINESS_CONTINUITY', evidenceRef: 'TICKET:SEC-123', approvedByUserId: 4, approvedAt: '2026-10-20T00:00:00Z', expiresAt: '2026-11-11T00:00:00Z', status: 'POLICY_DISABLED', currentlyApplicable: false, canRevoke: true, occurrenceIds: [11] }], canApprove: false, blockedReasonCodes: ['RISK_ACCEPTANCE_DISABLED'], allowedReasonCodes: [], allowedRevokeReasonCodes: ['REASON_WITHDRAWN'], eligibleOccurrences: [], maxDurationDays: 7, restrictedCoverage: false }
+  const html = render(modules.exceptions.SecretRiskExceptions, [[['secret-case-exceptions', 7], data]])
+  assert.match(html, /위험 수용은 현재 비활성화/)
+  assert.match(html, /정책 비활성 · 과거 승인/)
+  assert.match(html, /위험 수용 취소 저장/)
+  assert.doesNotMatch(html, /위험 수용 승인|기간을 정한 위험 수용|수용 중/)
+})
 test('verification panes do not pile up all response forms under the case', () => {
   const html = render(modules.verification.SecretCaseVerification, [[['secret-case-closure', 7], checks]])
   assert.match(html, /현재 해결 조건/)
