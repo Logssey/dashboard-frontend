@@ -9,6 +9,7 @@ export interface ValidationAttempt {
 export interface ValidationRequest {
   requestId: number; jobId: number; runId?: number | null; status: string; reused?: boolean
   requestedAt?: string | null; startedAt?: string | null; finishedAt?: string | null; availableAt?: string | null
+  attemptNo?: number; maxAttempts?: number; nextRetryAt?: string | null
   failureCode?: string | null; reasonCode?: string | null; attemptId?: number | null
 }
 export interface ValidationPolicy {

@@ -9,13 +9,17 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { build } from 'esbuild'
 
-const bundle = await build({ stdin: { contents: "export * from './src/api/secretValidation'; export * from './src/lib/secretValidation'; export * from './src/components/SecretValidation'; export * from './src/components/SecretValidationPolicy';", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
+const bundle = await build({ stdin: { contents: "export * from './src/api/secretValidation'; export { ApiError } from './src/api/client'; export * from './src/lib/secretValidation'; export * from './src/components/SecretValidation'; export * from './src/components/SecretValidationPolicy';", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
 const path = resolve('node_modules/.secret-validation-test.mjs'); await writeFile(path, bundle.outputFiles[0].contents)
 const api = await import(pathToFileURL(path).href); after(() => unlink(path))
 const data = { support: { status: 'SUPPORTED' }, latestAttempt: null, lastAuthenticatedAt: null, lastConclusiveValidation: null, latestRequest: null, freshness: { status: 'UNAVAILABLE' }, nextDueAt: null, postActionValidationPending: false, capabilities: { canRequestValidation: false, blockedReasonCodes: [] }, contextVersion: 'safe-context', readAt: '2026-10-22T00:00:00Z' }
 const location = { occurrenceId: 8, safeLocationLabel: '운영 구성 파일', sourceDetails: { status: 'AVAILABLE', repository: 'safe/project', path: 'config.ts', branch: 'main', line: '4', label: '승인 위치' }, capabilities: {} }
 function render(Component, props, entries, url = '/') {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } }); for (const [key, value] of entries) client.setQueryData(key, value)
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } })
+  for (const [key, value, error] of entries) {
+    client.setQueryData(key, value)
+    if (error) client.getQueryCache().find({ queryKey: key }).setState({ error, status: 'error', errorUpdateCount: 1, errorUpdatedAt: Date.now() })
+  }
   const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [url] }, createElement(Component, props)))); client.clear(); return html
 }
 test('unsupported, disabled, synthetic and incomplete are distinct from an authentication failure', () => {
@@ -42,7 +46,7 @@ test('pending requests and stale validation are not fresh authentication success
 test('synthetic guard takes precedence over a global disabled profile and missing setup has a concrete path', () => {
   assert.equal(api.validationPresentation({ ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'SYNTHETIC_FIXTURE'] } }).title, '합성 키 검증 생략')
   const html = render(api.SecretValidationCard, { secretId: 12, locations: [{ ...location, connectionId: 3, scopeId: 5 }] }, [[['secret-validation', 12, 8], { ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'PROFILE_UNCONFIGURED'] }, validationPolicy: { canConfigure: true } }]])
-  assert.match(html, /서버 운영 담당자의 검증 실행 설정이 필요/); assert.match(html, /href="\/secrets\/connections\/3\/scopes\/5\?settings=validation"/); assert.match(html, /다음 확인 기한 예약 없음/); assert.doesNotMatch(html, /담당자에게 사유 코드를 알려/)
+  assert.match(html, /서버 운영 담당자의 검증 실행 설정이 필요/); assert.match(html, /href="\/secrets\/connections\/3\/scopes\/5\?settings=validation"/); assert.match(html, /인증 결과 재확인 기한 미정/); assert.doesNotMatch(html, /담당자에게 사유 코드를 알려/)
 })
 
 test('a guarded test repository skips external validation without asserting synthetic evidence', () => {
@@ -87,4 +91,62 @@ test('an invalid explicit validation location cannot borrow another location res
   const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value]], '/?occurrence=0&validationOccurrence=8')
   assert.match(html, /선택한 위치가 현재 필터·페이지에 없어요/)
   assert.doesNotMatch(html, /<h3>유효<\/h3>|>유효성 확인<|>확인 요청</)
+})
+
+test('provider failure reasons identify access, response and network failures in the actual card', () => {
+  const cases = [['ACCESS_LIMITED', /공급자 접근 제한/], ['UNEXPECTED_RESPONSE', /응답 형식이 예상과 달라/], ['CLIENT_FAILURE', /공급자와 통신하지 못했어요/]]
+  for (const [reasonCode, expected] of cases) {
+    const value = { ...data, latestAttempt: { attemptId: 4, result: 'UNKNOWN', reasonCode, providerCheckedAt: null, completedAt: '2026-11-05T00:00:00Z' }, latestRequest: { requestId: 4, jobId: 4, status: 'FAILED', reasonCode: 'VALIDATOR_TEMPORARY', attemptNo: 3, maxAttempts: 3 } }
+    const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value]])
+    assert.match(html, /<h3>확인 불가<\/h3>/)
+    assert.match(html, expected)
+    assert.match(html, /일시적인 인증 확인 오류/)
+    assert.doesNotMatch(html, /요청 구성 문제|담당자에게 사유 코드를 알려/)
+  }
+})
+
+test('retry progress distinguishes scheduled work from a terminal failure and evidence freshness', () => {
+  const request = { requestId: 4, jobId: 4, status: 'PENDING', attemptNo: 1, maxAttempts: 3, nextRetryAt: '2026-11-05T01:00:00Z', availableAt: '2026-11-05T01:00:00Z' }
+  const pending = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], { ...data, latestRequest: request }]])
+  assert.match(pending, /<h3>재시도 대기<\/h3>/)
+  assert.match(pending, /시도 1 \/ 3회/)
+  assert.match(pending, /다음 시도/)
+  const failed = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], { ...data, nextDueAt: '2038-01-01T00:00:00Z', latestRequest: { ...request, status: 'FAILED', attemptNo: 3 } }]])
+  assert.match(failed, /시도 3 \/ 3회/)
+  assert.match(failed, /자동 재시도가 종료/)
+  assert.match(failed, /인증 결과 재확인 기한 미정/)
+  assert.doesNotMatch(failed, /다음 시도|실행 가능 시각|2038/)
+})
+
+test('automatic read recovery is bounded and stops on authentication or access errors', () => {
+  for (const status of [401, 403, 404, 409, 422]) {
+    assert.equal(api.canRecoverValidationRead(new api.ApiError(status, null, 'safe'), 1), false)
+  }
+  for (const error of [new api.ApiError(500, null, 'safe'), new api.ApiError(429, null, 'safe'), new TypeError('network failed')]) {
+    assert.equal(api.canRecoverValidationRead(error, 1), true)
+    assert.equal(api.canRecoverValidationRead(error, 5), true)
+    assert.equal(api.canRecoverValidationRead(error, 6), false)
+  }
+})
+
+test('a terminal read wins over stale progress for the same request without hiding a newer request', () => {
+  const pending = { requestId: 4, jobId: 4, status: 'PENDING' }
+  const succeeded = { ...pending, status: 'SUCCEEDED' }
+  assert.equal(api.currentValidationRequest(pending, succeeded), succeeded)
+  assert.equal(api.currentValidationRequest(succeeded, pending), succeeded)
+  const newer = { requestId: 5, jobId: 5, status: 'PENDING' }
+  assert.equal(api.currentValidationRequest(succeeded, newer), newer)
+  assert.equal(api.currentValidationRequest(newer, succeeded), newer)
+})
+
+test('a failed read marks cached authentication as historical in both collapsed and expanded views', () => {
+  const value = { ...data, latestAttempt: { attemptId: 2, result: 'VALID', reasonCode: 'AUTHENTICATED', providerCheckedAt: '2026-11-05T00:00:00Z', completedAt: '2026-11-05T00:00:00Z' }, freshness: { status: 'CURRENT' } }
+  const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value, new api.ApiError(500, null, 'safe')]])
+  const summary = html.match(/<summary>(.*?)<\/summary>/s)[1]
+  assert.match(summary, /연결 확인 필요/)
+  assert.match(summary, /이전 관측/)
+  assert.doesNotMatch(summary, /<span>유효<\/span>/)
+  assert.match(html, /이전 관측 유효/)
+  assert.match(html, /현재 상태를 다시 조회해야 해요/)
+  assert.match(html, /잠시 후 자동으로 다시 조회/)
 })
