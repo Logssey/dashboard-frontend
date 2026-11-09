@@ -222,3 +222,29 @@
   .reach-search { flex-wrap: wrap; }
   .reach-search .input { min-width: 0; }
 }
+
+/* CI 검사 탭 (SCR-05-10) */
+.reach-gate.pass { color: #05603A; background: #D1FADF; }
+.reach-gate.warn { color: #93370D; background: #FEF0C7; }
+.reach-gate.fail { color: #B42318; background: #FEE4E2; }
+.reach-ci-card { display: grid; gap: 16px; padding: 20px 24px; }
+.reach-ci-card > .notice { margin: 0; }
+.reach-ci-lookup { gap: 8px; flex-wrap: wrap; align-items: center; }
+.reach-ci-lookup .input { width: 140px; }
+.reach-ci-lookup-label { font-weight: 600; }
+.reach-ci-help { flex-basis: 100%; margin: 0; }
+.reach-ci-help.error { color: #B42318; }
+.reach-ci-result { border-top: 1px solid var(--border); padding-top: 16px; gap: 14px; }
+.reach-ci-head { gap: 8px; flex-wrap: wrap; align-items: center; }
+.reach-ci-title { margin: 0; font-size: 16px; }
+.reach-ci-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 20px; margin: 0; }
+.reach-ci-facts dt { font-size: 12px; color: var(--text-muted, #667085); }
+.reach-ci-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.reach-ci-section h4 { margin: 0 0 8px; font-size: 14px; }
+.reach-ci-counts { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.reach-ci-counts li { display: grid; gap: 2px; min-width: 96px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.reach-ci-reasons { margin: 0 0 6px; padding-left: 18px; display: grid; gap: 4px; }
+.reach-ci-actions { gap: 8px; }
+.reach-ci-plan { min-width: 600px; }
+.reach-ci-plan td { vertical-align: top; }
+.reach-ci-plan td:first-child, .reach-ci-plan td:nth-child(2) { white-space: nowrap; }

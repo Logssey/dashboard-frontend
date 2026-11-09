@@ -535,3 +535,41 @@ export const fetchReachRuleFindings = () =>
     },
     () => sampleReachFindings(emptyFindingFilter, null, 1000).items,
   )
+
+// ---- CI 검사 (API-12 결과 조회, SCR-05-10) ----
+
+export type ReachCiPolicy = 'REPORT_ONLY' | 'GATE'
+export type ReachGateResult = 'PASS' | 'WARN' | 'FAIL'
+
+export interface ReachGateReason {
+  condition: string
+  count: number
+  summary: string
+}
+
+export interface ReachCiCheck {
+  id: number
+  mode: ReachTrigger
+  repository: string
+  headCommit: string | null
+  pullRequest: { number: number; baseRef: string | null; headRef: string | null } | null
+  scanId: number
+  scanStatus: ReachScanStatus
+  policy: ReachCiPolicy
+  baselineScanId: number | null
+  /** 스캔이 SUCCEEDED일 때만 있다 */
+  gate: {
+    result: ReachGateResult
+    exitCode: number
+    reasons: ReachGateReason[]
+    newFindings: { total: number; byStatus: Partial<Record<ReachStatus, number>> }
+  } | null
+  findingsUrl: string | null
+  finishedAt: string | null
+}
+
+/**
+ * API-12 결과 조회. 검사 목록 API가 없어(미결 7) 검사 ID로 한 건씩 본다.
+ * 예시 값으로 대신하지 않는다: 사용자가 넣은 검사 ID라 실제 결과가 아니면 의미가 없다
+ */
+export const fetchReachCiCheck = (checkId: number) => apiRequest<ReachCiCheck>(`/api/v1/reach/ci/checks/${checkId}`)
