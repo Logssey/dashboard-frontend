@@ -23,6 +23,7 @@ export const sectionPages: SectionPage[] = [
   { path: '/vulnerabilities/findings', title: 'Finding 목록', description: '판정 상태와 근거로 취약점을 걸러 보세요.' },
   { path: '/vulnerabilities/workloads', title: '워크로드', description: '실행 중인 이미지가 스캔한 이미지와 같은지 확인하세요.' },
   { path: '/vulnerabilities/scans', title: '스캔', description: '스캔을 요청하고 진행 상태와 이력을 확인하세요.' },
+  { path: '/vulnerabilities/rules', title: '규칙', description: '판정에 쓰는 규칙·사실·취약 함수 데이터를 확인하세요.' },
 ]
 
 /** 인프라 보안 메뉴 아래 하위 탭 3개 */

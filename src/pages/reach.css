@@ -171,11 +171,46 @@
 .reach-radio { display: flex; align-items: center; gap: 8px; }
 .reach-disabled { color: var(--text-muted); }
 
+/* 규칙·취약 함수 (SCR-06) */
+.reach-search { flex-wrap: nowrap; }
+.reach-search .input { min-width: 260px; }
+.reach-tabs { margin-bottom: 0; }
+.reach-tab { border: 0; border-bottom: 2px solid transparent; background: none; font: inherit; cursor: pointer; }
+.reach-tab.active { border-bottom-color: var(--primary); }
+.reach-rules-layout { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.reach-rule-list td { vertical-align: middle; }
+.reach-rule-list-id { white-space: nowrap; word-break: normal; }
+.reach-row-button { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.reach-rule-detail { display: grid; gap: 18px; padding: 24px; }
+.reach-rule-head { display: grid; gap: 6px; }
+.reach-rule-head code { margin-right: 6px; }
+.reach-rule-id { font-size: 20px; font-weight: 700; margin: 0; }
+.reach-eval-table th[scope="row"] { background: none; font-weight: 600; vertical-align: top; }
+.reach-reason { min-width: 220px; max-width: 360px; font-size: 13px; color: var(--text-body); }
+.reach-clauses { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.reach-or { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+.reach-and { display: inline; }
+.reach-term { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0; font-size: 12px; }
+.reach-term-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: none; padding: 0; color: inherit; }
+.reach-term-not { font-weight: 600; color: #B42318; }
+.reach-fact-tag { color: #1849A9; background: #EEF4FF; text-decoration: none; }
+.reach-fact-tag:hover { text-decoration: underline; }
+.reach-fact-tag.negated { color: #475467; background: #F2F4F7; }
+.reach-fact-tag.info { color: #475467; background: #FFFFFF; border: 1px dashed #98A2B3; }
+.reach-tags { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.reach-applied { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.reach-fact-table, .reach-function-table { min-width: 900px; }
+.reach-fact-id { white-space: nowrap; word-break: normal; }
+.reach-function-table summary { cursor: pointer; }
+.reach-function-list { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+
 @media (max-width: 1200px) {
   .reach-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .reach-summary-grid { grid-template-columns: 1fr; }
   .reach-scans-layout.with-detail { grid-template-columns: minmax(0, 1fr); }
   .reach-scan-panel { position: static; }
+  .reach-rules-layout { grid-template-columns: minmax(0, 1fr); }
+  .reach-rule-detail { order: -1; }
 }
 
 @media (max-width: 700px) {
@@ -184,4 +219,6 @@
   .reach-review-counts { grid-template-columns: 1fr; }
   .reach-review-row { grid-template-columns: 1fr; }
   .reach-workload-cards { grid-template-columns: 1fr; }
+  .reach-search { flex-wrap: wrap; }
+  .reach-search .input { min-width: 0; }
 }
