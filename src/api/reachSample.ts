@@ -14,6 +14,10 @@ import type {
   ReachSeverity,
   ReachStatus,
   ReachSummary,
+  ReachScan,
+  ReachScanFilter,
+  ReachScanPage,
+  ReachWorkloadList,
 } from './reach'
 
 const SEEN_AT = '2026-10-11T01:01:20Z'
@@ -216,4 +220,100 @@ export function sampleReachFinding(findingId: number): ReachFindingDetail {
     firstSeenAt: item.firstSeenAt,
     lastSeenAt: item.firstSeenAt,
   }
+}
+
+// ---- 워크로드·스캔 예시 (API 명세 API-03·API-07 예시, PoC 값) ----
+
+const OBSERVED_AT = '2026-11-07T03:17:05Z'
+const API_DIGEST = 'sha256:a6ffffef7fc1f9e876f02884ff708d90cb223d8ece7ddab7b8690441d10529d5'
+
+/** API-07 예시. reused-api는 스캔한 digest가 그대로 돌고 있고, chat·web은 아직 스캔이 없다 */
+export function sampleReachWorkloads(): ReachWorkloadList {
+  const base = {
+    cluster: 'reused-prod',
+    namespace: 'reused',
+    kind: 'Deployment',
+    replicas: { ready: 2 },
+    deployment: 'RUNNING' as const,
+    observedAt: OBSERVED_AT,
+    source: 'MANUAL' as const,
+  }
+  return {
+    observations: [{ cluster: 'reused-prod', namespace: 'reused', observedAt: OBSERVED_AT, source: 'MANUAL', fresh: true }],
+    items: [
+      {
+        ...base,
+        id: 1,
+        name: 'reused-api',
+        container: 'api',
+        app: 'API',
+        image: { repository: 'logssey/reused-api', digest: API_DIGEST, revision: 'bb4639b7e45c21d5ced03a5f541b1982093e0865' },
+        scanMatch: { status: 'MATCH', scanId: 1, matchedBy: 'DIGEST' },
+      },
+      {
+        ...base,
+        id: 2,
+        name: 'reused-chat',
+        container: 'chat',
+        app: null,
+        image: { repository: 'logssey/reused-chat', digest: 'sha256:4b57e13cfad629d039e76b4d865d0c6ca1a4d00d352ddd90f2216364d1be99ee' },
+        scanMatch: { status: 'NO_SCAN' },
+      },
+      {
+        ...base,
+        id: 3,
+        name: 'reused-web',
+        container: 'web',
+        app: null,
+        image: { repository: 'logssey/reused-web', digest: 'sha256:a89a79ed38c8a594f9f0d2c98a570d37d5cc19ffcd6299191c004128b68f934f' },
+        scanMatch: { status: 'NO_SCAN' },
+      },
+    ],
+  }
+}
+
+const SAMPLE_SCAN: ReachScan = {
+  id: 1,
+  scanStatus: 'SUCCEEDED',
+  trigger: 'MANUAL',
+  target: {
+    id: 1,
+    type: 'IMAGE',
+    app: 'API',
+    image: { repository: 'logssey/reused-api', digest: API_DIGEST, revision: 'bb4639b', createdAt: '2026-09-29T07:46:33Z' },
+    displayName: 'reused-api @ a6ffffef',
+  },
+  stages: [
+    { name: 'SBOM', status: 'SUCCEEDED' },
+    { name: 'MATCH', status: 'SUCCEEDED' },
+    { name: 'L1', status: 'SUCCEEDED' },
+    { name: 'L2', status: 'SUCCEEDED', durationSeconds: 40 },
+    { name: 'REPORT', status: 'SUCCEEDED' },
+  ],
+  tools: { trivy: '0.75.0', trivyDbUpdatedAt: '2026-10-10T14:44:00Z', reach: 'v0' },
+  counts: {
+    total: 23,
+    bySeverity: { CRITICAL: 5, HIGH: 11, MEDIUM: 7, LOW: 0, UNKNOWN: 0 },
+    byStatus: { REACHABLE: 0, UNREACHABLE: 14, UNKNOWN: 0, NOT_ANALYZED: 9 },
+    byReviewState: { UNREVIEWED: 9, PROVISIONAL: 1, CONFIRMED: 13 },
+  },
+  createdAt: '2026-10-11T01:00:00Z',
+  startedAt: '2026-10-11T01:00:05Z',
+  finishedAt: '2026-10-11T01:01:20Z',
+}
+
+/** API-02 예시. 스캔은 PoC 스캔 하나다 */
+export function sampleReachScans(filter: ReachScanFilter): ReachScanPage {
+  const items = [SAMPLE_SCAN].filter(
+    (scan) =>
+      (!filter.scanStatus.length || filter.scanStatus.includes(scan.scanStatus)) &&
+      (!filter.trigger.length || filter.trigger.includes(scan.trigger)),
+  )
+  return { items, nextCursor: null, hasNext: false, totalCount: items.length }
+}
+
+/** API-03 예시. 없는 id는 백엔드처럼 NOT_FOUND */
+export function sampleReachScan(scanId: number): ReachScan {
+  if (scanId !== SAMPLE_SCAN.id) throw new ApiError(404, 'NOT_FOUND', '스캔을 찾을 수 없어요.')
+  return SAMPLE_SCAN
 }

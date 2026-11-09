@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
-import { fetchReachFinding, type ReachEvidence, type ReachFindingDetail } from '@/api/reach'
+import { fetchReachFinding, type ReachEvidence, type ReachFindingDetail, type ReachReviewHistoryEntry } from '@/api/reach'
 import { formatKst, nearestFixedVersion } from '@/lib/reach'
 import {
   labelOf,
+  reachHistoryKindLabel,
   reachMatchedConditionLabel,
   reachMethodLabel,
   reachNotAnalyzedReasonLabel,
@@ -150,6 +151,40 @@ function EvidenceSection({ detail }: { detail: ReachFindingDetail }) {
 }
 
 /** SCR-03 내용. 상세 패널 안에 그린다 */
+/** SCR-03-14 검토 이력. 새것이 위. 사람 판정·이어받음·서버가 되돌린 기록을 모두 보인다 */
+export function ReviewHistory({ history }: { history: ReachReviewHistoryEntry[] }) {
+  const rows = [...history].sort((a, b) => b.version - a.version || b.reviewedAt.localeCompare(a.reviewedAt))
+  return (
+    <section className="reach-section">
+      <h3>검토 이력</h3>
+      {rows.length === 0 ? (
+        <p className="caption">아직 검토 기록이 없어요.</p>
+      ) : (
+        <ol className="reach-history">
+          {rows.map((entry) => (
+            <li key={`${entry.version}-${entry.reviewedAt}`} className="reach-history-item">
+              <div className="row reach-history-head">
+                <ReachReviewBadge state={entry.reviewState} />
+                {entry.status && <ReachStatusBadge status={entry.status} />}
+                {entry.changeKind && <span className="badge reach-method">{labelOf(reachHistoryKindLabel, entry.changeKind)}</span>}
+                <span className="caption">
+                  {entry.reviewer?.name ?? (entry.changeKind === 'RESET' ? '서버' : '—')} · {formatKst(entry.reviewedAt)} · v{entry.version}
+                </span>
+              </div>
+              {entry.note && <p className="reach-history-note">{entry.note}</p>}
+              {entry.proposal && (
+                <p className="caption">
+                  제안: {labelOf(reachStatusLabel, entry.proposal.status)} — {entry.proposal.summary}
+                </p>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  )
+}
+
 export function ReachFindingDetailView({ detail, onShowSameCve, reviewForm }: {
   detail: ReachFindingDetail
   /** 같은 CVE의 사본을 목록에서 본다 (SCR-03-16 대신 목록 필터로 보낸다) */
@@ -278,6 +313,8 @@ export function ReachFindingDetailView({ detail, onShowSameCve, reviewForm }: {
         )}
         {reviewForm ?? <p className="notice">검토 저장(API-06)은 백엔드가 연결되면 쓸 수 있어요.</p>}
       </section>
+
+      {review.history && <ReviewHistory history={review.history} />}
 
       {detail.sameCveFindings && detail.sameCveFindings.length > 0 && (
         <p className="caption">

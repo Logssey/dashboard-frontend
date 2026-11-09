@@ -14,6 +14,8 @@ import { SecretTriagePage } from '@/pages/SecretTriagePage'
 import { SecretTriageCandidatesPage } from '@/pages/SecretTriageCandidatesPage'
 import { IacPage } from '@/iac/IacPage'
 import { VulnerabilityFindingsPage, VulnerabilitySummaryPage } from '@/pages/VulnerabilitiesPage'
+import { VulnerabilityWorkloadsPage } from '@/pages/ReachWorkloadsPage'
+import { VulnerabilityScansPage } from '@/pages/ReachScansPage'
 
 export function App() {
   return (
@@ -32,6 +34,8 @@ export function App() {
           <Route path="/iac" element={<IacPage />} />
           <Route path="/vulnerabilities" element={<VulnerabilitySummaryPage />} />
           <Route path="/vulnerabilities/findings" element={<VulnerabilityFindingsPage />} />
+          <Route path="/vulnerabilities/workloads" element={<VulnerabilityWorkloadsPage />} />
+          <Route path="/vulnerabilities/scans" element={<VulnerabilityScansPage />} />
           {sectionPages
             .filter((page) => !page.path.startsWith('/secrets') && !page.path.startsWith('/vulnerabilities'))
             .map((page) => (
