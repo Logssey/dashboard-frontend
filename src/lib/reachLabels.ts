@@ -154,3 +154,24 @@ export const reachHistoryKindLabel: Record<string, string> = {
   CARRIED: '이어받음',
   RESET: '되돌림',
 }
+
+// ---- CI 검사 (SCR-05-10) ----
+
+export const reachCiPolicyLabel: Record<string, string> = {
+  REPORT_ONLY: '리포트 전용',
+  GATE: '게이트',
+}
+
+export const reachGateResultLabel: Record<string, string> = {
+  PASS: '통과',
+  WARN: '경고',
+  FAIL: '실패',
+}
+
+/** 게이트 조건 (API 명세 6-2) */
+export const reachGateConditionLabel: Record<string, string> = {
+  REACHABLE_CRITICAL_HIGH: '도달 가능 · CRITICAL·HIGH',
+  REACHABLE_OTHER: '도달 가능 · 그 밖의 심각도',
+  UNKNOWN_ANY: '미확인',
+  NOT_ANALYZED_CRITICAL_HIGH: '분석 대상 아님 · CRITICAL·HIGH',
+}

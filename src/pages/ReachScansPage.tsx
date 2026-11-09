@@ -28,11 +28,12 @@ import {
   reachTriggerOrder,
 } from '@/lib/reachLabels'
 import { VULNERABILITY_FINDINGS_PATH } from '@/lib/reachRoutes'
+import { CiChecksTab, parseCheckId } from './ReachCiChecksTab'
 import './reach.css'
 
 // SCR-05 스캔 실행·이력 (/vulnerabilities/scans). 왼쪽은 이력 표(API-02), 오른쪽은 고른 스캔의 상세(API-03).
 // 필터·고른 스캔·새 스캔 대화상자는 주소 쿼리에 둔다. 워크로드 화면의 [스캔 요청]이 new=image&repository=&digest=로 연다.
-// CI 검사 탭(SCR-05-10)은 API-12 목록 조회가 없어(미결 7) 아직 넣지 않는다
+// 탭(SCR-05-02)은 주소 쿼리 tab=ci로 남긴다. CI 검사 탭(SCR-05-10)은 API-12 목록 조회가 없어(미결 7) 검사 ID(check)로 한 건씩 본다
 
 const POLL_MS = 10_000
 const APPS = ['API', 'WEB', 'CHAT'] as const
@@ -327,6 +328,8 @@ export function VulnerabilityScansPage() {
     trigger: parseList(searchParams.get('trigger'), reachTriggerOrder),
   }
   const selectedId = parseId(searchParams.get('scan'))
+  const tab = searchParams.get('tab') === 'ci' ? 'ci' : 'history'
+  const checkId = parseCheckId(searchParams.get('check'))
   // 대화상자는 초기값이 바뀔 때만 다시 채운다. 렌더마다 새 객체를 주면 입력 중인 값이 지워진다
   const newScanKey = NEW_SCAN_KEYS.map((key) => searchParams.get(key) ?? '').join('\n')
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -374,78 +377,109 @@ export function VulnerabilityScansPage() {
         </p>
       )}
 
-      <div className={`reach-scans-layout ${selectedId ? 'with-detail' : ''}`.trim()}>
-        <section className="card list-card">
-          <div className="toolbar reach-filters">
-            <div className="row reach-filter-row">
-              <FilterSelect
-                label="상태"
-                value={filter.scanStatus.length === 1 ? filter.scanStatus[0] : undefined}
-                options={reachScanStatusOrder}
-                optionLabel={(value: ReachScanStatus) => reachScanStatusLabel[value]}
-                onChange={(value) => update({ status: value })}
-              />
-              <FilterSelect
-                label="트리거"
-                value={filter.trigger.length === 1 ? filter.trigger[0] : undefined}
-                options={reachTriggerOrder}
-                optionLabel={(value: ReachTrigger) => reachTriggerLabel[value]}
-                onChange={(value) => update({ trigger: value })}
-              />
-            </div>
-            <button type="button" className="btn outline small" onClick={() => update({ status: null, trigger: null })} disabled={!filtered}>
-              필터 초기화
-            </button>
-          </div>
-
-          {scans.isError && (
-            <p className="notice error reach-table-notice" role="alert">
-              스캔 이력을 불러오지 못했어요.{' '}
-              <button type="button" className="btn outline small" onClick={() => void scans.refetch()}>
-                다시 시도
-              </button>
-            </p>
-          )}
-          {scans.isPending && (
-            <div className="reach-loading" role="status" aria-live="polite">
-              {[0, 1, 2].map((row) => (
-                <div key={row} className="skeleton" />
-              ))}
-              <span className="reach-sr-only">불러오는 중</span>
-            </div>
-          )}
-          {scans.isSuccess && items.length === 0 &&
-            (filtered ? (
-              <EmptyState title="조건에 맞는 스캔이 없어요" description="필터를 바꾸거나 초기화해 보세요." />
-            ) : (
-              <EmptyState title="아직 스캔이 없어요" description="[새 스캔]으로 이미지 digest나 레포 커밋을 스캔해 보세요." />
-            ))}
-          {items.length > 0 && (
-            <ReachScanTable items={items} selectedId={selectedId} onSelect={(id) => update({ scan: String(id) }, { replace: true })} />
-          )}
-          {items.length > 0 && (
-            <div className="table-foot reach-table-foot">
-              <span>
-                {total !== undefined && total !== null ? `${total}건 중 ${items.length}건 표시` : `${items.length}건 표시`}
-                {hasActiveScan(items) && ' · 진행 중인 스캔은 10초마다 다시 받아요'}
-              </span>
-              {scans.hasNextPage && (
-                <button type="button" className="btn outline small" onClick={() => void scans.fetchNextPage()} disabled={scans.isFetchingNextPage}>
-                  {scans.isFetchingNextPage ? '불러오는 중…' : '더 보기'}
-                </button>
-              )}
-            </div>
-          )}
-        </section>
-
-        {selectedId && (
-          <ScanDetailPanel
-            scanId={selectedId}
-            onClose={() => update({ scan: null }, { replace: true })}
-            onRerun={(scan) => update(rerunParams(scan))}
-          />
-        )}
+      <div className="tabs reach-tabs" role="tablist" aria-label="스캔">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'history'}
+          className={`tab reach-tab ${tab === 'history' ? 'active' : ''}`.trim()}
+          onClick={() => update({ tab: null }, { replace: true })}
+        >
+          스캔 이력
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'ci'}
+          className={`tab reach-tab ${tab === 'ci' ? 'active' : ''}`.trim()}
+          onClick={() => update({ tab: 'ci' }, { replace: true })}
+        >
+          CI 검사 <span className="badge reach-flag">계획</span>
+        </button>
       </div>
+
+      {tab === 'ci' && (
+        <CiChecksTab
+          checkId={checkId}
+          onCheck={(id) => update({ check: id ? String(id) : null })}
+          onShowPrScans={() => update({ tab: null, check: null, trigger: 'PR', status: null })}
+        />
+      )}
+
+      {tab === 'history' && (
+        <div className={`reach-scans-layout ${selectedId ? 'with-detail' : ''}`.trim()}>
+          <section className="card list-card">
+            <div className="toolbar reach-filters">
+              <div className="row reach-filter-row">
+                <FilterSelect
+                  label="상태"
+                  value={filter.scanStatus.length === 1 ? filter.scanStatus[0] : undefined}
+                  options={reachScanStatusOrder}
+                  optionLabel={(value: ReachScanStatus) => reachScanStatusLabel[value]}
+                  onChange={(value) => update({ status: value })}
+                />
+                <FilterSelect
+                  label="트리거"
+                  value={filter.trigger.length === 1 ? filter.trigger[0] : undefined}
+                  options={reachTriggerOrder}
+                  optionLabel={(value: ReachTrigger) => reachTriggerLabel[value]}
+                  onChange={(value) => update({ trigger: value })}
+                />
+              </div>
+              <button type="button" className="btn outline small" onClick={() => update({ status: null, trigger: null })} disabled={!filtered}>
+                필터 초기화
+              </button>
+            </div>
+
+            {scans.isError && (
+              <p className="notice error reach-table-notice" role="alert">
+                스캔 이력을 불러오지 못했어요.{' '}
+                <button type="button" className="btn outline small" onClick={() => void scans.refetch()}>
+                  다시 시도
+                </button>
+              </p>
+            )}
+            {scans.isPending && (
+              <div className="reach-loading" role="status" aria-live="polite">
+                {[0, 1, 2].map((row) => (
+                  <div key={row} className="skeleton" />
+                ))}
+                <span className="reach-sr-only">불러오는 중</span>
+              </div>
+            )}
+            {scans.isSuccess && items.length === 0 &&
+              (filtered ? (
+                <EmptyState title="조건에 맞는 스캔이 없어요" description="필터를 바꾸거나 초기화해 보세요." />
+              ) : (
+                <EmptyState title="아직 스캔이 없어요" description="[새 스캔]으로 이미지 digest나 레포 커밋을 스캔해 보세요." />
+              ))}
+            {items.length > 0 && (
+              <ReachScanTable items={items} selectedId={selectedId} onSelect={(id) => update({ scan: String(id) }, { replace: true })} />
+            )}
+            {items.length > 0 && (
+              <div className="table-foot reach-table-foot">
+                <span>
+                  {total !== undefined && total !== null ? `${total}건 중 ${items.length}건 표시` : `${items.length}건 표시`}
+                  {hasActiveScan(items) && ' · 진행 중인 스캔은 10초마다 다시 받아요'}
+                </span>
+                {scans.hasNextPage && (
+                  <button type="button" className="btn outline small" onClick={() => void scans.fetchNextPage()} disabled={scans.isFetchingNextPage}>
+                    {scans.isFetchingNextPage ? '불러오는 중…' : '더 보기'}
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+
+          {selectedId && (
+            <ScanDetailPanel
+              scanId={selectedId}
+              onClose={() => update({ scan: null }, { replace: true })}
+              onRerun={(scan) => update(rerunParams(scan))}
+            />
+          )}
+        </div>
+      )}
 
       <ReachNewScanDialog
         initial={newScan}
