@@ -58,7 +58,8 @@
 .reach-chips { display: flex; gap: 10px; flex-wrap: wrap; }
 .reach-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font: inherit; color: inherit; cursor: pointer; }
 .reach-chip.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
-.reach-filters { padding-top: 24px; }
+/* 공용 .toolbar(padding 0 …)가 뒤에 읽혀 같은 우선순위면 지므로 두 클래스로 쓴다 */
+.toolbar.reach-filters { padding-top: 20px; }
 .reach-filter-row { flex-wrap: wrap; gap: 8px; }
 .reach-filter-row .select { min-width: 130px; }
 .reach-cve-input { min-width: 200px; }
@@ -94,9 +95,87 @@
 .reach-review-note { min-height: 96px; resize: vertical; font-family: inherit; line-height: 1.5; }
 .reach-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
+/* 검토 이력 (SCR-03-14) */
+.reach-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.reach-history-item { border-left: 2px solid var(--border); padding: 2px 0 2px 12px; display: grid; gap: 4px; }
+.reach-history-head { gap: 6px; flex-wrap: wrap; }
+.reach-history-note { margin: 0; font-size: 13px; color: var(--text-body); white-space: pre-wrap; }
+
+/* 공통 */
+.reach-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
+.reach-nowrap { white-space: nowrap; }
+.reach-big { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+.reach-kpi.active { box-shadow: 0 0 0 2px var(--primary); }
+.reach-kpi.alert.active { box-shadow: inset 4px 0 0 #B42318, 0 0 0 2px var(--primary); }
+
+/* 워크로드 (SCR-04) */
+.reach-match.match { color: #1849A9; background: #EEF4FF; }
+.reach-match.mismatch { color: #93370D; background: #FEF0C7; }
+.reach-match.no-scan { color: #475467; background: #FFFFFF; border: 1px dashed #667085; }
+.reach-observations { display: grid; gap: 6px; }
+.reach-observations.warning { background: #FFFAEB; color: #93370D; }
+.reach-observation-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: var(--text-body); }
+.reach-workload-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.reach-workload-card { display: grid; gap: 4px; padding: 20px 24px; }
+.reach-match-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.reach-digest { display: flex; align-items: center; gap: 6px; }
+.reach-copy { min-height: 24px; padding: 2px 8px; font-size: 11px; }
+.reach-link { font-size: 13px; font-weight: 600; color: var(--primary-text); white-space: nowrap; }
+.reach-link:hover { text-decoration: underline; }
+.reach-workload-table { min-width: 900px; }
+.reach-workload-table code { white-space: nowrap; }
+.reach-counts { display: inline; }
+
+/* 스캔 (SCR-05) */
+.reach-scan.queued { color: #475467; background: #F2F4F7; }
+.reach-scan.running { color: #1849A9; background: #EEF4FF; }
+.reach-scan.succeeded { color: #05603A; background: #D1FADF; }
+.reach-scan.failed { color: #B42318; background: #FEE4E2; }
+.reach-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: middle; animation: reach-pulse 1.2s ease-in-out infinite; }
+@keyframes reach-pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .reach-dot { animation: none; } }
+.reach-scans-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+.reach-scans-layout.with-detail { grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); }
+.reach-row.selected td { background: #EEF4FF; }
+.reach-row.selected td:first-child { box-shadow: inset 4px 0 0 var(--primary); }
+.reach-scan-panel { position: sticky; top: 20px; display: grid; gap: 16px; padding: 24px; }
+.reach-panel-head { justify-content: space-between; }
+.reach-scan-detail { display: grid; gap: 18px; }
+.reach-scan-detail h2 { font-size: 18px; margin: 0; }
+.reach-kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 13px; }
+.reach-kv dt { color: var(--text-muted); }
+.reach-kv dd { margin: 0; }
+.reach-kv-row { display: contents; }
+.reach-stages { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.reach-stage { position: relative; display: grid; gap: 2px; padding: 0 0 12px 22px; border-left: 2px solid var(--border); margin-left: 6px; }
+.reach-stage::before { content: ''; position: absolute; left: -7px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid #98A2B3; }
+.reach-stage.succeeded::before { background: #12B76A; border-color: #12B76A; }
+.reach-stage.running::before { border-color: #175CD3; }
+.reach-stage.failed::before { background: #D92D20; border-color: #D92D20; }
+.reach-stage:last-child { border-left-color: transparent; }
+.reach-stage-name { font-weight: 600; font-size: 13px; }
+.reach-stage-message { font-size: 12px; color: var(--text-body); }
+.reach-count-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 12px; font-size: 13px; }
+.reach-scan-actions { gap: 8px; flex-wrap: wrap; }
+.reach-scan-scope { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+
+/* 새 스캔 대화상자 (SCR-05-09) */
+.reach-dialog { width: 560px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); padding: 0; border: 0; border-radius: 16px; color: var(--text); box-shadow: 0 24px 80px #191f2833; }
+.reach-dialog::backdrop { background: #191f284d; }
+.reach-dialog-body { display: grid; gap: 16px; padding: 24px; }
+.reach-dialog-head { display: flex; justify-content: space-between; align-items: center; }
+.reach-dialog-head h2 { font-size: 16px; margin: 0; }
+.reach-dialog-foot { display: flex; justify-content: flex-end; gap: 10px; }
+.reach-fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+.reach-fieldset legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
+.reach-radio { display: flex; align-items: center; gap: 8px; }
+.reach-disabled { color: var(--text-muted); }
+
 @media (max-width: 1200px) {
   .reach-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .reach-summary-grid { grid-template-columns: 1fr; }
+  .reach-scans-layout.with-detail { grid-template-columns: minmax(0, 1fr); }
+  .reach-scan-panel { position: static; }
 }
 
 @media (max-width: 700px) {
@@ -104,4 +183,5 @@
   .reach-band-cells { grid-template-columns: repeat(2, 1fr); }
   .reach-review-counts { grid-template-columns: 1fr; }
   .reach-review-row { grid-template-columns: 1fr; }
+  .reach-workload-cards { grid-template-columns: 1fr; }
 }

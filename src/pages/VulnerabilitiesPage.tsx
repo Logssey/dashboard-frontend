@@ -24,7 +24,7 @@ import './reach.css'
 // 취약점 관리(Reach). 사이드바 하위 메뉴로 요약(/vulnerabilities)과 Finding 목록(/vulnerabilities/findings)을 나눈다.
 // 목록의 필터와 열린 Finding은 주소 쿼리에 둔다 (SCR-02-03 "고른 값은 주소 쿼리에 남는다")
 
-const FILTER_KEYS = ['status', 'severity', 'review', 'deployment', 'cve'] as const
+const FILTER_KEYS = ['status', 'severity', 'review', 'deployment', 'cve', 'scan'] as const
 const SUMMARY_QUERY_KEY = ['reach-summary']
 
 type UrlChanges = Record<string, string | null>
@@ -40,18 +40,22 @@ function parseId(value: string | null): number | null {
 }
 
 function readFilter(params: URLSearchParams): ReachFindingFilter {
+  const scan = parseId(params.get('scan'))
   return {
     status: parseList(params.get('status'), reachStatusOrder),
     severity: parseList(params.get('severity'), reachSeverityOrder),
     reviewState: parseList(params.get('review'), reachReviewOrder),
     deployment: parseList(params.get('deployment'), reachDeploymentOrder),
     cveContains: params.get('cve') ?? '',
+    // 스캔을 고른 때만 넣는다. 늘 넣으면 기존 목록의 캐시 키가 바뀐다
+    ...(scan ? { scanId: scan } : {}),
   }
 }
 
 function hasFilter(filter: ReachFindingFilter): boolean {
   return Boolean(
-    filter.status.length || filter.severity.length || filter.reviewState.length || filter.deployment.length || filter.cveContains.trim(),
+    filter.status.length || filter.severity.length || filter.reviewState.length || filter.deployment.length || filter.cveContains.trim() ||
+      filter.scanId,
   )
 }
 
@@ -71,7 +75,9 @@ function ScopeLine({ summary }: { summary: ReachSummary | undefined }) {
   if (!summary) return null
   return (
     <p className="caption reach-scope">
-      기준 스캔 #{summary.scope.scanId ?? '—'} · 집계 {formatKst(summary.generatedAt)}
+      {/* 대상을 고르지 않으면 앱·대상 종류마다 최신 스캔을 써서 기준 스캔이 하나가 아니다 (API 명세 3-9 scope) */}
+      {summary.scope.scanId ? `기준 스캔 #${summary.scope.scanId}` : '기준: 앱마다 최신 완료 스캔(PR 검사 제외)'} · 집계{' '}
+      {formatKst(summary.generatedAt)}
     </p>
   )
 }
@@ -205,6 +211,14 @@ export function VulnerabilityFindingsPage() {
         ]}
       />
       <ScopeLine summary={summaryData} />
+      {filter.scanId && (
+        <p className="notice reach-scan-scope" role="status">
+          스캔 #{filter.scanId}의 결과만 보고 있어요. 위 상태별 개수는 기본 범위(앱마다 최신 스캔) 기준이에요.{' '}
+          <button type="button" className="btn outline small" onClick={() => update({ scan: null })}>
+            기본 범위로
+          </button>
+        </p>
+      )}
 
       <div className="stack">
         {summaryData && (

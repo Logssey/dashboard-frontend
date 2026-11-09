@@ -7,8 +7,11 @@ import type {
   ReachSeverity,
   ReachStatus,
   ReachSummary,
+  ReachScan,
+  ReachScanInput,
+  ReachWorkload,
 } from '@/api/reach'
-import { reachNotAnalyzedReasonOrder, reachSeverityOrder, reachStatusOrder } from './reachLabels'
+import { reachNotAnalyzedReasonOrder, reachScanMatchOrder, reachSeverityOrder, reachStatusOrder } from './reachLabels'
 
 const KST = new Intl.DateTimeFormat('ko-KR', {
   year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
@@ -175,4 +178,138 @@ export function reviewInput(
   const trimmed = note.trim()
   if (!status || !trimmed || noteLength(trimmed) > REVIEW_NOTE_MAX) return null
   return { reviewState, status, note: trimmed, version }
+}
+
+// ---- 워크로드 (SCR-04) ----
+
+/** sha256: 뒤 앞 12자리. 전체 값은 title·복사로 준다 */
+export function shortDigest(digest: string): string {
+  const hex = digest.startsWith('sha256:') ? digest.slice('sha256:'.length) : digest
+  return hex.length > 12 ? `${hex.slice(0, 12)}…` : hex
+}
+
+/** 태그가 40자 커밋 SHA면 앞 7자리, 아니면 그대로 */
+export function shortRevision(revision: string | undefined | null): string | null {
+  if (!revision) return null
+  return /^[0-9a-f]{40}$/.test(revision) ? revision.slice(0, 7) : revision
+}
+
+/** 불일치 → 스캔 없음 → 일치, 같은 묶음 안에서는 네임스페이스·이름·컨테이너·digest 순 (SCR-04-06) */
+export function compareWorkloads(a: ReachWorkload, b: ReachWorkload): number {
+  return (
+    reachScanMatchOrder.indexOf(a.scanMatch.status) - reachScanMatchOrder.indexOf(b.scanMatch.status) ||
+    a.namespace.localeCompare(b.namespace) ||
+    a.name.localeCompare(b.name) ||
+    a.container.localeCompare(b.container) ||
+    a.image.digest.localeCompare(b.image.digest)
+  )
+}
+
+/** 요약 카드 3개 (SCR-04-03~05). 워크로드는 (네임스페이스, 종류, 이름)으로 센다. 롤아웃 중이면 항목은 둘이어도 워크로드는 하나다 */
+export function summarizeWorkloads(items: ReachWorkload[]) {
+  const workloads = new Set(items.map((item) => `${item.cluster}/${item.namespace}/${item.kind}/${item.name}`))
+  return {
+    workloads: workloads.size,
+    readyPods: items.reduce((sum, item) => sum + item.replicas.ready, 0),
+    match: items.filter((item) => item.scanMatch.status === 'MATCH').length,
+    noScan: items.filter((item) => item.scanMatch.status === 'NO_SCAN').length,
+    mismatch: items.filter((item) => item.scanMatch.status === 'MISMATCH').length,
+  }
+}
+
+// ---- 스캔 (SCR-05) ----
+
+/** 진행 중인 스캔이 있으면 목록을 10초마다 다시 받는다 (SCR-05-04) */
+export function hasActiveScan(scans: ReachScan[]): boolean {
+  return scans.some((scan) => scan.scanStatus === 'QUEUED' || scan.scanStatus === 'RUNNING')
+}
+
+/** 대상 칸의 둘째 줄: 이미지면 digest 앞 8자리, 레포면 커밋 앞 7자리 (SCR-05 열 정의) */
+export function scanTargetRef(scan: ReachScan): string {
+  const { target } = scan
+  if (target.type === 'IMAGE' && target.image) {
+    return `${target.image.repository} @ ${target.image.digest.replace('sha256:', '').slice(0, 8)}`
+  }
+  if (target.repo) {
+    return `${target.repo.name}${target.repo.path ? `/${target.repo.path}` : ''} @ ${target.repo.commit.slice(0, 7)}`
+  }
+  return '—'
+}
+
+/** 결과 칸: "23행 · CRITICAL 5 · HIGH 11 · MEDIUM 7 · 도달 가능 0". 0인 심각도는 뺀다 */
+export function scanCountsText(scan: ReachScan): string {
+  const counts = scan.counts
+  if (!counts) return scan.scanStatus === 'FAILED' ? '결과 없음' : '—'
+  const severities = reachSeverityOrder
+    .filter((severity) => (counts.bySeverity[severity] ?? 0) > 0)
+    .map((severity) => `${severity} ${counts.bySeverity[severity]}`)
+  return [`${counts.total}행`, ...severities, `도달 가능 ${counts.byStatus.REACHABLE ?? 0}`].join(' · ')
+}
+
+export type NewScanForm = {
+  type: 'IMAGE' | 'REPO'
+  app: '' | 'API' | 'WEB' | 'CHAT'
+  repository: string
+  digest: string
+  repoName: string
+  commit: string
+  path: string
+  l1: boolean
+  l2: boolean
+}
+
+export const emptyNewScanForm: NewScanForm = {
+  type: 'IMAGE',
+  app: '',
+  repository: '',
+  digest: '',
+  repoName: '',
+  commit: '',
+  path: '',
+  l1: true,
+  l2: true,
+}
+
+/**
+ * 새 스캔 입력 검사 (SCR-05-09, API-01). 서버와 같은 규칙만 미리 본다.
+ * 오류가 있으면 칸 이름 → 안내 글, 없으면 API-01 본문
+ */
+export function newScanRequest(form: NewScanForm): { errors: Partial<Record<keyof NewScanForm, string>>; input?: ReachScanInput } {
+  const errors: Partial<Record<keyof NewScanForm, string>> = {}
+  const app = form.app || undefined
+  if (form.type === 'IMAGE') {
+    const repository = form.repository.trim()
+    const digest = form.digest.trim()
+    if (!repository) errors.repository = '이미지 저장소를 입력하세요.'
+    else if (/[:@]/.test(repository)) errors.repository = '태그나 digest 없이 저장소 이름만 입력하세요. 예: logssey/reused-api'
+    if (!/^sha256:[0-9a-f]{64}$/.test(digest)) errors.digest = 'sha256: 뒤에 소문자 16진수 64자를 입력하세요.'
+    if (Object.keys(errors).length) return { errors }
+    return {
+      errors,
+      input: { target: { type: 'IMAGE', app, image: { repository, digest } }, options: { l1: form.l1, l2: form.l2 } },
+    }
+  }
+  const name = form.repoName.trim()
+  const commit = form.commit.trim()
+  const path = form.path.trim()
+  if (!name) errors.repoName = '레포 이름을 입력하세요. 예: service-backend'
+  if (!/^[0-9a-f]{40}$/.test(commit)) errors.commit = '커밋 SHA 40자(소문자 16진수)를 입력하세요.'
+  if (Object.keys(errors).length) return { errors }
+  return {
+    errors,
+    input: {
+      target: { type: 'REPO', app, repo: path ? { name, commit, path } : { name, commit } },
+      options: { l1: form.l1, l2: form.l2 },
+    },
+  }
+}
+
+/** API-01 오류를 사람이 읽을 글로 (API 명세 2-6) */
+export function scanRequestErrorText(status: number, code: string | null, message: string): string {
+  if (status === 400) return `입력 값을 확인하세요. (${message})`
+  if (status === 403) return '스캔을 요청할 권한이 없어요.'
+  if (status === 409) return '같은 요청이 처리 중이거나, 같은 요청 키로 다른 내용을 보냈어요. 잠시 뒤 다시 시도하세요.'
+  if (status === 422) return '어느 서비스(앱)의 대상인지 정하지 못했어요. 앱을 직접 골라 주세요.'
+  if (status === 503) return '스캔 실행기(GitHub 워크플로)를 지금 부를 수 없어요. 잠시 뒤 다시 시도하세요.'
+  return code ? `${message} (${code})` : message
 }

@@ -5,6 +5,9 @@ import type {
   ReachNotAnalyzedReason,
   ReachResetReason,
   ReachReviewState,
+  ReachScanMatchStatus,
+  ReachScanStatus,
+  ReachTrigger,
   ReachSeverity,
   ReachStatus,
 } from '@/api/reach'
@@ -79,4 +82,75 @@ export const reachStatusTone: Record<ReachStatus, string> = {
   UNKNOWN: 'unknown',
   UNREACHABLE: 'unreachable',
   NOT_ANALYZED: 'not-analyzed',
+}
+
+// ---- 워크로드 (SCR-04) ----
+
+/** 화면 기본 순서: 불일치 → 스캔 없음 → 일치 (SCR-04-06). 손볼 것이 위로 온다 */
+export const reachScanMatchOrder: ReachScanMatchStatus[] = ['MISMATCH', 'NO_SCAN', 'MATCH']
+
+export const reachScanMatchLabel: Record<ReachScanMatchStatus, string> = {
+  MATCH: '일치',
+  MISMATCH: '불일치',
+  NO_SCAN: '스캔 없음',
+}
+
+export const reachSourceLabel: Record<string, string> = {
+  MANUAL: '수동',
+  CLUSTER_READER: '자동',
+}
+
+// ---- 스캔 (SCR-05) ----
+
+export const reachScanStatusOrder: ReachScanStatus[] = ['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED']
+export const reachTriggerOrder: ReachTrigger[] = ['MANUAL', 'PR', 'IMAGE_BUILD', 'SCHEDULE']
+
+export const reachScanStatusLabel: Record<ReachScanStatus, string> = {
+  QUEUED: '대기',
+  RUNNING: '진행 중',
+  SUCCEEDED: '완료',
+  FAILED: '실패',
+}
+
+export const reachTriggerLabel: Record<ReachTrigger, string> = {
+  MANUAL: '수동',
+  PR: 'PR',
+  IMAGE_BUILD: '이미지 빌드',
+  SCHEDULE: '일정',
+}
+
+/** API의 다섯 단계 (SCR-05-06). L3는 FR-14 [계획]이라 없다 */
+export const reachStageLabel: Record<string, string> = {
+  SBOM: 'SBOM 생성',
+  MATCH: 'CVE 대조',
+  L1: 'L1 배포 확인',
+  L2: 'L2 판정',
+  REPORT: '보고서',
+}
+
+export const reachStageStatusLabel: Record<string, string> = {
+  QUEUED: '대기',
+  RUNNING: '진행 중',
+  SUCCEEDED: '완료',
+  FAILED: '실패',
+  SKIPPED: '건너뜀',
+}
+
+/** 도구·DB 버전 줄 이름 (SCR-05-07). 값이 없는 도구는 줄을 뺀다 */
+export const reachToolLabel: Record<string, string> = {
+  scanner: '스캐너',
+  trivy: 'Trivy',
+  trivyDbUpdatedAt: 'Trivy DB 갱신',
+  grype: 'Grype',
+  cdxgen: 'cdxgen',
+  reach: 'Reach',
+  rulesVersion: '규칙 데이터',
+  vulnFunctionsVersion: '취약 함수 데이터',
+}
+
+/** 검토 이력의 바뀐 까닭 (SCR-03-14) */
+export const reachHistoryKindLabel: Record<string, string> = {
+  HUMAN: '사람',
+  CARRIED: '이어받음',
+  RESET: '되돌림',
 }

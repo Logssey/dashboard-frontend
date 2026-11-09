@@ -1,5 +1,12 @@
 import { ApiError, apiRequest } from './client'
-import { sampleReachFinding, sampleReachFindings, sampleReachSummary } from './reachSample'
+import {
+  sampleReachFinding,
+  sampleReachFindings,
+  sampleReachScan,
+  sampleReachScans,
+  sampleReachSummary,
+  sampleReachWorkloads,
+} from './reachSample'
 
 // 취약점 관리(Reach) API. 이름과 값은 Reach API 명세서 3·4절 그대로 쓴다 (/api/v1/reach)
 
@@ -107,11 +114,28 @@ export interface ReachFindingDetail {
     proposal?: ReachProposal
     carriedFrom?: { findingId: number; scanId: number; reviewedAt: string }
     resetReason?: ReachResetReason
+    /** include=reviewHistory일 때. 오래된 것부터 */
+    history?: ReachReviewHistoryEntry[]
   }
   upgrade?: { suggestedVersion?: string; change?: string; note?: string }
   sameCveFindings?: number[]
   firstSeenAt: string
   lastSeenAt: string
+}
+
+/**
+ * 검토 이력 한 줄 (SCR-03-14). changeKind는 백엔드가 더한 값이다:
+ * HUMAN(사람이 남김) / CARRIED(이전 스캔에서 이어받음) / RESET(판정·근거가 바뀌어 서버가 되돌림)
+ */
+export interface ReachReviewHistoryEntry {
+  reviewState: ReachReviewState
+  status?: Exclude<ReachStatus, 'NOT_ANALYZED'> | null
+  note?: string | null
+  proposal?: ReachProposal | null
+  reviewer?: { id: number; name: string } | null
+  reviewedAt: string
+  version: number
+  changeKind?: 'HUMAN' | 'CARRIED' | 'RESET' | string
 }
 
 /** API-08 요약 (3-9) */
@@ -138,6 +162,8 @@ export interface ReachFindingFilter {
   reviewState: ReachReviewState[]
   deployment: ReachDeployment[]
   cveContains: string
+  /** 특정 스캔의 결과만 볼 때 (SCR-05 [결과 보기]). 없으면 기본 범위 */
+  scanId?: number | null
 }
 
 /** sample이 true면 백엔드 대신 Reach API 명세서의 예시 값이다 */
@@ -179,6 +205,7 @@ export function reachFindingQuery(filter: ReachFindingFilter, cursor: string | n
   if (filter.reviewState.length) params.set('reviewState', filter.reviewState.join(','))
   if (filter.deployment.length) params.set('deployment', filter.deployment.join(','))
   if (filter.cveContains.trim()) params.set('cveContains', filter.cveContains.trim())
+  if (filter.scanId) params.set('scanId', String(filter.scanId))
   params.set('size', String(REACH_PAGE_SIZE))
   params.set('include', 'total')
   if (cursor) params.set('cursor', cursor)
@@ -213,4 +240,166 @@ export const saveReachReview = (findingId: number, input: ReachReviewInput) =>
 
 /** API-05 */
 export const fetchReachFinding = (findingId: number) =>
-  orSample(() => apiRequest<ReachFindingDetail>(`/api/v1/reach/findings/${findingId}`), () => sampleReachFinding(findingId))
+  orSample(
+    () => apiRequest<ReachFindingDetail>(`/api/v1/reach/findings/${findingId}?include=reviewHistory`),
+    () => sampleReachFinding(findingId),
+  )
+
+// ---- 워크로드 (API-07, SCR-04) ----
+
+export type ReachScanMatchStatus = 'MATCH' | 'MISMATCH' | 'NO_SCAN'
+export type ReachApp = 'API' | 'WEB' | 'CHAT'
+
+/** API-07 한 항목. 워크로드 안의 (컨테이너, digest) 하나다. id는 업로드마다 바뀐다 */
+export interface ReachWorkload {
+  id: number
+  cluster: string
+  namespace: string
+  kind: string
+  name: string
+  container: string
+  app: ReachApp | null
+  image: { repository: string; digest: string; revision?: string }
+  replicas: { ready: number }
+  deployment: ReachDeployment
+  scanMatch: { status: ReachScanMatchStatus; scanId?: number; matchedBy?: 'DIGEST' | 'SOURCE_TREE' }
+  observedAt: string
+  source: 'MANUAL' | 'CLUSTER_READER'
+}
+
+/** 네임스페이스별 마지막 조회. fresh는 48시간 안 */
+export interface ReachObservation {
+  cluster: string
+  namespace: string
+  observedAt: string
+  source: 'MANUAL' | 'CLUSTER_READER'
+  fresh: boolean
+}
+
+export interface ReachWorkloadPage {
+  observations: ReachObservation[]
+  items: ReachWorkload[]
+  nextCursor: string | null
+  hasNext: boolean
+  totalCount?: number | null
+}
+
+/** 워크로드는 많지 않아(네임스페이스마다 컨테이너 1,000개까지) 화면이 전부 받아 묶고 정렬한다 */
+export interface ReachWorkloadList {
+  observations: ReachObservation[]
+  items: ReachWorkload[]
+}
+
+const WORKLOAD_PAGE_SIZE = 100
+const WORKLOAD_MAX_PAGES = 20
+
+/** API-07. 다음 페이지가 있으면 이어서 받는다 */
+export const fetchReachWorkloads = () =>
+  orSample(async (): Promise<ReachWorkloadList> => {
+    const items: ReachWorkload[] = []
+    let observations: ReachObservation[] = []
+    let cursor: string | null = null
+    for (let page = 0; page < WORKLOAD_MAX_PAGES; page += 1) {
+      const params = new URLSearchParams({ size: String(WORKLOAD_PAGE_SIZE) })
+      if (cursor) params.set('cursor', cursor)
+      const result: ReachWorkloadPage = await apiRequest<ReachWorkloadPage>(`/api/v1/reach/workloads?${params}`)
+      observations = result.observations
+      items.push(...result.items)
+      if (!result.hasNext || !result.nextCursor) break
+      cursor = result.nextCursor
+    }
+    return { observations, items }
+  }, sampleReachWorkloads)
+
+// ---- 스캔 (API-01·02·03, SCR-05) ----
+
+export type ReachScanStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+export type ReachTrigger = 'MANUAL' | 'PR' | 'IMAGE_BUILD' | 'SCHEDULE'
+export type ReachStageName = 'SBOM' | 'MATCH' | 'L1' | 'L2' | 'REPORT'
+
+export interface ReachScanStage {
+  name: ReachStageName | string
+  status: ReachScanStatus | 'SKIPPED' | string
+  message?: string
+  durationSeconds?: number
+}
+
+/** API-03 스캔 (3-1, 3-2). counts는 SUCCEEDED, failure는 FAILED일 때만 */
+export interface ReachScan {
+  id: number
+  scanStatus: ReachScanStatus
+  trigger: ReachTrigger
+  rescanOf?: number | null
+  target: {
+    id: number
+    type: 'REPO' | 'IMAGE'
+    app: ReachApp
+    repo?: { name: string; path?: string | null; commit: string } | null
+    image?: { repository: string; digest: string; revision?: string | null; createdAt?: string | null } | null
+    sourceTree?: string | null
+    displayName: string
+  }
+  stages?: ReachScanStage[] | null
+  tools?: Record<string, string | null> | null
+  counts?: {
+    total: number
+    bySeverity: Record<ReachSeverity, number>
+    byStatus: Record<ReachStatus, number>
+    byReviewState?: Record<ReachReviewState, number>
+  } | null
+  failure?: { code: string; stage?: string | null; message?: string | null } | null
+  createdAt: string
+  startedAt?: string | null
+  finishedAt?: string | null
+}
+
+export interface ReachScanPage {
+  items: ReachScan[]
+  nextCursor: string | null
+  hasNext: boolean
+  totalCount?: number | null
+}
+
+export interface ReachScanFilter {
+  scanStatus: ReachScanStatus[]
+  trigger: ReachTrigger[]
+}
+
+export const REACH_SCAN_PAGE_SIZE = 20
+
+export function reachScanQuery(filter: ReachScanFilter, cursor: string | null): string {
+  const params = new URLSearchParams()
+  if (filter.scanStatus.length) params.set('scanStatus', filter.scanStatus.join(','))
+  if (filter.trigger.length) params.set('trigger', filter.trigger.join(','))
+  params.set('size', String(REACH_SCAN_PAGE_SIZE))
+  params.set('include', 'total')
+  if (cursor) params.set('cursor', cursor)
+  return params.toString()
+}
+
+/** API-02 */
+export const fetchReachScans = (filter: ReachScanFilter, cursor: string | null) =>
+  orSample(
+    () => apiRequest<ReachScanPage>(`/api/v1/reach/scans?${reachScanQuery(filter, cursor)}`),
+    () => sampleReachScans(filter),
+  )
+
+/** API-03 */
+export const fetchReachScan = (scanId: number) =>
+  orSample(() => apiRequest<ReachScan>(`/api/v1/reach/scans/${scanId}`), () => sampleReachScan(scanId))
+
+/** API-01 본문. app을 안 주면 서버가 저장소 이름으로 정한다(모르면 422) */
+export interface ReachScanInput {
+  target:
+    | { type: 'IMAGE'; app?: ReachApp; image: { repository: string; digest: string } }
+    | { type: 'REPO'; app?: ReachApp; repo: { name: string; commit: string; path?: string } }
+  options: { l1: boolean; l2: boolean }
+}
+
+/** API-01. 응답은 API-03과 같은 스캔(202). 같은 멱등 키로 다시 보내면 처음 응답을 다시 준다. 예시 데이터로 대신하지 않는다 */
+export const createReachScan = (input: ReachScanInput, idempotencyKey: string) =>
+  apiRequest<ReachScan>('/api/v1/reach/scans', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify(input),
+  })
