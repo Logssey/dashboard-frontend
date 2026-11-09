@@ -403,3 +403,135 @@ export const createReachScan = (input: ReachScanInput, idempotencyKey: string) =
     headers: { 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify(input),
   })
+
+// ---- 규칙·취약 함수 (API-09·10, SCR-06) ----
+
+/** 규칙 조건의 한 칸. 바깥 배열은 "또는", 안쪽 배열은 "그리고"다. "!이름"은 그 사실이 없다는 뜻 */
+export type ReachRuleCondition = string[][]
+
+/** include=definition일 때 받는 조건식 원문. 이름은 rules.json 그대로(F- 없음)다 */
+export interface ReachRuleDefinition {
+  verdict: {
+    method?: string
+    reachable_if?: ReachRuleCondition
+    unreachable_if?: ReachRuleCondition
+    unknown_if?: ReachRuleCondition
+    otherwise?: string
+    why_ko?: Record<string, string>
+  } & Record<string, unknown>
+  facts?: Array<{ id: string; type?: string } & Record<string, unknown>>
+}
+
+/** API-09 규칙 (명세 3-7) */
+export interface ReachRule {
+  id: string
+  cve: string
+  method: 'RULE' | 'CALLGRAPH'
+  packages: string[]
+  facts: string[]
+  infoFacts?: string[]
+  evaluationOrder: Array<'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN' | 'DEFAULT'>
+  defaultStatus: Exclude<ReachStatus, 'NOT_ANALYZED'>
+  reasons?: Partial<Record<'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN', string>>
+  vulnFunctionIds?: number[]
+  definition?: ReachRuleDefinition
+  version?: string
+}
+
+export interface ReachRulePage {
+  items: ReachRule[]
+  nextCursor: string | null
+  hasNext: boolean
+  totalCount?: number | null
+  version?: string
+}
+
+/** API-10 취약 함수 한 줄 (명세 3-8). class는 패키지까지 쓴 이름이다 */
+export interface ReachVulnFunction {
+  id: number
+  cve: string
+  package: string
+  class: string
+  method: string
+  descriptor?: string
+  fixedVersions?: string[]
+  fixCommits?: string[]
+  confidence?: string
+  note?: string
+}
+
+export interface ReachVulnFunctionPage {
+  items: ReachVulnFunction[]
+  nextCursor: string | null
+  hasNext: boolean
+  totalCount?: number | null
+  version?: string
+  generated?: string
+}
+
+/** 규칙·취약 함수 데이터는 작아서(규칙 14개, 함수 46개) 전부 받아 화면이 찾고 묶는다 (SCR-06-01) */
+export interface ReachRuleData {
+  rules: ReachRule[]
+  rulesVersion: string | null
+  vulnFunctions: ReachVulnFunction[]
+  vulnFunctionsVersion: string | null
+  vulnFunctionsGenerated: string | null
+}
+
+const RULE_PAGE_SIZE = 100
+const RULE_MAX_PAGES = 20
+
+async function fetchAllPages<T extends { nextCursor: string | null; hasNext: boolean }>(path: string, query: Record<string, string>) {
+  const pages: T[] = []
+  let cursor: string | null = null
+  for (let page = 0; page < RULE_MAX_PAGES; page += 1) {
+    const params = new URLSearchParams({ ...query, size: String(RULE_PAGE_SIZE) })
+    if (cursor) params.set('cursor', cursor)
+    const result: T = await apiRequest<T>(`${path}?${params}`)
+    pages.push(result)
+    if (!result.hasNext || !result.nextCursor) break
+    cursor = result.nextCursor
+  }
+  return pages
+}
+
+/** API-09(include=definition) + API-10. 둘 다 끝까지 받는다. 예시 데이터로 대신하지 않는다 */
+export async function fetchReachRuleData(): Promise<ReachRuleData> {
+  const [rulePages, functionPages] = await Promise.all([
+    fetchAllPages<ReachRulePage>('/api/v1/reach/rules', { include: 'definition' }),
+    fetchAllPages<ReachVulnFunctionPage>('/api/v1/reach/vuln-functions', {}),
+  ])
+  const lastFunctions = functionPages[functionPages.length - 1]
+  return {
+    rules: rulePages.flatMap((page) => page.items),
+    rulesVersion: rulePages[rulePages.length - 1]?.version ?? null,
+    vulnFunctions: functionPages.flatMap((page) => page.items),
+    vulnFunctionsVersion: lastFunctions?.version ?? null,
+    vulnFunctionsGenerated: lastFunctions?.generated ?? null,
+  }
+}
+
+const RULE_FINDING_MAX_PAGES = 20
+const emptyFindingFilter: ReachFindingFilter = { status: [], severity: [], reviewState: [], deployment: [], cveContains: '' }
+
+/**
+ * 규칙별 주 방식·적용 Finding을 세려고 기본 범위(앱·대상 종류마다 최신 완료 스캔, PR 제외)의 Finding을 모두 받는다 (SCR-06-03·09).
+ * Finding API가 없는 개발 서버에서는 명세 예시 값으로 대신한다
+ */
+export const fetchReachRuleFindings = () =>
+  orSample(
+    async (): Promise<ReachFindingListItem[]> => {
+      const items: ReachFindingListItem[] = []
+      let cursor: string | null = null
+      for (let page = 0; page < RULE_FINDING_MAX_PAGES; page += 1) {
+        const params = new URLSearchParams({ size: String(REACH_PAGE_SIZE) })
+        if (cursor) params.set('cursor', cursor)
+        const result: ReachFindingPage = await apiRequest<ReachFindingPage>(`/api/v1/reach/findings?${params}`)
+        items.push(...result.items)
+        if (!result.hasNext || !result.nextCursor) break
+        cursor = result.nextCursor
+      }
+      return items
+    },
+    () => sampleReachFindings(emptyFindingFilter, null, 1000).items,
+  )

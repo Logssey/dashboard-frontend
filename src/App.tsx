@@ -16,6 +16,7 @@ import { IacPage } from '@/iac/IacPage'
 import { VulnerabilityFindingsPage, VulnerabilitySummaryPage } from '@/pages/VulnerabilitiesPage'
 import { VulnerabilityWorkloadsPage } from '@/pages/ReachWorkloadsPage'
 import { VulnerabilityScansPage } from '@/pages/ReachScansPage'
+import { VulnerabilityRulesPage } from '@/pages/ReachRulesPage'
 
 export function App() {
   return (
@@ -36,6 +37,7 @@ export function App() {
           <Route path="/vulnerabilities/findings" element={<VulnerabilityFindingsPage />} />
           <Route path="/vulnerabilities/workloads" element={<VulnerabilityWorkloadsPage />} />
           <Route path="/vulnerabilities/scans" element={<VulnerabilityScansPage />} />
+          <Route path="/vulnerabilities/rules" element={<VulnerabilityRulesPage />} />
           {sectionPages
             .filter((page) => !page.path.startsWith('/secrets') && !page.path.startsWith('/vulnerabilities'))
             .map((page) => (
