@@ -1,5 +1,6 @@
 // 취약점 관리(Reach) 화면 계산. 집계는 백엔드가 하고, 여기서는 표시용 계산만 한다
 import type {
+  ReachFindingDetail,
   ReachFindingListItem,
   ReachNotAnalyzedReason,
   ReachReviewInput,
@@ -9,6 +10,7 @@ import type {
   ReachSummary,
   ReachScan,
   ReachScanInput,
+  ReachVulnFunction,
   ReachWorkload,
 } from '@/api/reach'
 import { reachNotAnalyzedReasonOrder, reachScanMatchOrder, reachSeverityOrder, reachStatusOrder } from './reachLabels'
@@ -56,6 +58,59 @@ export function packageGroup(purl: string): string {
   const withoutVersion = purl.replace(/^pkg:/, '').split('@')[0]
   const parts = withoutVersion.split('/')
   return parts.length > 2 ? parts.slice(1, -1).join('/') : parts[0]
+}
+
+/** purl에서 버전·한정자를 뺀 패키지. API-10 package와 같은 모양이다 (pkg:maven/group/artifact) */
+export function purlWithoutVersion(purl: string): string {
+  return purl.split(/[@?#]/)[0]
+}
+
+/** 스캐너가 준 참고 링크 가운데 열어도 되는 주소. http(s)만 링크로 만들고 나머지는 글자로 둔다 */
+export function safeExternalUrl(value: string): string | null {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null
+  } catch {
+    return null
+  }
+}
+
+export interface FindingVulnFunctions {
+  /** VERDICT: 판정에 쓴 함수(vulnFunctions 또는 vulnFunctionIds). DATA: 판정 결과에 함수가 없어 같은 CVE·패키지의 데이터로 대신 보임 */
+  source: 'VERDICT' | 'DATA'
+  functions: ReachVulnFunction[]
+  /** API-10에서 찾지 못했거나 CVE가 다른 id. 판정 뒤 데이터 버전이 바뀐 경우다 */
+  missingIds: number[]
+}
+
+/**
+ * 취약 함수 카드(SCR-03-10)에 보일 함수. API-05가 vulnFunctions를 주면 그대로 쓰고,
+ * 아니면 vulnFunctionIds를 API-10 데이터에서 찾는다. id는 같은 데이터 버전 안에서만 같아서 CVE가 다르면 뺀다.
+ * id도 없으면 같은 CVE·패키지의 함수를 데이터에서 보인다. 분석 대상 아님이면 보일 것이 없다
+ */
+export function findingVulnFunctions(
+  detail: Pick<ReachFindingDetail, 'component' | 'vulnerability' | 'verdict'>,
+  data: ReachVulnFunction[] | undefined,
+): FindingVulnFunctions | null {
+  const { verdict, vulnerability, component } = detail
+  if (verdict.status === 'NOT_ANALYZED') return null
+  if (verdict.vulnFunctions?.length) return { source: 'VERDICT', functions: verdict.vulnFunctions, missingIds: [] }
+  if (!data) return null
+  const ids = verdict.vulnFunctionIds ?? []
+  if (ids.length) {
+    const byId = new Map(data.map((item) => [item.id, item]))
+    const functions: ReachVulnFunction[] = []
+    const missingIds: number[] = []
+    for (const id of ids) {
+      const found = byId.get(id)
+      if (found && found.cve === vulnerability.id) functions.push(found)
+      else missingIds.push(id)
+    }
+    return { source: 'VERDICT', functions, missingIds }
+  }
+  const pkg = purlWithoutVersion(component.purl)
+  const functions = data.filter((item) => item.cve === vulnerability.id && item.package === pkg)
+  return functions.length ? { source: 'DATA', functions, missingIds: [] } : null
 }
 
 /** CVE-2026-8763 → [2026, 8763]. CVE가 아닌 ID는 글자 비교로 뒤에 둔다 */

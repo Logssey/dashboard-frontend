@@ -239,3 +239,98 @@ test('copy rows offer to fill the form from the pending proposal', () => {
   assert.match(html, /저장한 판정이 현재 판정\(방식: 수동\)이 돼요/)
   assert.doesNotMatch(html, /검토 전으로 되돌리기/)   // 아직 검토 전이라 되돌릴 것이 없다
 })
+
+// ---- API-05 상세의 스캐너 설명·참고 링크·위치·취약 함수 (SCR-03-02·04·06·10) ----
+
+const tomcatFunctions = [
+  { id: 3, cve: 'CVE-2026-68525', package: 'pkg:maven/org.apache.tomcat.embed/tomcat-embed-core', class: 'org.apache.catalina.authenticator.FormAuthenticator', method: 'doAuthenticate', descriptor: '(Lorg/apache/catalina/connector/Request;)Z', fixCommits: ['apache/tomcat@1a2b3c4d'], confidence: 'high' },
+  { id: 4, cve: 'CVE-2026-68525', package: 'pkg:maven/org.apache.tomcat.embed/tomcat-embed-core', class: 'org.apache.catalina.realm.RealmBase', method: 'hasResourcePermission', fixCommits: [] },
+  { id: 9, cve: 'CVE-2026-89407', package: 'pkg:maven/tools.jackson.core/jackson-core', class: 'tools.jackson.core.io.NumberInput', method: 'looksLikeValidNumber', fixCommits: [] },
+]
+
+function tomcatDetail(verdict = {}) {
+  const item = reach.sampleReachFindings({ ...noFilter, cveContains: '68525' }, null, 50).items[0]
+  const detail = reach.sampleReachFinding(item.id)
+  return { ...detail, verdict: { ...detail.verdict, ...verdict } }
+}
+
+test('vuln functions come from the verdict ids, and ids that now point at another CVE are reported as missing', () => {
+  const picked = reach.findingVulnFunctions(tomcatDetail({ vulnFunctionIds: [3, 9, 77] }), tomcatFunctions)
+  assert.equal(picked.source, 'VERDICT')
+  assert.deepEqual(picked.functions.map((fn) => fn.id), [3])
+  assert.deepEqual(picked.missingIds, [9, 77])   // 9는 다른 CVE(데이터 버전이 바뀜), 77은 없음
+})
+
+test('vuln functions given by API-05 win over the API-10 lookup', () => {
+  const inline = [{ ...tomcatFunctions[1], note: '서버가 준 값' }]
+  const picked = reach.findingVulnFunctions(tomcatDetail({ vulnFunctionIds: [3], vulnFunctions: inline }), tomcatFunctions)
+  assert.deepEqual(picked, { source: 'VERDICT', functions: inline, missingIds: [] })
+})
+
+test('without ids the card falls back to the same CVE and package only, and shows nothing for a skipped copy', () => {
+  const picked = reach.findingVulnFunctions(tomcatDetail(), tomcatFunctions)
+  assert.equal(picked.source, 'DATA')
+  assert.deepEqual(picked.functions.map((fn) => fn.id), [3, 4])
+  // Jackson 2 사본: 같은 CVE라도 패키지가 달라 데이터의 Jackson 3 함수를 보이지 않는다 (그리고 분석 대상 아님)
+  const copy = reach.sampleReachFindings({ ...noFilter, cveContains: '89407', status: ['NOT_ANALYZED'] }, null, 50).items[0]
+  assert.equal(reach.findingVulnFunctions(reach.sampleReachFinding(copy.id), tomcatFunctions), null)
+  const asJudged = reach.sampleReachFinding(copy.id)
+  asJudged.verdict = { ...asJudged.verdict, status: 'UNKNOWN' }
+  assert.equal(reach.findingVulnFunctions(asJudged, tomcatFunctions), null)
+  assert.equal(reach.findingVulnFunctions(tomcatDetail({ vulnFunctionIds: [3] }), undefined), null)   // API-10을 아직 못 받음
+})
+
+test('purl without version matches the API-10 package form', () => {
+  assert.equal(reach.purlWithoutVersion('pkg:maven/tools.jackson.core/jackson-core@3.1.5?type=jar'), 'pkg:maven/tools.jackson.core/jackson-core')
+  assert.equal(reach.purlWithoutVersion('pkg:npm/%40scope/name@1.0.0'), 'pkg:npm/%40scope/name')
+})
+
+test('only http(s) references become links', () => {
+  assert.equal(reach.safeExternalUrl('https://nvd.nist.gov/vuln/detail/CVE-2026-68525'), 'https://nvd.nist.gov/vuln/detail/CVE-2026-68525')
+  assert.equal(reach.safeExternalUrl('http://example.com/a'), 'http://example.com/a')
+  assert.equal(reach.safeExternalUrl('javascript:alert(1)'), null)
+  assert.equal(reach.safeExternalUrl('data:text/html,<b>x</b>'), null)
+  assert.equal(reach.safeExternalUrl('not a url'), null)
+})
+
+test('detail view shows the scanner description, references, CWE, image path and vuln functions', () => {
+  const detail = tomcatDetail({ vulnFunctionIds: [3, 9] })
+  detail.component = { ...detail.component, path: 'app/app.jar/BOOT-INF/lib/tomcat-embed-core-11.0.24.jar' }
+  detail.vulnerability = {
+    ...detail.vulnerability,
+    title: 'tomcat: FORM authentication constraint bypass',
+    description: 'Line one.\nLine two.',
+    cwe: ['CWE-287'],
+    references: ['https://nvd.nist.gov/vuln/detail/CVE-2026-68525', 'javascript:alert(1)'],
+  }
+  const html = renderToStaticMarkup(createElement(reach.ReachFindingDetailView, {
+    detail,
+    vulnFunctionData: tomcatFunctions,
+    onOpenVulnFunctions: () => {},
+  }))
+  assert.match(html, /취약 기능: FORM 인증 제약 우회 · CWE-287/)
+  assert.match(html, /tomcat: FORM authentication constraint bypass/)
+  assert.match(html, /<summary>설명 보기<\/summary>/)
+  assert.match(html, /스캐너 설명 \(원문\)/)
+  assert.match(html, /Line one\.\nLine two\./)
+  assert.match(html, /href="https:\/\/nvd\.nist\.gov\/vuln\/detail\/CVE-2026-68525" target="_blank" rel="noopener noreferrer"/)
+  assert.doesNotMatch(html, /href="javascript:/)
+  assert.match(html, /<li>javascript:alert\(1\)<\/li>/)   // 링크가 아닌 글자로
+  assert.match(html, /이미지 안 위치 <code>app\/app\.jar\/BOOT-INF\/lib\/tomcat-embed-core-11\.0\.24\.jar<\/code>/)
+  assert.match(html, /<h3>취약 함수<\/h3>/)
+  assert.match(html, /org\.apache\.catalina\.authenticator\.FormAuthenticator\.doAuthenticate\(Lorg\/apache\/catalina\/connector\/Request;\)Z/)
+  assert.match(html, /수정 커밋 apache\/tomcat@1a2b3c4d · 확신도 high/)
+  assert.match(html, /취약 함수 9번을 지금 데이터에서 찾지 못했어요/)
+  assert.match(html, /데이터에서 보기/)
+  // 취약 함수 카드는 근거 뒤, 수정 버전 앞 (SCR-03 순서)
+  assert.ok(html.indexOf('<h3>근거</h3>') < html.indexOf('<h3>취약 함수</h3>'))
+  assert.ok(html.indexOf('<h3>취약 함수</h3>') < html.indexOf('<h3>수정 버전</h3>'))
+})
+
+test('detail view without the new fields renders as before', () => {
+  const html = renderToStaticMarkup(createElement(reach.ReachFindingDetailView, { detail: tomcatDetail() }))
+  assert.match(html, /취약 기능: FORM 인증 제약 우회/)
+  assert.doesNotMatch(html, /설명 보기/)
+  assert.doesNotMatch(html, /이미지 안 위치/)
+  assert.doesNotMatch(html, /<h3>취약 함수<\/h3>/)   // API-10 데이터가 없으면 카드를 그리지 않는다
+})

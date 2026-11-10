@@ -18,7 +18,7 @@ import {
   reachStatusLabel,
   reachStatusOrder,
 } from '@/lib/reachLabels'
-import { VULNERABILITY_FINDINGS_PATH } from '@/lib/reachRoutes'
+import { VULNERABILITY_FINDINGS_PATH, VULNERABILITY_RULES_PATH } from '@/lib/reachRoutes'
 import './reach.css'
 
 // 취약점 관리(Reach). 사이드바 하위 메뉴로 요약(/vulnerabilities)과 Finding 목록(/vulnerabilities/findings)을 나눈다.
@@ -160,6 +160,7 @@ export function VulnerabilitySummaryPage() {
 
 /** SCR-02 Finding 목록 (/vulnerabilities/findings). 행을 누르면 오른쪽 상세 패널(SCR-03)을 연다 */
 export function VulnerabilityFindingsPage() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const findingId = parseId(searchParams.get('finding'))
   const filter = readFilter(searchParams)
@@ -308,6 +309,7 @@ export function VulnerabilityFindingsPage() {
         findingId={findingId}
         onClose={() => update({ finding: null }, { replace: true })}
         onShowSameCve={(cve) => setSearchParams(new URLSearchParams({ cve }))}
+        onOpenVulnFunctions={(cve) => navigate(`${VULNERABILITY_RULES_PATH}?${new URLSearchParams({ tab: 'functions', cve })}`)}
       />
     </>
   )

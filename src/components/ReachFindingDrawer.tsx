@@ -1,8 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
-import { fetchReachFinding, type ReachEvidence, type ReachFindingDetail, type ReachReviewHistoryEntry } from '@/api/reach'
-import { formatKst, nearestFixedVersion } from '@/lib/reach'
+import {
+  fetchReachFinding,
+  fetchReachVulnFunctions,
+  type ReachEvidence,
+  type ReachFindingDetail,
+  type ReachReviewHistoryEntry,
+  type ReachVulnFunction,
+} from '@/api/reach'
+import { findingVulnFunctions, formatKst, nearestFixedVersion, safeExternalUrl } from '@/lib/reach'
 import {
   labelOf,
   reachHistoryKindLabel,
@@ -74,7 +81,7 @@ function EvidenceSection({ detail }: { detail: ReachFindingDetail }) {
                     <span className="asset">{fact.summary}</span>
                   </td>
                   <td>{factValue(fact.value)}</td>
-                  <td>{locationText(fact)}</td>
+                  <td className="reach-fact-location">{locationText(fact)}</td>
                   <td>{fact.informational ? <span className="badge">참고</span> : '예'}</td>
                 </tr>
               ))}
@@ -150,6 +157,97 @@ function EvidenceSection({ detail }: { detail: ReachFindingDetail }) {
   )
 }
 
+/** SCR-03-04 부제: 취약 기능·CWE·스캐너 제목. [설명 보기]로 스캐너 설명 원문과 참고 링크를 펼친다 */
+function VulnerabilityInfo({ vulnerability }: { vulnerability: ReachFindingDetail['vulnerability'] }) {
+  const { affectedFeature, cwe = [], title, description, references = [] } = vulnerability
+  const subtitle = [affectedFeature ? `취약 기능: ${affectedFeature}` : null, cwe.length ? cwe.join(', ') : null].filter(Boolean).join(' · ')
+  return (
+    <>
+      {title && <p className="muted reach-vuln-title">{title}</p>}
+      {subtitle && <p className="muted">{subtitle}</p>}
+      {(description || references.length > 0) && (
+        <details className="reach-vuln-more">
+          <summary>설명 보기</summary>
+          <p className="caption">스캐너 설명 (원문)</p>
+          {description && <p className="reach-vuln-description">{description}</p>}
+          {references.length > 0 && (
+            <>
+              <p className="caption">참고 링크 {references.length}개</p>
+              <ul className="reach-list reach-references">
+                {references.map((reference) => {
+                  const href = safeExternalUrl(reference)
+                  return (
+                    <li key={reference}>
+                      {href ? (
+                        <a href={href} target="_blank" rel="noopener noreferrer">
+                          {reference}
+                        </a>
+                      ) : (
+                        reference
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
+        </details>
+      )}
+    </>
+  )
+}
+
+/** SCR-03-10 취약 함수. 판정에 쓴 함수(vulnFunctionIds)를 API-10 데이터에서 찾아 보인다 */
+function VulnFunctionSection({ detail, vulnFunctionData, onOpenVulnFunctions }: {
+  detail: ReachFindingDetail
+  vulnFunctionData?: ReachVulnFunction[]
+  onOpenVulnFunctions?: (cve: string) => void
+}) {
+  const picked = findingVulnFunctions(detail, vulnFunctionData)
+  if (!picked) return null
+  const { source, functions, missingIds } = picked
+  const fixCommits = [...new Set(functions.flatMap((fn) => fn.fixCommits ?? []))]
+  const confidences = [...new Set(functions.map((fn) => fn.confidence).filter((value): value is string => Boolean(value)))]
+  return (
+    <section className="reach-section">
+      <h3>취약 함수</h3>
+      {source === 'DATA' && <p className="caption">판정 결과에 함수 목록이 없어 같은 CVE·패키지의 취약 함수 데이터를 보여줘요.</p>}
+      {functions.length > 0 && (
+        <ul className="reach-list reach-vuln-functions">
+          {functions.map((fn) => (
+            <li key={fn.id}>
+              <code className="reach-mono">
+                {fn.class}.{fn.method}
+                {fn.descriptor ?? ''}
+              </code>
+              {fn.note && <span className="asset">{fn.note}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {(fixCommits.length > 0 || confidences.length > 0) && (
+        <p className="caption">
+          {fixCommits.length > 0 && <>수정 커밋 {fixCommits.join(', ')}</>}
+          {fixCommits.length > 0 && confidences.length > 0 && ' · '}
+          {confidences.length > 0 && <>확신도 {confidences.join(', ')}</>}
+        </p>
+      )}
+      {missingIds.length > 0 && (
+        <p className="notice">
+          취약 함수 {missingIds.join(', ')}번을 지금 데이터에서 찾지 못했어요. 판정한 뒤 취약 함수 데이터가 바뀌었을 수 있어요.
+        </p>
+      )}
+      {onOpenVulnFunctions && (
+        <div>
+          <button type="button" className="btn outline small" onClick={() => onOpenVulnFunctions(detail.vulnerability.id)}>
+            데이터에서 보기
+          </button>
+        </div>
+      )}
+    </section>
+  )
+}
+
 /** SCR-03 내용. 상세 패널 안에 그린다 */
 /** SCR-03-14 검토 이력. 새것이 위. 사람 판정·이어받음·서버가 되돌린 기록을 모두 보인다 */
 export function ReviewHistory({ history }: { history: ReachReviewHistoryEntry[] }) {
@@ -185,10 +283,14 @@ export function ReviewHistory({ history }: { history: ReachReviewHistoryEntry[] 
   )
 }
 
-export function ReachFindingDetailView({ detail, onShowSameCve, reviewForm }: {
+export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFunctions, vulnFunctionData, reviewForm }: {
   detail: ReachFindingDetail
   /** 같은 CVE의 사본을 목록에서 본다 (SCR-03-16 대신 목록 필터로 보낸다) */
   onShowSameCve?: (cve: string) => void
+  /** 규칙 화면의 취약 함수 탭에서 이 CVE를 연다 (SCR-03-10 [데이터에서 보기]) */
+  onOpenVulnFunctions?: (cve: string) => void
+  /** API-10 취약 함수 데이터. API-05가 vulnFunctions를 주지 않을 때 vulnFunctionIds로 찾는다 */
+  vulnFunctionData?: ReachVulnFunction[]
   /** 검토 입력(API-06). 예시 데이터일 때는 넘기지 않아 안내 문구만 보인다 */
   reviewForm?: React.ReactNode
 }) {
@@ -205,8 +307,13 @@ export function ReachFindingDetailView({ detail, onShowSameCve, reviewForm }: {
         </strong>
       </div>
       <code className="caption">{component.purl}</code>
+      {component.path && (
+        <p className="caption reach-component-path">
+          이미지 안 위치 <code>{component.path}</code>
+        </p>
+      )}
       {vulnerability.severityNote && <p className="caption">심각도 참고: {vulnerability.severityNote}</p>}
-      {vulnerability.affectedFeature && <p className="muted">취약 기능: {vulnerability.affectedFeature}</p>}
+      <VulnerabilityInfo vulnerability={vulnerability} />
 
       <section className={`reach-band ${verdict.status === 'REACHABLE' ? 'alert' : ''}`.trim()}>
         <dl className="reach-band-cells">
@@ -253,6 +360,8 @@ export function ReachFindingDetailView({ detail, onShowSameCve, reviewForm }: {
       </section>
 
       <EvidenceSection detail={detail} />
+
+      <VulnFunctionSection detail={detail} vulnFunctionData={vulnFunctionData} onOpenVulnFunctions={onOpenVulnFunctions} />
 
       <section className="reach-section">
         <h3>수정 버전</h3>
@@ -331,10 +440,11 @@ export function ReachFindingDetailView({ detail, onShowSameCve, reviewForm }: {
 }
 
 /** SCR-03 Finding 상세 패널. 주소의 finding 값으로 열고 닫는다 */
-export function ReachFindingDrawer({ findingId, onClose, onShowSameCve }: {
+export function ReachFindingDrawer({ findingId, onClose, onShowSameCve, onOpenVulnFunctions }: {
   findingId: number | null
   onClose: () => void
   onShowSameCve?: (cve: string) => void
+  onOpenVulnFunctions?: (cve: string) => void
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const detail = useQuery({
@@ -360,6 +470,15 @@ export function ReachFindingDrawer({ findingId, onClose, onShowSameCve }: {
 
   const data = detail.data?.data
   const notFound = detail.error instanceof ApiError && detail.error.status === 404
+  // API-05가 vulnFunctions를 채우지 않으면 API-10에서 vulnFunctionIds로 찾는다. 데이터가 작아(46개) 한 번 받아 둔다
+  const needsVulnFunctions =
+    data !== undefined && !detail.data?.sample && data.verdict.status !== 'NOT_ANALYZED' && !data.verdict.vulnFunctions?.length
+  const vulnFunctions = useQuery({
+    queryKey: ['reach-vuln-functions'],
+    queryFn: fetchReachVulnFunctions,
+    enabled: needsVulnFunctions,
+    staleTime: 5 * 60_000,
+  })
 
   return (
     <dialog
@@ -407,6 +526,8 @@ export function ReachFindingDrawer({ findingId, onClose, onShowSameCve }: {
               <ReachFindingDetailView
                 detail={data}
                 onShowSameCve={onShowSameCve}
+                onOpenVulnFunctions={onOpenVulnFunctions}
+                vulnFunctionData={vulnFunctions.data?.items}
                 reviewForm={detail.data?.sample ? undefined : <ReachReviewForm key={findingId} findingId={findingId} detail={data} />}
               />
             </>

@@ -85,6 +85,16 @@
 .reach-section h4 { font-size: 13px; margin: 6px 0 0; }
 .reach-facts th, .reach-facts td { padding: 10px 12px; }
 .reach-facts th:first-child, .reach-facts td:first-child { padding-left: 12px; }
+/* 위치(파일:줄, 클래스.필드)는 띄어쓰기가 없어 줄이 안 바뀌고 표를 패널 밖으로 밀어낸다. 아무 데서나 줄을 바꾼다 */
+.reach-fact-location { min-width: 120px; overflow-wrap: anywhere; }
+.reach-component-path { margin: 0; }
+.reach-component-path code { overflow-wrap: anywhere; }
+.reach-vuln-title { margin: 0; }
+.reach-vuln-more summary { cursor: pointer; font-size: 13px; color: var(--primary-text); }
+.reach-vuln-more[open] { display: grid; gap: 8px; }
+.reach-vuln-description { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-body); white-space: pre-wrap; overflow-wrap: anywhere; }
+.reach-references a { color: var(--primary-text); overflow-wrap: anywhere; }
+.reach-vuln-functions code { overflow-wrap: anywhere; }
 .reach-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; }
 .reach-path { border-radius: 10px; background: #FFFAEB; color: #93370D; padding: 12px 14px; }
 .reach-path summary { cursor: pointer; }
