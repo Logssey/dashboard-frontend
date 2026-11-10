@@ -167,6 +167,12 @@ const detailExtras: Record<string, Partial<ReachFindingDetail> & { verdictExtra?
     },
   },
   [`${JACKSON3}:CVE-2026-89407`]: {
+    // 화면 명세 SCR-03 배치 예시의 부제
+    vulnerability: {
+      id: 'CVE-2026-89407', severity: 'HIGH', fixedVersions: ['3.1.7', '3.2.2'],
+      affectedFeature: '`NumberInput.looksLikeValidNumber`의 정규식 역추적. 입력 길이의 제곱에 비례해 처리 시간이 늘어난다(DoS)',
+      cwe: ['CWE-400', 'CWE-1333'],
+    },
     verdictExtra: {
       evidence: [
         { order: 1, kind: 'FACT', factId: 'F-dto.floating.tokens', value: false, checkedCount: 97, summary: 'Jackson에 타입을 알려줄 수 있는 자리(tokens) 97개에서 필드를 따라갔다. 실수형 필드 없음' },

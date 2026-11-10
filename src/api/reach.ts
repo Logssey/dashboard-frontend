@@ -75,14 +75,21 @@ export interface ReachFindingDetail {
   id: number
   scanId: number
   targetId: number
-  component: { purl: string; name: string; version: string; ecosystem?: string }
+  /** path: 이미지 안 위치(예: app.jar 안의 BOOT-INF/lib/…) */
+  component: { purl: string; name: string; version: string; ecosystem?: string; path?: string }
   vulnerability: {
     id: string
     severity: ReachSeverity
     severityNote?: string
     title?: string
+    /** 스캐너 설명 원문(영어) */
+    description?: string
     affectedFeature?: string
     fixedVersions: string[]
+    /** 예: ["CWE-400", "CWE-1333"] */
+    cwe?: string[]
+    /** 스캐너가 준 참고 링크 */
+    references?: string[]
   }
   deployment: ReachDeployment
   sources?: Array<'TRIVY' | 'GRYPE'>
@@ -92,6 +99,10 @@ export interface ReachFindingDetail {
     summary: string
     notAnalyzedReason?: ReachNotAnalyzedReason
     ruleId?: string
+    /** 판정에 쓴 취약 함수(API-10 id). 같은 데이터 버전 안에서만 같은 함수다 */
+    vulnFunctionIds?: number[]
+    /** include=vulnFunctions일 때 */
+    vulnFunctions?: ReachVulnFunction[]
     callgraph?: {
       packageReached?: boolean
       vulnFunctionPresent?: boolean
@@ -241,7 +252,7 @@ export const saveReachReview = (findingId: number, input: ReachReviewInput) =>
 /** API-05 */
 export const fetchReachFinding = (findingId: number) =>
   orSample(
-    () => apiRequest<ReachFindingDetail>(`/api/v1/reach/findings/${findingId}?include=reviewHistory`),
+    () => apiRequest<ReachFindingDetail>(`/api/v1/reach/findings/${findingId}?include=reviewHistory,vulnFunctions`),
     () => sampleReachFinding(findingId),
   )
 
@@ -509,6 +520,15 @@ export async function fetchReachRuleData(): Promise<ReachRuleData> {
     vulnFunctionsVersion: lastFunctions?.version ?? null,
     vulnFunctionsGenerated: lastFunctions?.generated ?? null,
   }
+}
+
+/**
+ * API-10만 끝까지 받는다. Finding 상세의 취약 함수 카드(SCR-03-10)가 API-05 include=vulnFunctions를
+ * 아직 채우지 않는 서버에서 vulnFunctionIds로 함수를 찾을 때 쓴다
+ */
+export async function fetchReachVulnFunctions(): Promise<{ items: ReachVulnFunction[]; version: string | null }> {
+  const pages = await fetchAllPages<ReachVulnFunctionPage>('/api/v1/reach/vuln-functions', {})
+  return { items: pages.flatMap((page) => page.items), version: pages[pages.length - 1]?.version ?? null }
 }
 
 const RULE_FINDING_MAX_PAGES = 20
