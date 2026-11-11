@@ -84,6 +84,7 @@ export function SecretConnectionsPage() {
   const [showOperations, setShowOperations] = useState(false)
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1000px)').matches)
   const progressPanel = useRef<HTMLElement>(null)
+  const returnFocusConnection = useRef<number | null>(null)
   const request = useRef({ connectionId: 0, key: '' })
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   useEffect(() => {
@@ -111,6 +112,14 @@ export function SecretConnectionsPage() {
   const runId = requestedRun ?? selected?.activeJob?.runId ?? selected?.lastFullScanAttempt?.runId
 
   useEffect(() => {
+    if (!compact || requestedRun || returnFocusConnection.current == null || !connections.isSuccess) return
+    const button = document.querySelector<HTMLButtonElement>(`[data-connection-id="${returnFocusConnection.current}"]`)
+    if (!button) return
+    button.focus()
+    returnFocusConnection.current = null
+  }, [compact, requestedRun, connections.data, connections.isSuccess])
+
+  useEffect(() => {
     if (!params.has('origin')) return
     const next = new URLSearchParams(params)
     next.delete('origin')
@@ -133,10 +142,10 @@ export function SecretConnectionsPage() {
     setParams(next)
   }
   const showConnections = () => {
+    returnFocusConnection.current = requestedConnection ?? selected?.connectionId ?? null
     const next = new URLSearchParams(params)
     next.delete('runId')
     setParams(next)
-    requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-connection-id="${requestedConnection ?? selected?.connectionId ?? ''}"]`)?.focus())
   }
   const test = useMutation({
     mutationFn: testSecretConnection,
