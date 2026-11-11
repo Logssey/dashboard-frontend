@@ -16,6 +16,10 @@ export interface ScanAttempt {
   requestedAt: string | null
   finishedAt: string | null
   scopeOutcome?: string
+  runStatus?: string
+  connectionId?: number
+  scopeId?: number
+  source?: string
 }
 export interface ScopeCoverage {
   scopeRevision: number | null

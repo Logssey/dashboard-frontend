@@ -3,7 +3,29 @@ import type { WorkbenchQueueItem } from './secretWorkbenchQueue'
 import type { ScanAttempt } from './secretConnections'
 export interface WorkPreview { status: string; items: WorkbenchQueueItem[]; total: number | null; unit: string; snapshotId: string }
 export interface OverviewScope extends WorkbenchQueueItem { origin?: string; connectionStatus?: string; setupState?: string; enabled?: boolean; blockedReasonCode?: string; capabilities?: { canClassifySource?: boolean; canConfigureStoragePolicy?: boolean } }
-export interface CollectionHealth { status: string; origin: string; approvedScopeCount: number | null; lastAttempt: ScanAttempt | null; lastScopeSuccess: ScanAttempt | null; lastCompleteSuccess: ScanAttempt | null; counts: { success: number; partial: number; failed: number; notRun: number; paused: number; running: number; incomplete: number } | null; items: OverviewScope[]; notApplicableFilters?: string[] }
+export interface CollectionCounts {
+  success: number; partial: number; failed: number; notRun: number
+  paused: number; running: number; incomplete: number
+}
+export interface CollectionProviderHealth {
+  source: string
+  configuredConnectionCount?: number | null
+  approvedScopeCount: number | null
+  gapScopeCount?: number | null
+  counts: CollectionCounts | null
+  lastAttempt: ScanAttempt | null
+  lastScopeSuccess: ScanAttempt | null
+  lastCompleteSuccess?: ScanAttempt | null
+  items: OverviewScope[]
+}
+export interface CollectionHealth {
+  status: string; origin: string; approvedScopeCount: number | null
+  configuredConnectionCount?: number | null; gapScopeCount?: number | null
+  lastAttempt: ScanAttempt | null; lastScopeSuccess: ScanAttempt | null
+  lastCompleteSuccess: ScanAttempt | null; counts: CollectionCounts | null
+  providers?: CollectionProviderHealth[]
+  items: OverviewScope[]; notApplicableFilters?: string[]
+}
 export interface SetupSummary { status: string; selectedOrigin: string; selectedOriginScopeCount: number | null; unclassifiedScopeCount: number | null; pausedScopeCount: number | null; reasonCounts: Record<string, number>; selectedReasonCounts?: Record<string, number>; unclassifiedReasonCounts?: Record<string, number>; pausedReasonCounts?: Record<string, number>; items: OverviewScope[]; unclassifiedItems: OverviewScope[]; pausedItems: OverviewScope[]; notApplicableFilters: string[]; globalGroupsIgnoreOrigin: boolean }
 export interface WorkbenchFilters {
   origin: 'PRODUCTION' | 'TEST'
@@ -37,7 +59,7 @@ export interface WorkbenchSummary {
   restrictedCoverage: boolean
   accessScope: string
   metrics: WorkbenchMetric[]
-  workPreviews?: { response: WorkPreview; revalidation: WorkPreview; decision: WorkPreview }
+  workPreviews?: { response: WorkPreview; revalidation: WorkPreview; decision: WorkPreview; review?: WorkPreview }
   collectionHealth?: CollectionHealth
   setupSummary?: SetupSummary
   caseSummary: { scope: string; unit: 'ResponseCase'; total: number | null; status: string; actionCounts: Record<string, number> | null; severityCounts: Record<string, number> | null; notApplicableCaseCount: number | null; severityStatus: string; severityReasonCode: string | null; severityValidityMatrix?: SeverityValidityMatrix }

@@ -27,8 +27,12 @@ const render = (component, props = {}, path = '/', entries = []) => {
 const links = (html) => [...html.matchAll(/href="([^"]+)"/g)].map((match) => new URL(match[1].replaceAll('&amp;', '&'), 'http://local'))
 test('risk chart and matrix drill down to exact snapshot and case unit while retaining every ACL filter', () => {
   const html = render(api.SecretRiskDistribution, { summary, filters })
+  assert.match(html, /대응 건 위험도/)
+  assert.match(html, /<details class="secret-risk-matrix"><summary>키 유효성별 상세 보기/)
+  assert.doesNotMatch(html, /<details[^>]*\bopen(?:=|\s|>)/)
+  assert.equal((html.match(/class="card /g) ?? []).length, 1)
   assert.match(html, /한 대응 건은 한 칸에만 집계/)
-  assert.match(html, /미평가는 낮은 위험을 뜻하지 않아요/)
+  assert.match(html, /미평가 항목과 등급별 판단 근거/)
   assert.match(html, /검증 기한이 지난 1건은 확인 불가/)
   const hrefs = links(html)
   assert.equal(hrefs.length, 6)
@@ -38,6 +42,57 @@ test('risk chart and matrix drill down to exact snapshot and case unit while ret
   }
   assert.ok(hrefs.some((url) => url.searchParams.get('severity') === 'UNASSESSED' && url.searchParams.get('validity') === 'UNKNOWN'))
   assert.ok(hrefs.some((url) => url.searchParams.get('severity') === 'NOT_APPLICABLE'))
+})
+test('each nonzero severity row opens its own queue without a validity filter', () => {
+  const severityCounts = { CRITICAL: 1, HIGH: 2, MEDIUM: 3, LOW: 4, UNASSESSED: 5 }
+  const html = render(api.SecretRiskDistribution, { summary: { ...summary, caseSummary: { ...summary.caseSummary, severityCounts } }, filters })
+  const rows = links(html).filter((url) => Object.hasOwn(severityCounts, url.searchParams.get('severity')) && !url.searchParams.has('validity'))
+  assert.equal(rows.length, 5)
+  for (const [index, url] of rows.entries()) {
+    assert.equal(url.searchParams.get('severity'), Object.keys(severityCounts)[index])
+    assert.equal(url.searchParams.has('validity'), false)
+    assert.equal(url.searchParams.get('bucket'), 'CURRENT_CASES')
+    for (const [key, value] of Object.entries(filters)) assert.equal(url.searchParams.get(key), String(value))
+  }
+})
+test('an available zero distribution stays compact and links to the same discovery review', () => {
+  const empty = { ...summary, caseSummary: { ...summary.caseSummary, severityCounts: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNASSESSED: 0 }, notApplicableCaseCount: 0, severityValidityMatrix: { ...summary.caseSummary.severityValidityMatrix, total: 0, cells: cells.map((cell) => ({ ...cell, value: 0 })) } } }
+  const html = render(api.SecretRiskDistribution, { summary: empty, filters })
+  assert.match(html, /위험도를 집계할 대응 건이 없어요/)
+  assert.doesNotMatch(html, /secret-risk-grade-list|<table|<details/)
+  const hrefs = links(html)
+  assert.equal(hrefs.length, 1)
+  assert.equal(hrefs[0].searchParams.get('bucket'), 'REVIEW_REQUIRED')
+  for (const [key, value] of Object.entries(filters)) assert.equal(hrefs[0].searchParams.get(key), String(value))
+})
+test('missing or partial risk data cannot masquerade as an available zero distribution', () => {
+  for (const severityCounts of [null, { CRITICAL: 0, HIGH: null, MEDIUM: 0, LOW: 0, UNASSESSED: 0 }, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 }]) {
+    const html = render(api.SecretRiskDistribution, { summary: { ...summary, caseSummary: { ...summary.caseSummary, severityCounts } }, filters })
+    assert.match(html, /확인 가능한 집계가 없어요/)
+    assert.doesNotMatch(html, /집계할 대응 건이 없어요|secret-risk-grade-list|<table/)
+    assert.equal(links(html).length, 0)
+  }
+  const partial = render(api.SecretRiskDistribution, { summary: { ...summary, partialCoverage: true, restrictedCoverage: true }, filters })
+  assert.match(partial, /검사하지 못한 범위가 있어요/)
+  assert.match(partial, /열람 가능한 대응 건을 집계/)
+  assert.match(partial, /secret-risk-grade-list/)
+})
+test('non-applicable cases remain accessible when the five graded counts are empty', () => {
+  const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNASSESSED: 0 }
+  const html = render(api.SecretRiskDistribution, { summary: { ...summary, caseSummary: { ...summary.caseSummary, severityCounts: counts } }, filters })
+  assert.match(html, /심각도 평가 대상 외/)
+  assert.doesNotMatch(html, /secret-risk-grade-list/)
+  assert.match(html, /<details class="secret-risk-matrix"/)
+  assert.ok(links(html).some((url) => url.searchParams.get('severity') === 'NOT_APPLICABLE' && !url.searchParams.has('validity')))
+})
+test('a missing or duplicate matrix cell stays unavailable inside its disclosure', () => {
+  for (const invalidCells of [cells.slice(1), [...cells, cells[0]]]) {
+    const html = render(api.SecretRiskDistribution, { summary: { ...summary, caseSummary: { ...summary.caseSummary, severityValidityMatrix: { ...summary.caseSummary.severityValidityMatrix, cells: invalidCells } } }, filters })
+    assert.match(html, /secret-risk-grade-list/)
+    assert.match(html, /키 유효성별 상세 보기/)
+    assert.match(html, /확인 가능한 집계가 없어요/)
+    assert.doesNotMatch(html, /<table/)
+  }
 })
 test('unauthorized and legacy risk data never becomes a zero-valued graph', () => {
   for (const severityStatus of ['NOT_AUTHORIZED', 'LEGACY_UNAVAILABLE']) {

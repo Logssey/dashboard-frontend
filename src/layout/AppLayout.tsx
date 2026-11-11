@@ -39,7 +39,7 @@ export function AppLayout() {
   const routeParams = new URLSearchParams(location.search)
   const summarySelection = parseWorkbenchFilters(sharedSummaryRoute ? routeParams : new URLSearchParams({ origin: routeParams.get('origin') === 'TEST' ? 'TEST' : 'PRODUCTION' }))
   const summary = useSecretWorkbench(summarySelection.filters, inSecrets && !!me && summarySelection.valid)
-  const decisionMetric = summary.data?.metrics.find((metric) => metric.key === 'needsDecisionLocations')
+  const reviewMetric = summary.data?.metrics.find((metric) => metric.key === 'reviewRequiredLocations')
 
   useEffect(() => {
     document.title = `${title} · Logssey`
@@ -107,8 +107,8 @@ export function AppLayout() {
                       >
                         <Icon name={page.icon} />
                         <span>{page.label}</span>
-                        {page.path === '/secrets/findings' && summary.isSuccess && !isSecretSnapshotInvalidated(summarySelection.filters.snapshotId) && availableMetric(decisionMetric) && (
-                          <span className="secret-nav-count" title="확인할 발견 위치" aria-label={`확인 필요 위치 ${decisionMetric!.value}곳`}>{decisionMetric!.value}</span>
+                        {page.path === '/secrets/findings' && summary.isSuccess && !isSecretSnapshotInvalidated(summarySelection.filters.snapshotId) && availableMetric(reviewMetric) && (
+                          <span className="secret-nav-count" title="검토·대응 생성이 필요한 발견 위치" aria-label={`확인 필요 위치 ${reviewMetric!.value}곳`}>{reviewMetric!.value}</span>
                         )}
                       </Link>
                     ))}
