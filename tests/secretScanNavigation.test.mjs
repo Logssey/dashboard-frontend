@@ -131,7 +131,7 @@ test('connection authentication success is separate from failed latest scan and 
   const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
   assert.match(html, /연결 확인됨/)
   assert.match(html, /SCAN-12 · 실패/)
-  assert.match(html, /SCAN-10 · 정상 종료/)
+  assert.match(html, /SCAN-10 · 검사 완료/)
   assert.match(html, /검사 대상<\/a>/)
   assert.match(html, /<button[^>]*disabled=""[^>]*>연결 테스트<\/button>/)
 })

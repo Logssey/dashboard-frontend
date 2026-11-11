@@ -2,7 +2,7 @@ import { apiRequest } from './client'
 
 export interface SecretCaseGuide {
   version: string
-  source: 'DEFAULT' | 'GROQ'
+  source: 'DEFAULT' | 'GROQ' | 'CLAUDE'
   title: string
   steps: Array<{ code: string; title: string; description: string }>
   notice: string
@@ -13,6 +13,9 @@ export interface SecretCaseGuide {
     aiRequested: boolean
     providerCalled: boolean
     cached: boolean
+    provider?: 'CLAUDE' | 'GROQ'
+    model?: string | null
+    generatedAt?: string | null
   }
 }
 

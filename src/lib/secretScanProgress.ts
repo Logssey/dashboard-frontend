@@ -1,5 +1,5 @@
 import type { ScanProgressEvent, ScanProgressStage, ScanProgressStageKey, SecretScanProgressResponse } from '../api/secretScanProgress'
-import { scanReason, scanStatus } from './secretScan'
+import { scanReason, scanRunStatus } from './secretScan'
 import { validationReasonLabels } from './secretValidation'
 
 export const scanProgressStages: Record<ScanProgressStageKey, { title: string; description: string }> = {
@@ -80,16 +80,16 @@ export function scanValidationOnlyIssue(data: SecretScanProgressResponse): boole
     && ['COLLECTION', 'DETECTION'].every((key) => data.stages.some((item) => item.key === key && item.status === 'SUCCEEDED'))
 }
 
-export function scanValidationNeedsReview(data: SecretScanProgressResponse): boolean {
-  const validation = data.stages.find((item) => item.key === 'VALIDATION')
-  const summary = data.validationSummary
-  return scanValidationOnlyIssue(data) && data.status === 'PARTIAL' && validation?.status === 'PARTIAL'
-    && validation.reasonCode === 'VALIDATION_INCONCLUSIVE'
-    && !!summary && summary.incompleteCount > 0 && summary.unknownCount === 0 && summary.uncheckedCount === summary.incompleteCount
+export function scanProgressEventOutcome(event: ScanProgressEvent, data: SecretScanProgressResponse): string {
+  const completedValidationSummary = data.status === 'PARTIAL'
+    && event.operationCode === 'STAGE_SUMMARY' && event.outcome === 'PARTIAL'
+    && event.reasonCode === 'VALIDATION_INCONCLUSIVE'
+    && ['VALIDATION', 'RESULT'].includes(event.stage) && scanValidationOnlyIssue(data)
+  return completedValidationSummary ? '검사 완료' : scanEventOutcome(event.outcome)
 }
 
 export function scanProgressStatusLabel(data: SecretScanProgressResponse): string {
-  return scanValidationNeedsReview(data) ? '확인 필요' : scanStatus(data.status)
+  return scanRunStatus(data.status)
 }
 
 export function scanStageCount(stage: ScanProgressStage): string | null {
