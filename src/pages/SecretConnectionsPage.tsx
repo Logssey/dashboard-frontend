@@ -9,6 +9,7 @@ import { SecretDetailPanel } from '@/components/SecretDetailPanel'
 import { SecretFilterDisclosure } from '@/components/SecretFilterDisclosure'
 import { SecretOperationsHealth } from '@/components/SecretOperationsHealth'
 import { SecretScanProgress } from '@/components/SecretScanProgress'
+import { SecretConnectionValidationSettings } from '@/components/SecretConnectionValidationSettings'
 import { positiveId, scanDate, scanPlatforms, scanReason, scanStatus } from '@/lib/secretScan'
 import './secret-connections.css'
 import './secret-scan.css'
@@ -27,10 +28,11 @@ const blockedLabel = (reason?: string | null) => ({
   INVALID_APPROVED_SCOPE: '등록된 검사 대상 형식을 확인하세요.', NOTION_COLLECTION_DISABLED: scanReason('NOTION_COLLECTION_DISABLED'),
 } as Record<string, string>)[reason ?? ''] ?? '연결 권한과 설정을 확인하세요.'
 
-function ConnectionCard({ connection, selected, result, testing, error, onTest, onSelect, onScan }: {
+function ConnectionCard({ connection, selected, result, testing, error, onTest, onSelect, onScan, onValidationSettings }: {
   connection: ManagedSecretConnection; selected: boolean; result?: SecretConnectionTestResult;
   testing: boolean; error?: string; onTest: (id: number) => void;
   onSelect: (connection: ManagedSecretConnection) => void; onScan: (connection: ManagedSecretConnection) => void;
+  onValidationSettings: (connectionId: number) => void;
 }) {
   const probe = result && (!connection.latestProbe || Date.parse(result.checkedAt) >= Date.parse(connection.latestProbe.checkedAt)) ? result : connection.latestProbe
   const name = connection.safeDisplayAlias ?? `${scanPlatforms[connection.provider]} 연결`
@@ -54,6 +56,7 @@ function ConnectionCard({ connection, selected, result, testing, error, onTest, 
       <button className="btn secret-connection-test-button" disabled={testing || !connection.capabilities?.canTest} onClick={() => onTest(connection.connectionId)}>{testing ? '연결 확인 중…' : '연결 테스트'}</button>
       <button className="btn primary" disabled={!connection.activeJob && !connection.capabilities?.canRun} onClick={() => onScan(connection)}>{connection.activeJob ? '진행 중인 검사 보기' : '스캔 요청'}</button>
       <Link className="btn outline" to={`/secrets/connections/${connection.connectionId}/scopes`}>검사 대상</Link>
+      <button className="btn outline" onClick={() => onValidationSettings(connection.connectionId)}>키 검증 설정</button>
     </div>
     {selected && <>
       {!connection.capabilities?.canRun && !connection.activeJob && <p className="caption">{blockedLabel(connection.scanBlockedReasonCode)}</p>}
@@ -73,9 +76,11 @@ export function SecretConnectionsPage() {
   const status = params.get('status') ?? ''
   const requestedConnection = positiveId(params.get('connectionId'))
   const requestedRun = positiveId(params.get('runId'))
+  const validationConnectionId = positiveId(params.get('validationConnectionId'))
   const valid = ['', 'ACTIVE', 'PAUSED', 'ERROR'].includes(status)
     && (!params.get('connectionId') || requestedConnection != null)
     && (!params.get('runId') || requestedRun != null)
+    && (!params.has('validationConnectionId') || validationConnectionId != null)
   const client = useQueryClient()
   const mounted = useRef(true)
   const [results, setResults] = useState<Record<number, SecretConnectionTestResult>>({})
@@ -133,6 +138,16 @@ export function SecretConnectionsPage() {
     const latest = connection.activeJob?.runId ?? connection.lastFullScanAttempt?.runId
     if (latest) next.set('runId', String(latest))
     else next.delete('runId')
+    setParams(next)
+  }
+  const openValidationSettings = (connectionId: number) => {
+    const next = new URLSearchParams(params)
+    next.set('validationConnectionId', String(connectionId))
+    setParams(next)
+  }
+  const closeValidationSettings = () => {
+    const next = new URLSearchParams(params)
+    next.delete('validationConnectionId')
     setParams(next)
   }
   const changeStatus = (value: string) => {
@@ -196,7 +211,7 @@ export function SecretConnectionsPage() {
           {!items.length ? <div className="secret-connection-empty"><strong>조건에 맞는 연결이 없어요.</strong><p>{status ? '연결 상태 조건을 초기화하거나 등록된 연결을 확인하세요.' : '연결과 수집 자격 증명을 등록하면 검사를 시작할 수 있어요.'}</p>{status && <button className="btn outline" onClick={() => changeStatus('')}>조건 초기화</button>}</div>
             : <div className="secret-connection-list">{items.map((connection) => <ConnectionCard key={connection.connectionId} connection={connection} selected={selected?.connectionId === connection.connectionId}
               result={results[connection.connectionId]} error={errors[connection.connectionId]} testing={test.isPending && test.variables === connection.connectionId}
-              onSelect={selectConnection} onTest={(id) => test.mutate(id)} onScan={openScan} />)}</div>}
+              onSelect={selectConnection} onTest={(id) => test.mutate(id)} onScan={openScan} onValidationSettings={openValidationSettings} />)}</div>}
           {connections.isSuccess && connections.data.total > connections.data.size && <div className="table-foot secret-table-foot"><span>연결 {connections.data.total}개</span><div className="row">
             <button className="btn outline" disabled={page === 0} onClick={() => { const next = new URLSearchParams(params); next.set('page', String(page)); setParams(next) }}>이전</button>
             <span>{page + 1} / {Math.max(1, Math.ceil(connections.data.total / connections.data.size))}</span>
@@ -213,6 +228,9 @@ export function SecretConnectionsPage() {
         {start.isError && <p className="notice error" role="alert">{start.error instanceof ApiError && start.error.status === 409 ? '진행 중인 검사와 현재 승인 대상을 확인하세요.' : start.error instanceof ApiError && start.error.status === 403 ? '스캔 실행 권한을 확인하세요.' : '요청 결과를 확인하지 못했어요. 다시 요청하면 같은 등록 요청을 확인해요.'}</p>}
         <div className="row"><button className="btn outline" disabled={start.isPending} onClick={() => setConfirmConnection(null)}>취소</button><button className="btn primary" disabled={start.isPending} onClick={() => start.mutate({ connectionId: confirmConnection.connectionId, idempotencyKey: request.current.key })}>{start.isPending ? '등록 중…' : '스캔 시작'}</button></div>
       </div>}
+    </SecretDetailPanel>
+    <SecretDetailPanel open={validationConnectionId != null} title="키 검증 설정" closeLabel="키 검증 설정 닫기" className="secret-connection-validation-dialog" onClose={closeValidationSettings}>
+      {validationConnectionId != null && <SecretConnectionValidationSettings key={validationConnectionId} connectionId={validationConnectionId} />}
     </SecretDetailPanel>
     <details className="secret-connection-operations" onToggle={(event) => setShowOperations(event.currentTarget.open)}><summary>워커 운영 상태</summary>{showOperations && <SecretOperationsHealth />}</details>
   </>

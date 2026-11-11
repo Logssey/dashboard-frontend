@@ -80,6 +80,7 @@ test('cursor event merge is ordered, idempotent and does not collapse separate a
   assert.equal(result[2].attemptNo, 2)
   assert.equal(modules.lib.scanOperationLabel('UNREGISTERED_SENSITIVE_VALUE'), '검사 처리')
   assert.equal(modules.lib.scanRequestFormat('UNREGISTERED_SENSITIVE_VALUE'), null)
+  assert.equal(modules.lib.scanRequestFormat('GITHUB_CREDENTIAL_CHECK'), 'GET /user')
 })
 
 test('progress API passes the cursor and abort signal without registering an execution', async () => {

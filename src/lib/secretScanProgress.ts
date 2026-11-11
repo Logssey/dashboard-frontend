@@ -48,6 +48,7 @@ const requestFormats: Record<string, string> = {
   GITHUB_TREE_GET: 'GET /repos/{owner}/{repo}/git/trees/{sha}',
   GITHUB_BLOB_GET: 'GET /repos/{owner}/{repo}/git/blobs/{sha}',
   GITHUB_TOKEN_EXCHANGE: 'POST /app/installations/{installation_id}/access_tokens',
+  GITHUB_CREDENTIAL_CHECK: 'GET /user',
   NOTION_PAGE_GET: 'GET /v1/pages/{page_id}',
   NOTION_BLOCK_CHILDREN_LIST: 'GET /v1/blocks/{block_id}/children',
 }
