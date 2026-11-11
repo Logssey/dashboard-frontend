@@ -7,6 +7,7 @@ import { fetchSecretConnections } from '@/api/secrets'
 import { secretOriginParams, withSecretOrigin } from '@/lib/secretNavigation'
 import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
+import { SecretFilterDisclosure } from '@/components/SecretFilterDisclosure'
 import { PageHeader } from '@/components/PageHeader'
 import { SecretDetailPanel } from '@/components/SecretDetailPanel'
 import './secret-scan-request.css'
@@ -32,9 +33,6 @@ function HistoryList({ filters, errors, params, setParams }: {
   const confirmationRef = useRef<HTMLHeadingElement>(null)
   const requestKey = useRef('')
   const restored = useRef('')
-  const [from, setFrom] = useState(kstInput(params.get('from')))
-  const [to, setTo] = useState(kstInput(params.get('to')))
-  useEffect(() => { setFrom(kstInput(params.get('from'))); setTo(kstInput(params.get('to'))) }, [params])
   const history = useQuery({
     queryKey: ['secret-runs', filters], queryFn: () => fetchSecretRuns(filters), enabled: !errors.length,
     retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
@@ -75,11 +73,6 @@ function HistoryList({ filters, errors, params, setParams }: {
   }, [history.isSuccess, history.isPlaceholderData, history.data, params, focusKey])
   useEffect(() => { if (confirm) { if (!requestKey.current) requestKey.current = crypto.randomUUID(); confirmationRef.current?.focus() } }, [confirm, selected?.connectionId])
   if (acceptedId) return <Navigate to={withSecretOrigin(scanDetailPath(acceptedId, { ...filters, page: 0, snapshotId: '' }), params)} />
-  const change = (key: keyof RunFilters, value: string) => {
-    const next = runFilterSearch({ ...filters, page: 0, snapshotId: '' })
-    if (value) next.set(key, value); else next.delete(key)
-    setParams(next)
-  }
   const remember = (runId: number) => {
     try { sessionStorage.setItem(focusKey, String(runId)) } catch { /* Optional browser-only navigation context. */ }
   }
@@ -89,19 +82,22 @@ function HistoryList({ filters, errors, params, setParams }: {
     <PageHeader title="스캔 이력" description="언제 어디까지 검사했고, 어떤 범위가 누락됐는지 확인하세요." actions={
       <button className="btn primary" type="button" disabled={!available.length || start.isPending} onClick={() => { requestKey.current = crypto.randomUUID(); start.reset(); setConfirm(true) }}><Icon name="search" /> 스캔 요청</button>
     } />
-    <section className="card secret-scan-filters" aria-label="실행 이력 필터">
-      <label>실행 유형<select className="select" value={filters.type} onChange={(e) => change('type', e.target.value)}>{Object.entries(scanTypes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <label>실행 상태<select className="select" value={filters.status} onChange={(e) => change('status', e.target.value)}><option value="">전체 상태</option>{Object.entries(scanStatuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <label>수집 플랫폼<select className="select" value={filters.provider} onChange={(e) => change('provider', e.target.value)}><option value="">전체 플랫폼</option>{Object.entries(scanPlatforms).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <label>연결<select className="select" value={filters.connectionId ?? ''} onChange={(e) => change('connectionId', e.target.value)}><option value="">전체 연결</option>{available.map((item) => <option key={item.connectionId} value={item.connectionId}>{scanConnectionLabel(item)}</option>)}{filters.connectionId && !available.some((item) => item.connectionId === filters.connectionId) && <option value={filters.connectionId}>연결 #{filters.connectionId}</option>}</select></label>
-      <form className="secret-scan-period" onSubmit={(e) => { e.preventDefault(); const next = runFilterSearch({ ...filters, page: 0, snapshotId: '' }); if (from) next.set('from', kstInputToUtc(from)); else next.delete('from'); if (to) next.set('to', kstInputToUtc(to)); else next.delete('to'); setParams(next) }}>
-        <label>요청 시작 (KST)<input className="input" type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label>요청 종료 (KST·미포함)<input className="input" type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} /></label>
-        <button className="btn outline" type="submit">기간 적용</button>
-      </form>
-      <button className="btn outline" onClick={() => setParams(new URLSearchParams())}>필터 초기화</button>
-      <button className="btn outline" onClick={() => setParams(runFilterSearch({ ...filters, snapshotId: '', page: 0 }))}>새 기준으로 조회</button>
-    </section>
+    <SecretFilterDisclosure label="스캔 이력" busy={history.isFetching}
+      values={{ type: filters.type, status: filters.status, provider: filters.provider, connectionId: String(filters.connectionId ?? ''), from: kstInput(filters.from), to: kstInput(filters.to) }}
+      fields={[
+        { key: 'type', label: '실행 유형', options: scanTypes, defaultValue: 'ALL' },
+        { key: 'status', label: '실행 상태', options: { '': '전체 상태', ...scanStatuses }, defaultValue: '' },
+        { key: 'provider', label: '발견 플랫폼', options: { '': '전체 플랫폼', ...scanPlatforms }, defaultValue: '' },
+        { key: 'connectionId', label: '연결', options: { '': '전체 연결', ...Object.fromEntries(available.map((item) => [String(item.connectionId), scanConnectionLabel(item)])), ...(filters.connectionId ? { [String(filters.connectionId)]: available.some((item) => item.connectionId === filters.connectionId) ? scanConnectionLabel(available.find((item) => item.connectionId === filters.connectionId)!) : `연결 #${filters.connectionId}` } : {}) }, defaultValue: '' },
+        { key: 'from', label: '요청 시작 (KST)', inputType: 'datetime-local', options: {}, defaultValue: '' },
+        { key: 'to', label: '요청 종료 (KST·미포함)', inputType: 'datetime-local', options: {}, defaultValue: '' },
+      ]}
+      onApply={(values) => {
+        const next = runFilterSearch({ ...filters, type: values.type as RunFilters['type'], status: values.status, provider: values.provider, connectionId: positiveId(values.connectionId), from: values.from ? kstInputToUtc(values.from) : '', to: values.to ? kstInputToUtc(values.to) : '', page: 0, snapshotId: '' })
+        if (confirm) next.set('request', 'scan')
+        setParams(next)
+      }}
+      onReset={() => setParams(new URLSearchParams())} />
     {!!errors.length && <p className="notice error" role="alert">{errors.join(' ')} <button className="btn outline" onClick={() => setParams(new URLSearchParams())}>조건 초기화</button></p>}
     {connections.isError && <p className="notice error" role="alert">실행 가능한 연결 목록을 불러오지 못했어요. <button className="btn outline" onClick={() => void connections.refetch()}>다시 조회</button></p>}
     <SecretDetailPanel open={confirm} title="스캔 요청" closeLabel="스캔 요청 닫기" className="secret-scan-request-dialog" onClose={() => { if (!start.isPending) setConfirm(false) }}><section className="secret-scan-confirm" aria-labelledby="scan-confirm-title">

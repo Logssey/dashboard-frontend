@@ -104,7 +104,7 @@ test('independent detail distinguishes seven successes from twelve finished scop
 })
 test('metadata skip reasons and unavailable legacy aggregates stay explicit', () => {
   assert.equal(scanReason('NO_SUPPORTED_VALIDATOR'), '지원되는 유효성 확인 방식 없음')
-  assert.equal(scanReason('SOURCE_GUARD_BLOCKED'), '시험 저장소 검증 제외')
+  assert.equal(scanReason('SOURCE_GUARD_BLOCKED'), '원천 보호에 따른 검증 제외')
   assert.equal(scanReason('SYNTHETIC_FIXTURE'), '합성 키 검증 생략')
   const run = { ...baseRun, status: 'SUCCEEDED', aggregationStatus: 'LEGACY_UNAVAILABLE', detection: stage('SKIPPED', 'NOT_APPLICABLE_METADATA', false), validation: stage('SKIPPED', 'NOT_APPLICABLE_METADATA', false), findingCount: null, distinctCredentialCount: null }
   const html = renderPage(SecretRunDetailPage, '/secrets/history/:runId', '/secrets/history/12', [[['secret-run', 12], run]])
@@ -130,11 +130,10 @@ test('connection authentication success is separate from failed latest scan and 
   const connection = { connectionId: 3, provider: 'AWS', safeDisplayAlias: '승인 연결', connectionStatus: 'ACTIVE', approvedScopeCount: 12, scopeRevision: 2, latestProbe: { status: 'CONNECTED', reasonCode: null, checkedAt: '2026-10-21T00:00:00Z' }, lastFullScanAttempt: { runId: 12, status: 'FAILED', requestedAt: '2026-10-21T00:00:00Z', finishedAt: '2026-10-21T00:02:00Z' }, lastSuccessfulFullScan: { runId: 10, status: 'SUCCEEDED', requestedAt: '2026-10-20T00:00:00Z', finishedAt: '2026-10-20T00:02:00Z' }, nextDueAt: null, activeJob: null, capabilities: { canTest: false, canRun: false } }
   const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
   assert.match(html, /연결 확인됨/)
-  assert.match(html, /신원·설치만 확인/)
   assert.match(html, /SCAN-12 · 실패/)
   assert.match(html, /SCAN-10 · 정상 종료/)
-  assert.match(html, /검사 대상 보기/)
-  assert.doesNotMatch(html, /<button[^>]*>[^<]*연결 테스트<\/button>/)
+  assert.match(html, /검사 대상<\/a>/)
+  assert.match(html, /<button[^>]*disabled=""[^>]*>연결 테스트<\/button>/)
 })
 
 test('Notion content scopes retain their label across current and legacy content types', () => {
@@ -187,9 +186,8 @@ test('Notion incomplete source reasons identify the remaining collection gap', (
 test('Notion connection probe explains authentication and uses server scan capabilities', () => {
   const connection = { connectionId: 9, provider: 'NOTION', safeDisplayAlias: '승인 문서 연결', connectionStatus: 'ACTIVE', approvedScopeCount: 1, scopeRevision: 1, latestProbe: { status: 'CONNECTED', reasonCode: null, checkedAt: '2026-11-06T00:00:00Z' }, lastFullScanAttempt: null, lastSuccessfulFullScan: null, nextDueAt: null, activeJob: null, capabilities: { canTest: true, canRun: true } }
   const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
-  assert.match(html, /Notion 인증을 확인했어요/)
-  assert.match(html, /승인 페이지 읽기 결과는 스캔 이력에서 확인하세요/)
-  assert.match(html, /href="\/secrets\/history\?request=scan&amp;connectionId=9"/)
+  assert.match(html, /연결 확인됨/)
+  assert.match(html, /<button class="btn primary">스캔 요청<\/button>/)
   assert.doesNotMatch(html, /신원·설치/)
 })
 
@@ -197,7 +195,8 @@ test('disabled Notion collection explains setup and blocks test and scan actions
   const connection = { connectionId: 9, provider: 'NOTION', safeDisplayAlias: '승인 문서 연결', connectionStatus: 'ACTIVE', approvedScopeCount: 1, scopeRevision: 1, latestProbe: null, lastFullScanAttempt: null, lastSuccessfulFullScan: null, nextDueAt: null, activeJob: null, capabilities: { canTest: false, canRun: false }, testBlockedReasonCode: 'NOTION_COLLECTION_DISABLED', scanBlockedReasonCode: 'NOTION_COLLECTION_DISABLED' }
   const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
   assert.match(html, /Notion 수집 연결 설정을 확인하세요/)
-  assert.match(html, /disabled=""[^>]*>[^<]*<span[^>]*>↻<\/span>연결 테스트/)
+  assert.match(html, /<button[^>]*disabled=""[^>]*>연결 테스트<\/button>/)
+  assert.match(html, /<button[^>]*disabled=""[^>]*>스캔 요청<\/button>/)
   assert.doesNotMatch(html, /href="\/secrets\/history\?request=scan/)
 })
 test('history displays server total and real detail links without page-level metric cards', () => {
@@ -228,32 +227,25 @@ test('origin context carries no frozen workbench state into another read scope',
   assert.equal(existing.has('origin'), false)
 })
 
-test('connection actions and scope/settings returns retain the selected TEST or PRODUCTION origin', () => {
+test('connection and scope entry ignore old modes while preserving object links', () => {
   const connection = { connectionId: 3, provider: 'GITHUB', safeDisplayAlias: '결제 서비스', connectionStatus: 'ACTIVE', approvedScopeCount: 1, scopeRevision: 2, latestProbe: null, lastFullScanAttempt: { runId: 12, status: 'SUCCEEDED' }, lastSuccessfulFullScan: { runId: 10, status: 'SUCCEEDED' }, nextDueAt: null, activeJob: { runId: 13, status: 'RUNNING' }, capabilities: { canTest: true, canRun: true } }
   for (const origin of ['TEST', 'PRODUCTION']) {
-    const connections = renderPage(SecretConnectionsPage, '/secrets/connections', `/secrets/connections?origin=${origin}`, [[['secret-connections-manage', 0, '', origin], { items: [connection], total: 1, page: 0, size: 12 }]])
-    const links = hrefs(connections)
-    assert.ok(links.some((href) => href.includes('/secrets/connections/3/scopes')))
-    assert.ok(links.some((href) => href.includes('request=scan')))
-    assert.ok(links.some((href) => href.includes('/secrets/history/12')))
-    for (const href of links) assert.equal(navUrl(href).searchParams.get('origin'), origin, href)
+    const connections = renderPage(SecretConnectionsPage, '/secrets/connections', `/secrets/connections?origin=${origin}`, [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
+    assert.match(connections, /결제 서비스/)
+    assert.match(connections, /진행 중인 검사 보기/)
+    assert.doesNotMatch(connections, /범위 출처|운영·시험|시험 출처/)
+    assert.ok(hrefs(connections).some((href) => href.includes('/secrets/connections/3/scopes')))
     const coverage = { lastAttempt: connection.lastFullScanAttempt, lastSuccessfulScan: connection.lastSuccessfulFullScan, freshness: 'CURRENT', gapReasonCodes: [], nextDueAt: null }
-    const scopes = renderPage(SecretConnectionScopesPage, '/secrets/connections/:connectionId/scopes', `/secrets/connections/3/scopes?origin=${origin}`, [[['secret-connection-scopes', 3, 0, origin, false], { items: [{ scopeId: 5, origin, safeDisplayAlias: '결제 저장소', contentType: 'GITHUB_REPOSITORY_FILES', scopeRevision: 2, coverage }], total: 1, page: 0, size: 20 }]])
-    for (const href of hrefs(scopes)) assert.equal(navUrl(href).searchParams.get('origin'), origin, href)
+    const scopes = renderPage(SecretConnectionScopesPage, '/secrets/connections/:connectionId/scopes', `/secrets/connections/3/scopes?origin=${origin}`, [[['secret-connection-scopes', 3, 0, '', false], { items: [{ scopeId: 5, origin, safeDisplayAlias: '결제 저장소', contentType: 'GITHUB_REPOSITORY_FILES', scopeRevision: 2, coverage }], total: 1, page: 0, size: 20 }]])
     assert.ok(hrefs(scopes).some((href) => navUrl(href).searchParams.get('settings') === 'validation'))
-    for (const [Component, route, path] of [
-      [SecretScopeClassificationPage, '/secrets/connections/:connectionId/scopes/:scopeId', '/secrets/connections/3/scopes/5'],
-      [SecretClassificationQueuePage, '/secrets/connections/review', '/secrets/connections/review'],
-      [SecretPolicyListPage, '/secrets/connections/policies', '/secrets/connections/policies'],
-      [SecretPolicyDetailPage, '/secrets/connections/policies/:policyId/versions/:version', '/secrets/connections/policies/1/versions/1'],
-    ]) {
-      const html = renderPage(Component, route, `${path}?origin=${origin}`)
-      assert.equal(navUrl(hrefs(html)[0]).searchParams.get('origin'), origin, path)
-    }
+    assert.doesNotMatch(scopes, /출처·보관 규칙 확인|자료 용도|시험 출처/)
+    const legacy = renderPage(SecretClassificationQueuePage, '/secrets/connections/review', `/secrets/connections/review?origin=${origin}`)
+    assert.match(legacy, /연결에서 검사 대상을 선택하세요/)
+    assert.equal(hrefs(legacy)[0], '/secrets/connections')
   }
 })
 
-test('history, run results and findings keep TEST while inventory receives no history snapshot', () => {
+test('history detail keeps its frozen return while inventory receives only its execution restriction', () => {
   const snapshotId = 'a51d954e-9a37-4715-bcfb-2284d9cfac27'
   const params = new URLSearchParams(`origin=TEST&page=2&connectionId=3&snapshotId=${snapshotId}`)
   const { filters } = parseRunFilters(params)
@@ -262,7 +254,10 @@ test('history, run results and findings keep TEST while inventory receives no hi
   assert.equal(navUrl(hrefs(history)[0]).searchParams.get('snapshotId'), snapshotId)
   const detail = renderPage(SecretRunDetailPage, '/secrets/history/:runId', `/secrets/history/12?return=history&${params}`, [[['secret-run', 12], { ...baseRun, capabilities: { canViewFindings: true } }]])
   const links = hrefs(detail)
-  for (const href of links) assert.equal(navUrl(href).searchParams.get('origin'), 'TEST', href)
+  const historyBack = links.map(navUrl).find((url) => url.pathname === '/secrets/history' && url.searchParams.get('snapshotId') === snapshotId)
+  assert.ok(historyBack)
+  assert.equal(historyBack.searchParams.get('page'), '2')
+  assert.equal(historyBack.searchParams.get('connectionId'), '3')
   const inventory = navUrl(links.find((href) => href.startsWith('/secrets/findings?')))
   assert.equal(inventory.searchParams.get('runId'), '12')
   assert.equal(inventory.searchParams.has('snapshotId'), false)

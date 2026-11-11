@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { ApiError } from '@/api/client'
 import { fetchSecretSummary, type CollectionProviderHealth, type WorkbenchFilters, type WorkbenchSummary, type WorkPreview } from '@/api/secretSummary'
 import type { WorkbenchQueueItem } from '@/api/secretWorkbenchQueue'
+import { useSecretListParams } from '@/lib/useSecretListParams'
 import { PageHeader } from '@/components/PageHeader'
 import { SecretRiskDistribution } from '@/components/SecretRiskDistribution'
 import { withSecretOrigin } from '@/lib/secretNavigation'
-import { availableMetric, filterLabel, parseWorkbenchFilters, summaryReason, workbenchOptions, workbenchQueuePath, workbenchSearch, workbenchWhyLabel } from '@/lib/secretWorkbench'
+import { availableMetric, filterLabel, parseWorkbenchFilters, summaryReason, workbenchQueuePath, workbenchSearch, workbenchWhyLabel } from '@/lib/secretWorkbench'
 import { actionLabels, blockerLabels, priorityLabels } from '@/lib/secretTaskGuidance'
 import { setupReasonLabels } from '@/lib/secretScopeSetup'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
@@ -76,11 +77,10 @@ function EmptyWork({ summary, filters, view }: { summary: WorkbenchSummary; filt
   }
   if (health?.status === 'AVAILABLE' && health.approvedScopeCount === 0) {
     return <div className="secret-overview-empty">
-      <h3>선택한 출처에 검사 대상이 없어요</h3>
-      <p>연결 관리에서 검사 대상의 운영·시험 출처를 확인하세요.</p>
+      <h3>등록된 검사 대상이 없어요</h3>
+      <p>연결 관리에서 검사할 저장소·페이지·자원을 등록하세요.</p>
       <div className="secret-overview-empty-links">
         <Link to={withSecretOrigin('/secrets/connections', filters.origin)}>검사 대상 확인</Link>
-        <Link to={`/secrets?${overviewSearch({ ...filters, origin: filters.origin === 'PRODUCTION' ? 'TEST' : 'PRODUCTION', snapshotId: '' }, view)}`}>{filters.origin === 'PRODUCTION' ? '시험 출처 보기' : '운영 출처 보기'}</Link>
       </div>
     </div>
   }
@@ -139,8 +139,8 @@ function SetupBacklog({ summary, origin }: { summary: WorkbenchSummary; origin: 
   const setup = summary.setupSummary
   if (!setup || setup.status !== 'AVAILABLE') return null
   const groups = [
-    { key: 'selected', label: '선택한 출처의 설정 보완', count: setup.selectedOriginScopeCount, reasons: setup.selectedReasonCounts },
-    { key: 'unclassified', label: '출처 미분류', count: setup.unclassifiedScopeCount, reasons: setup.unclassifiedReasonCounts },
+    { key: 'selected', label: '검사 대상 설정 보완', count: setup.selectedOriginScopeCount, reasons: setup.selectedReasonCounts },
+    { key: 'unclassified', label: '추가 설정 검토', count: setup.unclassifiedScopeCount, reasons: setup.unclassifiedReasonCounts },
     { key: 'paused', label: '중지된 연결의 설정 보완', count: setup.pausedScopeCount, reasons: setup.pausedReasonCounts },
   ]
   return <details className="secret-overview-setup">
@@ -149,7 +149,7 @@ function SetupBacklog({ summary, origin }: { summary: WorkbenchSummary; origin: 
       <span>{group.label}</span><strong>{countText(group.count)}개</strong>
       {group.count! > 0 && <p>{Object.entries(group.reasons ?? {}).filter(([, count]) => count > 0).map(([code, count]) => `${setupReasonLabels[code] ?? '설정 확인'} ${count}`).join(' · ')}</p>}
     </li>)}</ul>
-    {setup.globalGroupsIgnoreOrigin && <p>출처 미분류·중지 연결은 열람 가능한 소스·연결 기준이에요.</p>}
+    {setup.globalGroupsIgnoreOrigin && <p>현재 열람 가능한 연결의 설정을 확인하세요.</p>}
     <Link to={withSecretOrigin('/secrets/connections', origin)}>연결·검사 대상 설정</Link>
   </details>
 }
@@ -162,7 +162,7 @@ function ProviderHealth({ item, origin }: { item: CollectionProviderHealth; orig
   return <li className="secret-overview-provider">
     <div className="secret-overview-provider-head">
       <strong>{source}</strong>
-      <span>{item.approvedScopeCount === 0 ? `${origin === 'TEST' ? '시험' : '운영'} 대상 없음` : <>검사 성공 <strong>{countText(counts?.success)}</strong> / {countText(item.approvedScopeCount)}개 대상</>}</span>
+      <span>{item.approvedScopeCount === 0 ? '검사 대상 없음' : <>검사 성공 <strong>{countText(counts?.success)}</strong> / {countText(item.approvedScopeCount)}개 대상</>}</span>
     </div>
     {item.approvedScopeCount !== null && item.approvedScopeCount > 0 && <>
       <p className="secret-overview-provider-details">
@@ -187,11 +187,11 @@ function CollectionHealth({ summary, filters }: { summary: WorkbenchSummary; fil
   const gaps = availableMetric(gapMetric) && gapMetric!.value! > 0
   const ignoredFilters = health?.notApplicableFilters?.filter((key) => key === 'assignee' ? !!filters.assignee : key === 'provider' ? filters.provider !== 'ALL' : key === 'environment' && filters.environment !== 'ALL') ?? []
   return <section className="card secret-overview-health" aria-labelledby="secret-health-title">
-    <div className="secret-overview-section-title"><div><h2 id="secret-health-title">최근 검사 상태</h2><p>{filters.origin === 'TEST' ? '시험' : '운영'} 출처의 검사 대상 기준</p></div><Link to={withSecretOrigin('/secrets/history', filters.origin)}>스캔 이력</Link></div>
+    <div className="secret-overview-section-title"><div><h2 id="secret-health-title">최근 검사 상태</h2><p>현재 승인된 검사 대상 기준</p></div><Link to={withSecretOrigin('/secrets/history', filters.origin)}>스캔 이력</Link></div>
     {!available || !health ? <p className="secret-overview-muted">{summaryReason(health?.status)}</p> : <>
       {health.configuredConnectionCount === 0 ? <div className="secret-overview-health-empty"><p>현재 조회 조건에서 확인할 연결이 없어요.</p><Link to={withSecretOrigin('/secrets/connections', filters.origin)}>연결 관리</Link></div>
         : health.providers?.length ? <ul className="secret-overview-providers">{health.providers.map((item) => <ProviderHealth key={item.source} item={item} origin={filters.origin} />)}</ul>
-        : health.approvedScopeCount === 0 ? <div className="secret-overview-health-empty"><p>선택한 출처에 검사 대상이 없어요.</p><Link to={withSecretOrigin('/secrets/connections', filters.origin)}>검사 대상 확인</Link></div>
+        : health.approvedScopeCount === 0 ? <div className="secret-overview-health-empty"><p>등록된 검사 대상이 없어요.</p><Link to={withSecretOrigin('/secrets/connections', filters.origin)}>검사 대상 확인</Link></div>
         : <div className="secret-overview-health-empty"><p>검사 성공 {countText(health.counts?.success)} / {countText(health.approvedScopeCount)}개 대상</p><p>최근 시도 {health.lastAttempt?.requestedAt ? scanDate(health.lastAttempt.requestedAt) : '검사 기록 없음'}</p>{health.lastAttempt?.runId && <Link to={withSecretOrigin(`/secrets/history/${health.lastAttempt.runId}`, filters.origin)}>최근 실행 상세</Link>}</div>}
       {gaps && <div className="secret-overview-scan-warning"><strong>검사 누락·지연 {gapMetric!.value}개</strong><Link to={workbenchQueuePath(filters, 'COVERAGE_GAPS', summary.snapshotId)}>원인·복구 확인</Link></div>}
       {ignoredFilters.length > 0 && <p className="secret-overview-filter-note">{ignoredFilters.map(filterLabel).join('·')} 조건과 관계없이 검사 대상을 집계해요.</p>}
@@ -201,7 +201,7 @@ function CollectionHealth({ summary, filters }: { summary: WorkbenchSummary; fil
 }
 
 export function SecretOverviewPage() {
-  const [params, setParams] = useSearchParams()
+  const [params, setParams] = useSecretListParams(true)
   const client = useQueryClient()
   const { filters, valid } = parseWorkbenchFilters(params)
   const rawView = params.get('view')
@@ -223,10 +223,6 @@ export function SecretOverviewPage() {
     setParams(overviewSearch(next, view), { replace: true })
   }, [query.isSuccess, query.data, filters, invalidated, client, setParams, view])
 
-  const change = (key: string, value: string) => {
-    setRefreshError(false)
-    setParams(overviewSearch({ ...filters, [key]: value, snapshotId: '' }, view))
-  }
   const refresh = async () => {
     setRefreshing(true)
     setRefreshError(false)
@@ -251,13 +247,7 @@ export function SecretOverviewPage() {
   const listCount = preview?.status === 'AVAILABLE' ? countText(preview.total) : countText(selectedMetric?.value)
 
   return <>
-    <PageHeader title="시크릿 현황" description="발견한 키를 확인하고 조치 결과까지 추적하세요." actions={<><Link className="btn outline" to={inventoryPath(filters)}>키·발견 위치</Link><Link className="btn primary" to={withSecretOrigin('/secrets/history?request=scan', filters.origin)}>스캔 요청</Link></>} />
-    <section className="secret-overview-controls" aria-label="현황 조회 조건">
-      {(['origin', 'source', 'environment'] as const).map((key) => <label key={key}>{key === 'origin' ? '출처' : filterLabel(key)}<select className="select" value={filters[key]} disabled={refreshing} onChange={(event) => change(key, event.target.value)}>{Object.entries(workbenchOptions[key]).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>)}
-      <details><summary>추가 조건</summary><div>{(['provider', 'assignee'] as const).map((key) => <label key={key}>{filterLabel(key)}<select className="select" value={filters[key]} disabled={refreshing} onChange={(event) => change(key, event.target.value)}>{Object.entries(workbenchOptions[key]).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>)}{filters.connectionId && <button className="btn outline" onClick={() => setParams(overviewSearch({ ...filters, connectionId: null, snapshotId: '' }, view))}>연결 조건 해제</button>}</div></details>
-      <button className="btn outline" disabled={refreshing || !valid} onClick={() => void refresh()}>{refreshing ? '갱신 중…' : '새로고침'}</button>
-    </section>
-    {filters.origin === 'TEST' && <p className="secret-overview-origin-status"><strong>시험 출처</strong><span>실제 키 가능성이 있는 항목은 별도 경고에서 확인하세요.</span><button type="button" onClick={() => change('origin', 'PRODUCTION')}>운영 보기</button></p>}
+    <PageHeader title="시크릿 현황" description="발견한 키를 확인하고 조치 결과까지 추적하세요." actions={<><button className="btn outline" disabled={refreshing || !valid} onClick={() => void refresh()}>{refreshing ? '갱신 중…' : '새로고침'}</button><Link className="btn outline" to={inventoryPath(filters)}>키·발견 위치</Link><Link className="btn primary" to={withSecretOrigin('/secrets/history?request=scan', filters.origin)}>스캔 요청</Link></>} />
     {refreshError && <p className="notice error" role="alert">새 현황을 불러오지 못했어요. 기준시각을 확인하고 다시 조회하세요.</p>}
     {!valid ? <p className="notice error" role="alert">현황 조회 조건을 확인해 주세요. <Link to="/secrets">조건 초기화</Link></p>
       : invalidated ? <section className="card secret-overview-empty"><h2>조회 기준이 변경됐어요</h2><button className="btn primary" onClick={() => void refresh()}>최신 현황 조회</button></section>
@@ -277,7 +267,7 @@ export function SecretOverviewPage() {
           </section>
           <CollectionHealth summary={data} filters={filters} />
         </div>
-        {data.crossEnvironmentAlerts.status === 'AVAILABLE' && data.crossEnvironmentAlerts.value != null && data.crossEnvironmentAlerts.value > 0 && <section className="secret-overview-security-alert" aria-label="시험 출처의 실제 키 가능성 경고"><div><strong>시험 자료에서 실제 키 가능성이 있는 항목 {data.crossEnvironmentAlerts.value}건</strong><p>시험 출처 기준 · 해당 항목의 발견 위치와 검토 결과를 확인하세요.</p></div><Link to="/secrets/triage/alerts">해당 항목 확인</Link></section>}
+        {data.crossEnvironmentAlerts.status === 'AVAILABLE' && data.crossEnvironmentAlerts.value != null && data.crossEnvironmentAlerts.value > 0 && <section className="secret-overview-security-alert" aria-label="자격증명 여부 확인"><div><strong>자격증명 여부를 확인할 항목 {data.crossEnvironmentAlerts.value}건</strong><p>발견 위치와 실제 자격증명인지 확인한 근거를 검토하세요.</p></div><Link to="/secrets/triage/alerts">해당 항목 확인</Link></section>}
         <SecretRiskDistribution summary={data} filters={filters} />
         <footer className="secret-overview-footer"><Link to={inventoryPath(filters)}>키·발견 위치 목록</Link>{data.normalInventory.status === 'AVAILABLE' && data.normalInventory.value != null && <Link to={workbenchQueuePath(filters, 'NORMAL_INVENTORY', data.snapshotId)}>보관 승인·메타데이터·폐기 이력 {countText(data.normalInventory.value)}개 키</Link>}</footer>
       </> : null}

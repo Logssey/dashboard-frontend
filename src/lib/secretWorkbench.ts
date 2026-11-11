@@ -1,8 +1,9 @@
 import type { WorkbenchFilters, WorkbenchMetric } from '../api/secretSummary'
 import { positiveId } from './secretScan'
+import { canonicalSecretListParams, safeSecretSearch, validSecretSearch } from './secretReadSelection'
 
 export const workbenchOptions = {
-  origin: { PRODUCTION: '운영 출처', TEST: '시험 출처' },
+  origin: { ALL: '전체', PRODUCTION: '운영', TEST: '검증 자료', UNCLASSIFIED: '미분류' },
   source: { ALL: '전체 소스', GITHUB: 'GitHub', AWS: 'AWS', NOTION: 'Notion', KUBERNETES: 'Kubernetes' },
   provider: { ALL: '전체 발급자', GITHUB: 'GitHub', AWS: 'AWS', NOTION: 'Notion', KUBERNETES: 'Kubernetes' },
   environment: { ALL: '전체 환경', PROD: '운영 환경', DEV: '개발 환경', UNKNOWN: '환경 미확인' },
@@ -19,10 +20,11 @@ export const workbenchMetricLabels: Record<string, { title: string; unit: string
 }
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
 export function parseWorkbenchFilters(params: URLSearchParams): { filters: WorkbenchFilters; valid: boolean } {
+  params = canonicalSecretListParams(params)
   const values: Record<string, string> = {}
   let valid = true
   for (const key of ['origin', 'source', 'provider', 'environment', 'assignee'] as const) {
-    const value = params.get(key) ?? (key === 'origin' ? 'PRODUCTION' : key === 'assignee' ? '' : 'ALL')
+    const value = params.get(key) ?? (key === 'assignee' ? '' : 'ALL')
     if (!Object.hasOwn(workbenchOptions[key], value)) valid = false
     values[key] = value
   }
@@ -30,7 +32,9 @@ export function parseWorkbenchFilters(params: URLSearchParams): { filters: Workb
   if (params.get('connectionId') && !connectionId) valid = false
   const snapshotId = params.get('snapshotId') ?? ''
   if (snapshotId && !uuid.test(snapshotId)) valid = false
-  return { filters: { ...values, connectionId, snapshotId } as WorkbenchFilters, valid }
+  const q = (params.get('q') ?? '').trim()
+  if (!validSecretSearch(q)) valid = false
+  return { filters: { ...values, connectionId, snapshotId, ...(q ? { q } : {}) } as WorkbenchFilters, valid }
 }
 export function workbenchSearch(filters: WorkbenchFilters): URLSearchParams {
   const params = new URLSearchParams({ origin: filters.origin })
@@ -38,6 +42,7 @@ export function workbenchSearch(filters: WorkbenchFilters): URLSearchParams {
   if (filters.assignee) params.set('assignee', filters.assignee)
   if (filters.connectionId) params.set('connectionId', String(filters.connectionId))
   if (filters.snapshotId) params.set('snapshotId', filters.snapshotId)
+  if (filters.q) params.set('q', safeSecretSearch(filters.q))
   return params
 }
 export function workbenchQueuePath(filters: WorkbenchFilters, bucket: string, snapshotId: string, stages = ''): string {
@@ -57,7 +62,7 @@ export function availableMetric(metric: Pick<WorkbenchMetric, 'status' | 'value'
 export function summaryReason(status: string | undefined): string {
   return status === 'NOT_AUTHORIZED' ? '이 지표를 볼 권한이 없어요.' : status === 'NOT_APPLICABLE' ? '선택한 조건에 적용하지 않아요.' : '확인 가능한 집계가 없어요.'
 }
-export const filterLabel = (key: string) => ({ source: '소스', provider: '발급자', environment: '환경', connectionId: '연결', assignee: '담당자' } as Record<string, string>)[key] ?? '일부 조건'
+export const filterLabel = (key: string) => ({ source: '발견 플랫폼', provider: '키 발급 서비스', environment: '자원 환경', connectionId: '연결', assignee: '담당자' } as Record<string, string>)[key] ?? '일부 조건'
 export const workbenchBuckets: Record<string, { label: string; unit: string }> = {
   REVIEW_REQUIRED: { label: '확인 필요', unit: '위치' },
   NEEDS_DECISION: { label: '확인 필요', unit: '위치' },
@@ -66,7 +71,7 @@ export const workbenchBuckets: Record<string, { label: string; unit: string }> =
   CURRENT_CASES: { label: '현재 대응 건', unit: '대응 건' },
   NORMAL_INVENTORY: { label: '인벤토리', unit: '고유 키' },
   COVERAGE_GAPS: { label: '검사 누락', unit: '승인 범위' },
-  UNCLASSIFIED: { label: '운영·시험 분류 설정 확인', unit: '승인 범위' },
+  UNCLASSIFIED: { label: '검사 대상 설정 확인', unit: '승인 범위' },
 }
 export function safeWorkbenchReturn(query: string | null, focus?: string): string {
   const raw = new URLSearchParams(query ?? '')
@@ -87,5 +92,5 @@ export function safeWorkbenchReturn(query: string | null, focus?: string): strin
   return `/secrets/triage?${result}`
 }
 export function workbenchWhyLabel(code: string | undefined): string {
-  return ({ NEEDS_REVIEW: '위치·보관 근거 확인 필요', ACTIVE_RESPONSE: '확인된 노출의 대응 진행', CASE_LINK_REQUIRED: '노출 확인 · 대응 연결 필요', ACCESS_KEY_METADATA: '접근키 존재 정보', APPROVED_STORAGE: '정책에 따른 보관', PROVIDER_RETIREMENT_CONFIRMED: '공급자가 확인한 사용 종료', POLICY_PENDING: '보관 정책 확인 필요' } as Record<string, string>)[code ?? ''] ?? '현재 근거 확인 필요'
+  return ({ NEEDS_REVIEW: '위치·보관 근거 확인 필요', ACTIVE_RESPONSE: '확인된 노출의 대응 진행', CASE_LINK_REQUIRED: '노출 확인 · 대응 연결 필요', ACCESS_KEY_METADATA: '접근키 존재 정보', APPROVED_STORAGE: '정책에 따른 보관', PROVIDER_RETIREMENT_CONFIRMED: '공급자가 확인한 사용 종료', MANAGED_LOCATIONS_CONFIRMED: '보관·폐기 확인', POLICY_PENDING: '보관 정책 확인 필요' } as Record<string, string>)[code ?? ''] ?? '현재 근거 확인 필요'
 }

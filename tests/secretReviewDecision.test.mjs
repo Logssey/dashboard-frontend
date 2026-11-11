@@ -52,10 +52,10 @@ test('incomplete TEST review links preserve their origin when recovering through
   const html = renderContext(null, '/secrets/triage/12?origin=TEST')
   const urls = [...html.matchAll(/href="([^"]+)"/g)].map((match) => new URL(match[1].replaceAll('&amp;', '&'), 'http://local'))
   assert.equal(urls.find((url) => url.pathname === '/secrets/12').searchParams.get('origin'), 'TEST')
-  assert.equal(urls.find((url) => url.pathname === '/secrets/triage').searchParams.get('origin'), 'TEST')
+  assert.equal(urls.find((url) => url.pathname === '/secrets/triage').searchParams.get('origin'), 'ALL')
 })
 test('an existing TEST case link retains the exact occurrence and safe return filters', () => {
-  const returnQuery = 'origin=TEST&source=GITHUB&environment=DEV&bucket=NEEDS_CASE_LINK&page=3'
+  const returnQuery = 'origin=ALL&source=GITHUB&environment=DEV&bucket=NEEDS_CASE_LINK&page=3'
   const html = renderContext({ ...context, origin: 'TEST', allowedDecisions: [], caseLinkData: { ...context.caseLinkData, caseId: 6, caseOrigin: 'TEST' } }, `/secrets/triage/12?occurrence=8&returnQuery=${encodeURIComponent(returnQuery)}`)
   const href = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1].replaceAll('&amp;', '&')).find((href) => href.startsWith('/secrets/cases/6?'))
   const url = new URL(href, 'http://local')
@@ -64,10 +64,10 @@ test('an existing TEST case link retains the exact occurrence and safe return fi
   assert.equal(back.get('bucket'), 'NEEDS_CASE_LINK'); assert.equal(back.get('source'), 'GITHUB'); assert.equal(back.get('page'), '3')
 })
 test('case queue entry buttons preserve TEST origin, occurrence and the return list', () => {
-  const query = 'origin=TEST&bucket=ACTION_REQUIRED&snapshotId=11111111-1111-1111-1111-111111111111'
+  const query = 'origin=ALL&bucket=ACTION_REQUIRED&snapshotId=11111111-1111-1111-1111-111111111111'
   const { filters } = api.parseWorkbenchFilters(new URLSearchParams(query))
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, gcTime: Infinity } } })
-  client.setQueryData(['secret-review-queue', filters, 'ACTION_REQUIRED', '', 0, 0], { unit: 'ResponseCase', items: [{ caseId: 6, occurrenceId: 8, maskedLabel: '키 후보', stage: 'OPEN' }], total: 1, size: 20, asOf: '2026-10-21T00:00:00Z', snapshotId: filters.snapshotId })
+  client.setQueryData(['secret-review-queue', filters, 'ACTION_REQUIRED', '', 0, 0], { unit: 'ResponseCase', items: [{ caseId: 6, occurrenceId: 8, origin: 'TEST', maskedLabel: '키 후보', stage: 'OPEN' }], total: 1, size: 20, asOf: '2026-10-21T00:00:00Z', snapshotId: filters.snapshotId })
   const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [`/secrets/triage?${query}`] }, createElement(api.SecretTriageCandidatesPage))))
   const href = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1].replaceAll('&amp;', '&')).find((href) => href.startsWith('/secrets/cases/6?'))
   const url = new URL(href, 'http://local')
@@ -115,9 +115,9 @@ test('expired correction evidence stays historical and unavailable decisions exp
   assert.doesNotMatch(html, /탐지 #90 · 현재 적용 중/)
 })
 test('review return navigation preserves allowlisted origin, bucket, page and snapshot only', () => {
-  const params = new URLSearchParams({ returnQuery: 'origin=TEST&bucket=NEEDS_CASE_LINK&page=3&snapshotId=11111111-1111-1111-1111-111111111111&returnTo=https://example.invalid' })
+  const params = new URLSearchParams({ returnQuery: 'origin=ALL&bucket=NEEDS_CASE_LINK&page=3&snapshotId=11111111-1111-1111-1111-111111111111&returnTo=https://example.invalid' })
   const back = new URL(api.reviewReturnPath(params, 12, 8), 'http://localhost')
-  assert.equal(back.searchParams.get('origin'), 'TEST')
+  assert.equal(back.searchParams.get('origin'), 'ALL')
   assert.equal(back.searchParams.get('page'), '3')
   assert.equal(back.searchParams.get('focus'), '12:8')
   assert.equal(back.searchParams.has('returnTo'), false)
@@ -139,7 +139,7 @@ test('one exposure submission uses the atomic decision endpoint and separate sco
 
 test('a direct legacy review link returns to its verified origin without treating an unchecked sample as proof', () => {
   const back = new URL(api.reviewReturnPath(new URLSearchParams(), 12, 8, 'TEST'), 'http://localhost')
-  assert.equal(back.searchParams.get('origin'), 'TEST'); assert.equal(back.searchParams.get('focus'), '12:8')
+  assert.equal(back.searchParams.get('origin'), 'ALL'); assert.equal(back.searchParams.get('focus'), '12:8')
   const html = renderContext({ ...context, origin: 'TEST', validity: { result: 'UNCHECKED', reasonCode: 'SYNTHETIC_FIXTURE', observedAt: '2026-10-19T00:00:00Z' } })
   assert.match(html, /표본 분류로 검증 생략/); assert.match(html, /최근 검증 시도/)
 })

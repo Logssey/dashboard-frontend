@@ -43,7 +43,7 @@ function RunContent({ run }: { run: SecretScanRun }) {
         {resultAvailable ? <div className="secret-scan-counts"><div><span>탐지 근거 (Finding)</span><strong>{(run.findingCount == null ? '—' : findingCountLabel(run.findingCount, run.coverageComplete)).replace('개', '건')}</strong></div><div><span>고유 키 후보</span><strong>{(run.distinctCredentialCount == null ? '—' : findingCountLabel(run.distinctCredentialCount, run.coverageComplete))}</strong></div><div><span>처음 발견한 키 후보</span><strong>{(run.newCredentialCount == null ? '—' : findingCountLabel(run.newCredentialCount, run.coverageComplete))}</strong></div></div> : <><p className="caption">발견 결과 —</p><details><summary>집계 확인 범위</summary><p>결과 확인 불가 · 실행과 발견 결과의 연결 근거가 없거나 집계 대상이 아니에요.</p></details></>}
         {run.coverageComplete === false && <p className="notice">확인된 범위의 결과예요. 누락된 범위의 후보 수는 확인할 수 없어요.</p>}
         {run.newCredentialCount == null && resultAvailable && <details className="secret-run-count-note"><summary>신규 키 수를 표시하지 않는 이유</summary><p className="caption">신규 후보 집계 근거가 없거나 적용되지 않아 숫자를 표시하지 않아요.</p></details>}
-        {run.capabilities?.canViewFindings && <div className="row"><Link className="btn primary" to={withSecretOrigin(`/secrets/history/${run.runId}/findings`, params)}>이 실행의 탐지 근거</Link><Link className="btn outline" to={withSecretOrigin(`/secrets/findings?runId=${run.runId}`, params.get('origin') ?? 'PRODUCTION')}>실행 키 목록 · 출처별</Link></div>}
+        {run.capabilities?.canViewFindings && <div className="row"><Link className="btn primary" to={`/secrets/history/${run.runId}/findings`}>이 실행의 탐지 근거</Link><Link className="btn outline" to={`/secrets/findings?origin=ALL&runId=${run.runId}`}>이 실행에서 찾은 키</Link></div>}
       </>}
     </section>
     <section className="card secret-scan-section" aria-labelledby="coverage-title"><h2 id="coverage-title">범위 커버리지</h2>
@@ -82,7 +82,7 @@ export function SecretRunDetailPage() {
   const error = detail.error
   return <>
     <Link className="secret-scan-back" to={withSecretOrigin(historyReturnPath(params, runId ?? undefined), params)}>← 이력으로 돌아가기</Link>
-    <section className="page-head"><div><h1 ref={title} tabIndex={-1}>{runId ? `SCAN-${runId}` : '실행 상세'}</h1><p className="subtitle">이 실행의 검사 범위와 확인 결과예요.</p></div></section>
+    <section className="page-head"><div><h1 ref={title} tabIndex={-1}>{runId ? `SCAN-${runId}` : '실행 상세'}</h1><p className="subtitle">이 실행의 검사 범위와 확인 결과예요.</p></div>{detail.data && <Link className="btn outline" to={`/secrets/connections?connectionId=${detail.data.connectionId}&runId=${detail.data.runId}`}>단계별 실행 보기</Link>}</section>
     {!runId ? <div className="card secret-scan-message" role="alert">올바른 실행 주소가 아니에요. 실행 ID는 양의 정수여야 해요.</div> : detail.isPending ? <div className="card secret-scan-message" role="status">실행 상세를 불러오는 중이에요.</div> : detail.isError ? <div className="card secret-scan-message" role="alert"><h2>{error instanceof ApiError && error.status === 403 ? '접근 권한이 없어요' : error instanceof ApiError && error.status === 404 ? '실행을 찾을 수 없어요' : '실행 상세를 불러오지 못했어요'}</h2><p>허용된 이력 목록으로 돌아가거나 다시 조회해 주세요.</p>{!(error instanceof ApiError && [403, 404].includes(error.status)) && <button className="btn outline" onClick={() => void detail.refetch()}>다시 조회</button>}</div> : <RunContent key={runId} run={detail.data} />}
   </>
 }

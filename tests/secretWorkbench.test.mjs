@@ -17,7 +17,7 @@ for (const [key, entry] of Object.entries({ lib: 'src/lib/secretWorkbench.ts', o
 }
 after(() => Promise.all(paths.map((path) => unlink(path))))
 const snapshotId = 'c61d954e-9a37-4715-bcfb-2284d9cfac27'
-const query = `origin=TEST&source=GITHUB&provider=AWS&environment=DEV&connectionId=9&assignee=ME&snapshotId=${snapshotId}`
+const query = `origin=ALL&snapshotId=${snapshotId}`
 const filters = modules.lib.parseWorkbenchFilters(new URLSearchParams(query)).filters
 const metric = (key, unit, value, status = 'AVAILABLE') => ({ key, unit, value, status, reasonCode: null, appliedFilters: {}, notApplicableFilters: key === 'coverageGapScopes' ? ['provider', 'environment', 'assignee'] : [], queueFilter: key === 'ongoingCases' ? { bucket: 'ACTION_REQUIRED', stages: 'OPEN,IN_PROGRESS' } : {} })
 const summary = {
@@ -42,7 +42,7 @@ test('actual work rows and their destination retain every filter and the exact s
   for (const url of links) for (const [key, value] of new URLSearchParams(query)) assert.equal(url.searchParams.get(key), value)
   assert.match(html, /AWS ••••A1B2/); assert.match(html, /주문 서비스 설정/); assert.match(html, /보안 담당자/)
   const caseLink = decodeLinks(html).find((url) => url.pathname === '/secrets/cases/7')
-  assert.equal(caseLink.searchParams.get('origin'), 'TEST'); assert.equal(caseLink.searchParams.get('occurrence'), '8')
+  assert.equal(caseLink.searchParams.get('origin'), 'ALL'); assert.equal(caseLink.searchParams.get('occurrence'), '8')
   for (const [key, value] of new URLSearchParams(query)) assert.equal(new URLSearchParams(caseLink.searchParams.get('returnQuery')).get(key), value)
   assert.match(html, /최근 검사 상태/); assert.match(html, /최근 시도/)
   assert.ok(decodeLinks(html).some((url) => url.pathname === '/secrets/history/5'))
@@ -51,18 +51,18 @@ test('actual work rows and their destination retain every filter and the exact s
 test('reason-based setup stays after actual security work and separates paused connections', () => {
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
   assert.ok(html.indexOf('지금 처리할 업무') < html.indexOf('<summary>검사 대상 설정'))
-  assert.match(html, /선택한 출처의 설정 보완/); assert.match(html, /출처 미분류/); assert.match(html, /중지된 연결의 설정 보완/)
+  assert.match(html, /검사 대상 설정 보완/); assert.match(html, /추가 설정 검토/); assert.match(html, /중지된 연결의 설정 보완/)
   assert.match(html, /보관 정책 미설정 1/)
   assert.doesNotMatch(html, /setup-title|분류·보관 규칙을 확인할 검사 대상/)
 })
-test('an empty filtered work queue offers a filter reset without fake activity', () => {
-  const operating = { ...filters, origin: 'PRODUCTION' }
+test('an empty unified work queue provides discovery and history entry without fake activity', () => {
+  const operating = filters
   const empty = { status: 'AVAILABLE', unit: 'Occurrence', total: 0, items: [], snapshotId }
   const value = { ...summary, workPreviews: { ...Object.fromEntries(Object.entries(summary.workPreviews).map(([key, preview]) => [key, { ...preview, total: 0, items: [] }])), review: empty } }
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${modules.lib.workbenchSearch(operating)}`, [[['secret-summary', operating], value]])
-  assert.match(html, /선택한 조건에 맞는 업무가 없어요/)
+  assert.match(html, /현재 확인할 발견이 없어요/)
   const links = decodeLinks(html)
-  assert.ok(links.some((url) => url.pathname === '/secrets' && url.searchParams.get('origin') === 'PRODUCTION' && !url.searchParams.has('source') && !url.searchParams.has('snapshotId')))
+  assert.doesNotMatch(html, /현황 조회 조건|시험 출처|운영 보기/)
   assert.ok(links.some((url) => url.pathname === '/secrets/findings'))
   assert.doesNotMatch(html, /AWS ••••A1B2|모두 안전|전체 성공/)
 })
@@ -107,7 +107,7 @@ test('case and key details return to the workbench list with its origin, filters
     assert.equal(url.pathname, '/secrets/triage'); assert.equal(url.searchParams.get('page'), '3'); assert.equal(url.searchParams.get('snapshotId'), snapshotId)
     for (const [key, value] of new URLSearchParams(query)) assert.equal(url.searchParams.get(key), value)
   }
-  assert.equal(modules.lib.parseWorkbenchFilters(new URLSearchParams('origin=UNCLASSIFIED')).valid, false)
+  assert.equal(modules.lib.parseWorkbenchFilters(new URLSearchParams('origin=UNCLASSIFIED')).valid, true)
   assert.equal(modules.lib.parseWorkbenchFilters(new URLSearchParams('source=__proto__')).valid, false)
   assert.equal(modules.lib.safeWorkbenchReturn('bucket=EVIL'), '/secrets/triage')
 })
@@ -137,14 +137,14 @@ test('overview shows at most three real work rows while retaining the server tot
   assert.match(html, /최근 시도/)
 })
 
-test('overview navigation retains TEST discovery filters without transferring its workbench snapshot', () => {
+test('overview navigation opens unified lists without transferring its workbench snapshot', () => {
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
   const links = decodeLinks(html)
   for (const url of links.filter((url) => url.pathname === '/secrets/findings')) {
     for (const key of ['origin', 'source', 'provider', 'environment']) assert.equal(url.searchParams.get(key), filters[key])
     assert.equal(url.searchParams.has('snapshotId'), false)
   }
-  for (const url of links.filter((url) => url.pathname === '/secrets/history' || url.pathname === '/secrets/connections' && url.searchParams.has('origin'))) assert.equal(url.searchParams.get('origin'), 'TEST')
+  for (const url of links.filter((url) => url.pathname === '/secrets/history' || url.pathname === '/secrets/connections' && url.searchParams.has('origin'))) assert.equal(url.searchParams.get('origin'), null)
   assert.doesNotMatch(html, /위치 정보 미제공/)
 })
 
@@ -169,13 +169,13 @@ test('three task selectors use the server review union and open occurrence revie
   assert.equal(new URLSearchParams(target.searchParams.get('returnQuery')).get('bucket'), 'REVIEW_REQUIRED')
 })
 
-test('empty states distinguish missing connections, another origin and skipped current scopes', () => {
+test('empty states distinguish missing connections, absent targets and skipped current scopes', () => {
   const unfiltered = { ...filters, source: 'ALL', provider: 'ALL', environment: 'ALL', connectionId: null, assignee: '' }
   const empty = { status: 'AVAILABLE', unit: 'Occurrence', total: 0, items: [], snapshotId }
   const value = { ...summary, workPreviews: { ...summary.workPreviews, review: empty } }
   const states = [
     [{ configuredConnectionCount: 0, approvedScopeCount: 0 }, '검사할 연결을 등록하세요'],
-    [{ configuredConnectionCount: 2, approvedScopeCount: 0 }, '선택한 출처에 검사 대상이 없어요'],
+    [{ configuredConnectionCount: 2, approvedScopeCount: 0 }, '등록된 검사 대상이 없어요'],
     [{ configuredConnectionCount: 2, approvedScopeCount: 8, counts: { ...summary.collectionHealth.counts, success: 0, partial: 0, failed: 0, notRun: 8 } }, '현재 검사 대상을 확인하세요'],
   ]
   for (const [health, text] of states) {
@@ -198,7 +198,7 @@ test('source health uses complete provider counts and exact execution links with
   assert.match(html, /미검사·건너뜀 1개/)
   assert.doesNotMatch(html, /정상 확인|조건은 업무 목록에 적용/)
   const links = decodeLinks(html)
-  assert.ok(links.some((url) => url.pathname === '/secrets/history/81' && url.searchParams.get('origin') === 'TEST'))
+  assert.ok(links.some((url) => url.pathname === '/secrets/history/81' && !url.searchParams.has('origin')))
   assert.ok(links.some((url) => url.pathname === '/secrets/history/82'))
 })
 

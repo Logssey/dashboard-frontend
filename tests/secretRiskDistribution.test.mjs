@@ -15,7 +15,7 @@ await writeFile(modulePath, output.outputFiles[0].contents)
 const api = await import(pathToFileURL(modulePath).href)
 after(() => unlink(modulePath))
 const snapshotId = 'c61d954e-9a37-4715-bcfb-2284d9cfac27'
-const filters = { origin: 'TEST', source: 'GITHUB', provider: 'AWS', environment: 'DEV', assignee: 'ME', connectionId: 9, snapshotId }
+const filters = { origin: 'ALL', source: 'GITHUB', provider: 'AWS', environment: 'DEV', assignee: 'ME', connectionId: 9, snapshotId }
 const cells = api.riskSeverities.flatMap((severity) => api.riskValidities.map((validity) => ({ severity, validity, value: severity === 'HIGH' && validity === 'VALID' ? 2 : severity === 'UNASSESSED' && validity === 'UNKNOWN' ? 1 : severity === 'NOT_APPLICABLE' && validity === 'UNCHECKED' ? 1 : 0, queueFilter: {} })))
 const summary = { snapshotId, caseSummary: { severityStatus: 'AVAILABLE', severityCounts: { CRITICAL: 0, HIGH: 2, MEDIUM: 0, LOW: 0, UNASSESSED: 1 }, notApplicableCaseCount: 1, severityValidityMatrix: { status: 'AVAILABLE', scope: 'currentCases', unit: 'ResponseCase', total: 4, rows: api.riskSeverities, columns: api.riskValidities, cells, staleValidationCaseCount: 1 } } }
 const render = (component, props = {}, path = '/', entries = []) => {

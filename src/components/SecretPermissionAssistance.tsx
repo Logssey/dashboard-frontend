@@ -23,7 +23,7 @@ export function PermissionPrerequisites({ context, collector, onCollector, disab
   const github = context.identity.provider === 'GITHUB'
   const selected = context.collectorOptions.find((option) => String(option.connectionId) === collector)
   return <div className="secret-permission-prerequisites">
-    {ready.isSynthetic ? <p className="notice">승인된 합성 표본이에요. 실제 공급자 인증·권한 조회를 실행하지 않으며, 시험 기록을 실제 키의 인증·권한 증명으로 사용하지 않아요.</p> : location?.origin === 'TEST' ? <p className="notice">시험 출처에 있는 키예요. 시험 출처만으로 합성 키라고 판단하지 않아요. 실제 키 가능성과 검증 허용을 먼저 확인하세요.</p> : null}
+    {ready.isSynthetic ? <p className="notice">승인된 합성 표본이에요. 실제 공급자 인증·권한 조회를 실행하지 않으며, 공급자 인증·권한 근거는 별도로 확인해요.</p> : null}
     {location && <p className="caption">현재 확인할 위치: {location.safeLocationLabel}</p>}
     <ol aria-label="권한 확인 순서">
       <li><div className="secret-permission-step-title"><strong>현재 키의 유효성 확인</strong><span>{ready.isSynthetic ? '공급자 호출 안 함' : ready.identityReady ? '확인됨' : '먼저 확인'}</span></div><p>{ready.identityReady ? '최근 인증 결과의 주체와 이 키가 연결되어 있어요. 유효성은 접근 가능한 전체 권한을 증명하지 않아요.' : aws ? '선택한 발견 위치에서 현재 키로 인증 가능한지 확인하고 주체를 연결해요. 완전한 키 쌍이 필요하며 임시 키는 세션 토큰도 필요해요.' : '선택한 발견 위치에서 현재 토큰으로 인증 가능한지 확인하고 주체를 연결해요. 공급자 인증과 저장소 접근 범위는 구분해요.'}</p>

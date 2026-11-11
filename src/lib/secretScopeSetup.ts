@@ -8,7 +8,7 @@ export const setupReasonLabels: Record<string, string> = {
 }
 export const approvalReasonLabels: Record<string, string> = {
   SECURITY_REVIEW_REQUIRED: '보안 담당자 검토가 필요해요.',
-  TEST_CLASSIFICATION_REQUIRES_REVIEW: '시험 출처 지정은 별도 검토를 거쳐요.',
+  TEST_CLASSIFICATION_REQUIRES_REVIEW: '이전 설정 변경의 검토가 필요해요.',
   POLICY_BINDING_CHANGE: '보관 정책 변경은 별도 검토를 거쳐요.',
 }
 export function scopeSetupReasons(scope: ScopeClassification): string[] {

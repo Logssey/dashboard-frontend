@@ -39,15 +39,15 @@ function render(Component, props, seeds = []) {
   return renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(Component, { ...common, ...props })))
 }
 test('case detail round trip keeps filters, page and focus without accepting an external return', () => {
-  const { filters, valid } = parseCaseFilters(new URLSearchParams('origin=TEST&scope=history&stages=RESOLVED&assignmentStatus=PERSONAL&assignee=ME&page=4'))
+  const { filters, valid } = parseCaseFilters(new URLSearchParams('origin=ALL&scope=history&stages=RESOLVED&assignmentStatus=PERSONAL&assignee=ME&page=4'))
   assert.equal(valid, true)
   const href = caseDetailPath(7, filters, 11)
   assert.match(href, /^\/secrets\/cases\/7\?/)
   const returnPath = caseReturnPath(new URL(href, 'http://local').searchParams, 7)
   const params = new URL(returnPath, 'http://local').searchParams
-  assert.equal(params.get('origin'), 'TEST'); assert.equal(params.get('page'), '4'); assert.equal(params.get('focus'), '7')
+  assert.equal(params.get('origin'), 'ALL'); assert.equal(params.get('page'), '4'); assert.equal(params.get('focus'), '7')
   assert.match(caseReturnPath(new URLSearchParams('returnQuery=https://evil.invalid'), 7), /^\/secrets\/cases\?/)
-  assert.equal(new URL(caseReturnPath(new URLSearchParams('origin=TEST&occurrence=11'), 7), 'http://local').searchParams.get('origin'), 'TEST')
+  assert.equal(new URL(caseReturnPath(new URLSearchParams('origin=ALL&occurrence=11'), 7), 'http://local').searchParams.get('origin'), 'ALL')
   assert.equal(parseCaseFilters(new URLSearchParams('page=0&stages=FAKE')).valid, false)
 })
 test('external action references and times reject secrets, paths and stale or future reports', () => {

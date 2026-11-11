@@ -81,7 +81,7 @@ test('provider procedures are visible before readiness loads and missing AI keys
   assert.match(JSON.stringify(github), /GitHub 설정|토큰 종류|감사·보안 기록/)
 })
 test('configuration failures, test eligibility and provider failures have distinct honest fallback messages', () => {
-  for (const [code, expected] of [['DISABLED', /기능이 꺼져/], ['KEY_MISSING', /키가 설정되지/], ['KEY_INVALID', /키 설정을 사용할 수 없어요/], ['SYNTHETIC_FIXTURE_REQUIRED', /시험 출처만으로 합성 키라고 판단하지 않아요/], ['TEST_ONLY', /운영 키의 대응에는 기본 가이드/], ['ALL_LOCATIONS_ACCESS_REQUIRED', /모든 위치를 열람/], ['PROVIDER_TIMEOUT', /응답 시간이 초과/], ['PROVIDER_REJECTED', /요청을 거절/], ['PROVIDER_UNAVAILABLE', /연결하지 못하여/]]) {
+  for (const [code, expected] of [['DISABLED', /기능이 꺼져/], ['KEY_MISSING', /키가 설정되지/], ['KEY_INVALID', /키 설정을 사용할 수 없어요/], ['SYNTHETIC_FIXTURE_REQUIRED', /합성 키 여부는 정확한 비교 근거로 판단해요/], ['TEST_ONLY', /실제 키의 대응에는 기본 가이드/], ['ALL_LOCATIONS_ACCESS_REQUIRED', /모든 위치를 열람/], ['PROVIDER_TIMEOUT', /응답 시간이 초과/], ['PROVIDER_REJECTED', /요청을 거절/], ['PROVIDER_UNAVAILABLE', /연결하지 못하여/]]) {
     const guide = { ...defaultGuide, readiness: { ...readiness, reasonCode: code, status: code.startsWith('PROVIDER_') ? 'FALLBACK' : 'UNAVAILABLE', aiRequested: code.startsWith('PROVIDER_'), providerCalled: code.startsWith('PROVIDER_') } }
     const html = renderGuide(guide)
     assert.match(html, expected); assert.match(html, /기본 가이드/); assert.match(html, /AWS IAM/)

@@ -26,27 +26,27 @@ function renderPage(Component, path, url, entries = []) {
   return html
 }
 
-test('inventory defaults to production value candidates and rejects prototype filters', () => {
+test('inventory defaults to all permitted records and rejects prototype filters', () => {
   const { filters, errors } = parseInventoryFilters(new URLSearchParams())
-  assert.equal(filters.origin, 'PRODUCTION')
-  assert.equal(filters.contentKind, 'VALUE_FINDINGS')
+  assert.equal(filters.origin, 'ALL')
+  assert.equal(filters.contentKind, 'ALL')
   assert.equal(filters.workBucket, 'ALL')
   assert.equal(errors.length, 0)
   assert.equal(parseInventoryFilters(new URLSearchParams('origin=constructor&workBucket=toString')).errors.length, 2)
   assert.ok(parseInventoryFilters(new URLSearchParams('snapshotId=not-a-snapshot')).errors.length)
 })
 test('key detail keeps inventory snapshot, origin, filters and page with an allowlisted return path', () => {
-  const { filters } = parseInventoryFilters(new URLSearchParams(`page=3&origin=TEST&contentKind=METADATA&workBucket=NEEDS_CASE_LINK&snapshotId=${snapshotId}`))
+  const { filters } = parseInventoryFilters(new URLSearchParams(`page=3&origin=ALL&contentKind=METADATA&workBucket=NEEDS_CASE_LINK&snapshotId=${snapshotId}`))
   const path = new URL(keyDetailPath(12, filters), 'http://localhost')
   assert.equal(path.pathname, '/secrets/12')
-  assert.equal(path.searchParams.get('origin'), 'TEST')
+  assert.equal(path.searchParams.get('origin'), 'ALL')
   const back = new URL(inventoryReturnPath(path.searchParams, 12), 'http://localhost')
   assert.equal(back.pathname, '/secrets/findings')
   assert.equal(back.searchParams.get('page'), '3')
   assert.equal(back.searchParams.get('snapshotId'), snapshotId)
   assert.equal(back.searchParams.get('focus'), '12')
   assert.equal(inventoryReturnPath(new URLSearchParams('return=https://example.invalid'), 12), '/secrets/findings')
-  for (const origin of ['TEST', 'UNCLASSIFIED']) assert.equal(inventoryReturnPath(new URLSearchParams({ origin }), 12), `/secrets/findings?origin=${origin}`)
+  for (const origin of ['TEST', 'UNCLASSIFIED']) assert.equal(inventoryReturnPath(new URLSearchParams({ origin }), 12), '/secrets/findings')
   assert.equal(inventoryReturnPath(new URLSearchParams('origin=evil'), 12), '/secrets/findings')
 })
 test('independent key detail displays present, missing and unknown together without declaring resolution', () => {
@@ -54,19 +54,19 @@ test('independent key detail displays present, missing and unknown together with
   const { filters } = parseLocationFilters(params)
   const locations = { credentialSetId: 12, credential: item, detailVersion: 'v1', items: [location(1, 'PRESENT'), location(2, 'MISSING'), location(3, 'UNKNOWN')], total: 3, visibleLocationCount: 3, page: 0, size: 20, origin: 'TEST', locationStateCounts: { presence: { PRESENT: 1, MISSING: 1, UNKNOWN: 1 }, exposure: { UNKNOWN: 3 } }, restrictedCoverage: true, readAt: '2026-10-21T01:00:00Z' }
   const html = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [
-    [['secret-detail', 12, 'TEST'], item], [['secret-key-locations', 12, filters, 0], locations],
+    [['secret-detail', 12, 'ALL'], item], [['secret-key-locations', 12, filters, 0], locations],
   ])
   assert.match(html, /마지막 검사에서 발견/)
   assert.match(html, /마지막 검사에서 미발견/)
   assert.match(html, /검사 근거 미확인/)
   assert.match(html, /현재 존재 확인 불가/)
   assert.match(html, /열람 가능한 위치 기준/)
-  assert.match(html, /합성 데이터 여부 미확인/)
+  assert.doesNotMatch(html, /시험 출처|합성 데이터 여부 미확인/)
   assert.doesNotMatch(html, /해결에 필요한 근거|조치 후 위치 미발견<\/dt>/)
   assert.doesNotMatch(html, /must-not-render|키 전체 노출|해결 완료<\/button>|원문 보기/)
   const linked = { ...locations, items: locations.items.map((row) => row.occurrenceId === 2 ? { ...row, caseId: 7, capabilities: { ...row.capabilities, canViewCase: true } } : row) }
   const linkedHtml = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [
-    [['secret-detail', 12, 'TEST'], item], [['secret-key-locations', 12, filters, 0], linked],
+    [['secret-detail', 12, 'ALL'], item], [['secret-key-locations', 12, filters, 0], linked],
   ])
   assert.match(linkedHtml, /<details[^>]*><summary>조치·검사 근거 자세히<\/summary>/)
   assert.match(linkedHtml, /조치 후 위치 미발견<\/dt><dd>근거 확인 필요/)
@@ -80,8 +80,8 @@ test('inventory makes metadata and value candidate filters explicit and uses saf
   assert.match(html, /메타데이터/)
   assert.match(html, /접근키 존재 정보/)
   assert.match(html, /단위: 고유 키/)
-  assert.match(html, /href="\/secrets\/12\?origin=TEST/)
-  assert.match(html, /실제 키일 수 있으며/)
+  assert.match(html, /href="\/secrets\/12\?origin=ALL/)
+  assert.doesNotMatch(html, /시험 출처|운영·시험/)
   assert.doesNotMatch(html, /키 전체 노출|dialog|secret-history-detail-title/)
 })
 
@@ -93,7 +93,7 @@ test('a failed latest scope scan preserves earlier success without claiming curr
     lastSuccessfulScan: { runId: 8, requestedAt: '2026-10-20T01:00:00Z', finishedAt: '2026-10-20T01:01:00Z' },
     gapReasonCodes: ['LAST_ATTEMPT_INCOMPLETE'], freshness: 'CURRENT', isPaused: false, isRunning: false } }
   const html = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [
-    [['secret-detail', 12, 'TEST'], item], [['secret-key-locations', 12, filters, 0], {
+    [['secret-detail', 12, 'ALL'], item], [['secret-key-locations', 12, filters, 0], {
       credentialSetId: 12, credential: item, items: [row], total: 1, visibleLocationCount: 1, detailVersion: 'v1',
       locationStateCounts: { presence: { PRESENT: 0, MISSING: 0, UNKNOWN: 1 } }, restrictedCoverage: true,
     }],
@@ -119,7 +119,7 @@ test('keys without a current case expose a closed provider procedure after the e
     const key = { ...item, issuer, currentCaseId: null, casesByOrigin: [] }
     const locations = { credentialSetId: 12, credential: key, detailVersion: 'v1', items: [location(1, 'UNKNOWN')], total: 1, visibleLocationCount: 1, page: 0, size: 20, origin: 'TEST', restrictedCoverage: true }
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } })
-    client.setQueryData(['secret-detail', 12, 'TEST'], key)
+    client.setQueryData(['secret-detail', 12, 'ALL'], key)
     client.setQueryData(['secret-key-locations', 12, filters, 0], locations)
     const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [`/secrets/12?${params}`] }, createElement(Routes, null, createElement(Route, { path: '/secrets/:secretId', element: createElement(SecretKeyDetailPage) })))))
     assert.match(html, /<details class="card secret-key-action-guide"><summary><strong>키 조치 안내<\/strong>/)
@@ -129,7 +129,7 @@ test('keys without a current case expose a closed provider procedure after the e
     assert.equal(client.getQueryCache().getAll().some((query) => ['secret-case-guide', 'secret-case'].includes(query.queryKey[0])), false)
     client.clear()
     const linked = { ...key, currentCaseId: 7, casesByOrigin: [{ origin: 'TEST', caseId: 7 }] }
-    const linkedHtml = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [[['secret-detail', 12, 'TEST'], linked], [['secret-key-locations', 12, filters, 0], { ...locations, credential: linked }]])
+    const linkedHtml = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [[['secret-detail', 12, 'ALL'], linked], [['secret-key-locations', 12, filters, 0], { ...locations, credential: linked }]])
     assert.doesNotMatch(linkedHtml, /secret-key-action-guide/)
   }
 })

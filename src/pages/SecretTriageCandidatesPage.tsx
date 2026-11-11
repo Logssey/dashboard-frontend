@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { ApiError } from '@/api/client'
 import { fetchWorkbenchQueue, type WorkbenchQueueItem } from '@/api/secretWorkbenchQueue'
 import { SecretTaskGuidance } from '@/components/SecretTaskGuidance'
 import { setupReasonLabels } from '@/lib/secretScopeSetup'
+import { SecretFilterDisclosure } from '@/components/SecretFilterDisclosure'
+import { useSecretListParams } from '@/lib/useSecretListParams'
+import { changedSecretListParams } from '@/lib/secretReadSelection'
 import { PageHeader } from '@/components/PageHeader'
 import { componentStateLabel } from '@/lib/labels'
 import { caseRiskSeverityLabels, caseRiskValidityLabels, parseCaseRiskSelection } from '@/lib/secretRiskDistribution'
@@ -21,13 +24,13 @@ function targetLink(item: WorkbenchQueueItem, unit: string, params: URLSearchPar
   const secretId = item.credentialSetId ?? item.secretId
   const returnQuery = params.toString()
   if (unit === 'Scope') return { href: item.connectionId && item.scopeId ? params.get('bucket') === 'COVERAGE_GAPS' ? `/secrets/connections/${item.connectionId}/scopes?scopeId=${item.scopeId}&return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : `/secrets/connections/${item.connectionId}/scopes/${item.scopeId}?return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : null, title: item.safeDisplayAlias ?? `범위 #${item.scopeId ?? '미확인'}`, action: '검사 대상 설정 열기', focus: String(item.scopeId ?? '') }
-  if (unit === 'ResponseCase') return { href: item.caseId ? `/secrets/cases/${item.caseId}?${new URLSearchParams({ origin: params.get('origin') === 'TEST' ? 'TEST' : 'PRODUCTION', ...(item.occurrenceId ? { occurrence: String(item.occurrenceId) } : {}), return: 'workbench', returnQuery })}` : null, title: `CASE-${item.caseId ?? '미확인'}`, action: '대응 건 확인', focus: String(item.caseId ?? '') }
-  return { href: secretId ? item.occurrenceId ? reviewDetailPath(secretId, item.occurrenceId, params) : `/secrets/${secretId}?origin=${params.get('origin') ?? 'PRODUCTION'}&return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : null, title: item.maskedLabel ?? (secretId ? `키 #${secretId}` : '대상 미확인'), action: item.occurrenceId ? '위치 근거 확인' : '키 상세', focus: item.occurrenceId ? `${secretId}:${item.occurrenceId}` : String(secretId ?? '') }
+  if (unit === 'ResponseCase') return { href: item.caseId ? `/secrets/cases/${item.caseId}?${new URLSearchParams({ origin: item.origin ?? 'ALL', ...(item.occurrenceId ? { occurrence: String(item.occurrenceId) } : {}), return: 'workbench', returnQuery })}` : null, title: `CASE-${item.caseId ?? '미확인'}`, action: '대응 건 확인', focus: String(item.caseId ?? '') }
+  return { href: secretId ? item.occurrenceId ? reviewDetailPath(secretId, item.occurrenceId, params) : `/secrets/${secretId}?origin=${params.get('origin') ?? 'ALL'}&return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : null, title: item.maskedLabel ?? (secretId ? `키 #${secretId}` : '대상 미확인'), action: item.occurrenceId ? '위치 근거 확인' : '키 상세', focus: item.occurrenceId ? `${secretId}:${item.occurrenceId}` : String(secretId ?? '') }
 }
 export function SecretTriageCandidatesPage() {
-  const [params, setParams] = useSearchParams(), client = useQueryClient()
+  const [params, setParams] = useSecretListParams(), client = useQueryClient()
   const { filters, valid: filtersValid } = parseWorkbenchFilters(params)
-  const bucket = params.get('bucket') ?? 'NEEDS_DECISION', stages = params.get('stages') ?? ''
+  const bucket = params.get('bucket') ?? 'REVIEW_REQUIRED', stages = params.get('stages') ?? ''
   const risk = parseCaseRiskSelection(params), caseBucket = ['CURRENT_CASES', 'ACTION_REQUIRED'].includes(bucket)
   const page = (positiveId(params.get('page')) ?? 1) - 1
   const [refreshVersion, setRefreshVersion] = useState(0), restored = useRef('')
@@ -50,14 +53,26 @@ export function SecretTriageCandidatesPage() {
     const link = document.getElementById(`review-link-${focus.replace(':', '-')}`)
     if (link) { link.focus({ preventScroll: true }); link.scrollIntoView({ block: 'center' }); restored.current = focus }
   }, [queue.isSuccess, queue.data, params])
-  const change = (name: string, value: string) => { const next = new URLSearchParams(params); value ? next.set(name, value) : next.delete(name); if (!['severity', 'validity'].includes(name)) next.delete('snapshotId'); next.delete('focus'); next.set('page', '1'); if (name === 'bucket') { next.delete('stages'); next.delete('severity'); next.delete('validity') } setParams(next) }
   const refresh = () => { const next = new URLSearchParams(params); next.delete('snapshotId'); next.delete('focus'); next.set('page', '1'); setRefreshVersion((value) => value + 1); setParams(next) }
   const selection = workbenchBuckets[bucket]
-  const origin = filters.origin
   const overviewParams = workbenchSearch(filters)
-  return <><Link className="secret-scan-back" to={`/secrets?${overviewParams}`}>← 같은 기준의 현황</Link><PageHeader title="확인 대기열" description="같은 기준시각의 대상과 다음 작업을 확인하세요." actions={<><Link className="btn outline" to="/secrets/triage/investigations">추가 조사</Link><Link className="btn outline" to="/secrets/triage/alerts">실키 경고</Link></>} />
-    <section className="card secret-scan-filters"><label>할 일<select className="select" value={bucket} onChange={(e) => change('bucket', e.target.value)}>{Object.entries(workbenchBuckets).map(([code, config]) => <option key={code} value={code}>{config.label}</option>)}</select></label>{(['origin', 'source', 'provider', 'environment', 'assignee'] as const).map((name) => <label key={name}>{({ origin: '출처', source: '소스', provider: '발급자', environment: '환경', assignee: '담당' })[name]}<select className="select" value={filters[name]} onChange={(e) => change(name, e.target.value)}>{Object.entries(workbenchOptions[name]).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>)}{caseBucket && <><label>심각도<select className="select" value={risk.severity} onChange={(e) => change('severity', e.target.value)}><option value="">전체 등급</option>{Object.entries(caseRiskSeverityLabels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label><label>키 유효성<select className="select" value={risk.validity} onChange={(e) => change('validity', e.target.value)}><option value="">전체 유효성</option>{Object.entries(caseRiskValidityLabels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label></>}<button className="btn outline" disabled={queue.isFetching} onClick={refresh}>새 기준으로 조회</button></section>
-    {origin === 'TEST' && <p className="notice">시험 출처예요. 실제 키 가능성은 별도 경고·조사에서 확인하세요.</p>}
+  return <><Link className="secret-scan-back" to={`/secrets?${overviewParams}`}>← 같은 기준의 현황</Link><PageHeader title="확인 대기열" description="같은 기준시각의 대상과 다음 작업을 확인하세요." actions={<><Link className="btn outline" to="/secrets/triage/investigations">추가 조사</Link><Link className="btn outline" to="/secrets/triage/alerts">자격증명 여부 확인</Link></>} />
+    <SecretFilterDisclosure label="확인 목록" search busy={queue.isFetching} searchRejected={params.get('searchRejected') === '1'}
+      values={{ q: filters.q ?? '', bucket, source: filters.source, provider: filters.provider, environment: filters.environment, assignee: filters.assignee, severity: risk.severity, validity: risk.validity }}
+      fields={[
+        { key: 'bucket', label: '할 일', defaultValue: 'REVIEW_REQUIRED', options: Object.fromEntries(Object.entries(workbenchBuckets).filter(([code]) => !['NEEDS_DECISION', 'NEEDS_CASE_LINK', 'UNCLASSIFIED'].includes(code)).map(([code, config]) => [code, config.label])) },
+        ...(['source', 'environment', 'provider', 'assignee'] as const).map((key) => ({ key, label: ({ source: '발견 플랫폼', environment: '자원 환경', provider: '키 발급 서비스', assignee: '담당 범위' })[key], options: workbenchOptions[key], defaultValue: key === 'assignee' ? '' : 'ALL' })),
+        ...(caseBucket ? [
+          { key: 'severity', label: '위험도', defaultValue: '', options: { '': '전체 등급', ...caseRiskSeverityLabels } },
+          { key: 'validity', label: '키 유효성', defaultValue: '', options: { '': '전체 유효성', ...caseRiskValidityLabels } },
+        ] : []),
+      ]}
+      onApply={(values) => {
+        const next = changedSecretListParams(params, values)
+        if (values.bucket !== bucket) { next.delete('stages'); next.delete('severity'); next.delete('validity') }
+        setParams(next)
+      }}
+      onReset={() => setParams(new URLSearchParams())} />
     {['COVERAGE_GAPS', 'UNCLASSIFIED'].includes(bucket) && (filters.provider !== 'ALL' || filters.environment !== 'ALL' || filters.assignee) && <p className="notice">이 승인 범위 목록에는 발급자·환경·담당자 조건을 적용하지 않아요. 소스·연결 범위는 유지해요.</p>}
     <section className="card secret-scan-section"><h2>{selection?.label ?? '확인 대기열'}{stages ? ` · ${stages.split(',').map((stage) => caseStageLabels[stage] ?? '위험 수용').join('·')}` : ''}</h2>{!valid ? <p className="notice error" role="alert">대기열 조회 조건을 확인해 주세요.</p> : invalidated ? <div className="secret-scan-message" role="status"><p>조회 근거가 변경됐어요. 최신 기준으로 확인해 주세요.</p><button className="btn primary" onClick={refresh}>새 기준으로 조회</button></div> : queue.isPending ? <p className="secret-scan-message" role="status">확인할 항목을 불러오는 중이에요.</p> : queue.isError ? <div className="secret-scan-message notice error" role="alert"><p>{queue.error instanceof ApiError && queue.error.status === 403 ? '이 대기열을 조회할 권한이 없어요.' : queue.error instanceof ApiError && [404, 409].includes(queue.error.status) && filters.snapshotId ? '조회 기준이 만료되거나 달라졌어요.' : '확인 대기열을 불러오지 못했어요.'}</p><button className="btn outline" onClick={() => filters.snapshotId ? refresh() : void queue.refetch()}>{filters.snapshotId ? '새 기준으로 조회' : '다시 조회'}</button></div> : <>
       <p className="caption">단위: {selection.unit} · 기준시각 {scanDate(queue.data.asOf)}</p>{queue.data.restrictedCoverage && <p className="notice">열람 가능한 대상만 표시해요. 권한 밖의 대상 수를 포함하지 않아요.</p>}{queue.data.partialCoverage === true && <p className="notice">확인하지 못한 검사 범위가 있어요.</p>}

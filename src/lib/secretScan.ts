@@ -99,7 +99,7 @@ export function scanReason(code: string | null | undefined): string {
     DETECTION_NOT_RUN: '탐지 단계 미실행',
     VALIDATION_ATTEMPT_FAILED: '유효성 확인 시도 실패',
     VALIDATION_INCONCLUSIVE: '키 인증 여부 확인 불가',
-    SOURCE_GUARD_BLOCKED: '시험 저장소 검증 제외',
+    SOURCE_GUARD_BLOCKED: '원천 보호에 따른 검증 제외',
     SYNTHETIC_FIXTURE: '합성 키 검증 생략',
     STAGE_NOT_RECORDED: '단계 실행 근거 미기록',
     AWS_CONTENT_NOT_FOUND: '승인된 AWS 값을 읽지 못해 위치의 제거 여부 확인 불가',

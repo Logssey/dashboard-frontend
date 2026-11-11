@@ -84,7 +84,7 @@ test('a stale manually approved lifecycle record is historical and synthetic ret
   const data = { caseId: 7, caseVersion: 3, allowedKinds: [], allowedReviewReasonCodes: {}, capabilities: { canSubmit: false }, items: [{ evidenceId: 51, kind: 'FIXTURE_RETIRED', verificationLevel: 'APPROVED_MANUAL', reviewStatus: 'APPROVED', performedAt: '2026-10-20T00:00:00Z', observedAt: '2026-10-20T00:00:00Z', evidenceRef: 'TICKET:SEC-123', version: 2, isCurrentlyApplicable: false, coverageLimit: 'SIMULATION', capabilities: { canReview: false } }] }
   const html = render(modules.lifecycle.SecretLifecycleEvidence, [[['secret-case-lifecycle', 7], data]])
   assert.match(html, /현재 해결 판단에 적용되지 않는 근거/)
-  assert.match(html, /합성 표본의 시험 종료 범위/)
+  assert.match(html, /합성 표본의 사용 종료 근거/)
   assert.doesNotMatch(html, /공급자 확인<|완전 해결/)
 })
 test('external lifecycle evidence accepts at most the past 90 days and exception deadlines at most the server limit', () => {

@@ -1,5 +1,7 @@
 import { apiRequest } from './client'
 import type { ScopeCoverage } from './secretConnections'
+import type { SecretReadOrigin } from '@/lib/secretReadSelection'
+import { safeSecretSearch } from '@/lib/secretReadSelection'
 
 export type SecretIssuer = 'AWS' | 'GITHUB' | 'NOTION' | 'KUBERNETES'
 export type SecretOrigin = 'PRODUCTION' | 'TEST' | 'UNCLASSIFIED'
@@ -32,10 +34,12 @@ export interface SecretItem {
   occurrenceCount: number
   firstSeenAt: string
   lastSeenAt: string
-  origin?: SecretOrigin
+  origin?: SecretOrigin | null
+  origins?: SecretOrigin[]
+  readOrigin?: SecretReadOrigin
   contentKind?: string
   workBucket?: string
-  inventorySubtype?: 'AUTHORIZED_STORAGE' | 'METADATA_ONLY' | 'RETIRED_HISTORY'
+  inventorySubtype?: 'AUTHORIZED_STORAGE' | 'METADATA_ONLY' | 'RETIRED_HISTORY' | 'MANAGED_LOCATIONS'
   whyHereCode?: string
   nextActionCode?: string
   safeLocationLabel?: string
@@ -75,11 +79,12 @@ export interface SecretDetail extends SecretItem {
 }
 
 export interface SecretFilter {
+  q?: string
   page: number
   size: number
   issuer: SecretIssuer | 'ALL'
   componentState: SecretComponentState | 'ALL'
-  origin?: SecretOrigin
+  origin?: SecretReadOrigin
   source?: string
   provider?: string
   environment?: string
@@ -106,7 +111,7 @@ export interface SecretListResponse {
 }
 
 export interface InventoryFilter extends SecretFilter {
-  origin: SecretOrigin
+  origin: SecretReadOrigin
   source: string
   provider: string
   environment: string
@@ -170,7 +175,7 @@ export interface RemediationSummary {
   resolvedLocationCount?: number; restrictedCoverage: boolean; evidenceObservedAt?: string | null; comparisonScope: string
 }
 export interface LocationFilter {
-  origin: SecretOrigin
+  origin: SecretReadOrigin
   page: number
   size: number
   source: string
@@ -190,7 +195,7 @@ export interface KeyLocationsResponse {
   visibleLocationCount: number
   page: number
   size: number
-  origin: SecretOrigin
+  origin: SecretReadOrigin
   locationStateCounts: { presence: Record<string, number>; exposure: Record<string, number> }
   restrictedCoverage: boolean
   readAt: string
@@ -238,13 +243,13 @@ export const fetchSecrets = (filter: SecretFilter) => {
     issuer: filter.issuer,
     componentState: filter.componentState,
   })
-  for (const key of ['origin', 'source', 'provider', 'environment', 'contentKind', 'workBucket', 'validity', 'severity', 'snapshotId', 'runId'] as const) {
-    if (filter[key]) params.set(key, String(filter[key]))
+  for (const key of ['origin', 'source', 'provider', 'environment', 'contentKind', 'workBucket', 'validity', 'severity', 'snapshotId', 'runId', 'q'] as const) {
+    if (filter[key]) params.set(key, key === 'q' ? safeSecretSearch(String(filter[key])) : String(filter[key]))
   }
   return apiRequest<SecretListResponse>(`/api/v1/secrets?${params}`)
 }
 
-export const fetchSecretDetail = (id: number, origin: SecretOrigin = 'PRODUCTION') => apiRequest<SecretDetail>(`/api/v1/secrets/${id}?origin=${origin}`)
+export const fetchSecretDetail = (id: number, origin: SecretReadOrigin = 'ALL') => apiRequest<SecretDetail>(`/api/v1/secrets/${id}?origin=${origin}`)
 export const fetchKeyLocations = (id: number, filters: LocationFilter) => {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(filters)) if (value !== '' && value != null) params.set(key, String(value))
