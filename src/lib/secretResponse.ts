@@ -1,24 +1,43 @@
 import type { CaseFilters, SecretCaseDetail, SecretCaseOccurrence } from '../api/secretCases'
 import { positiveId } from './secretScan'
-import { safeWorkbenchReturn } from './secretWorkbench'
+import { safeWorkbenchReturn, workbenchOptions } from './secretWorkbench'
+import { riskSeverities, riskValidities } from './secretRiskDistribution'
+import { canonicalSecretListParams, safeSecretSearch, validSecretSearch } from './secretReadSelection'
 
 export const caseStageLabels: Record<string, string> = { OPEN: '신규', IN_PROGRESS: '조치 중', REVALIDATION_PENDING: '재검사 대기', RESOLVED: '해결' }
 export const caseActionLabels = { ROTATED: '키 교체', REVOKED: '키 폐기', REMOVED_FROM_SOURCE: '노출 위치에서 제거', PERMISSION_REDUCED: '권한 축소' } as const
 export const caseReasonLabels = { INITIAL_ASSIGNMENT: '최초 지정', OWNERSHIP_CHANGE: '담당자 변경', TEAM_TRANSFER: '담당 팀 변경', UNASSIGNED: '지정 해제', OTHER: '운영 사유' } as const
 export const checklistLabels = { IDENTIFY_OWNER: '소유자 확인', ROTATE_OR_REVOKE: '키 교체·폐기 확인', REMOVE_EXPOSURE: '노출 위치 정리', CHECK_ACCESS_LOGS: '접근 기록 확인' } as const
 export function parseCaseFilters(params: URLSearchParams): { filters: CaseFilters; valid: boolean } {
-  const origin = params.get('origin') ?? 'PRODUCTION', scope = params.get('scope') ?? 'currentCases'
+  params = canonicalSecretListParams(params)
+  const origin = params.get('origin') ?? 'ALL', scope = params.get('scope') ?? 'currentCases'
   const stages = params.get('stages') ?? '', assignmentStatus = params.get('assignmentStatus') ?? '', assignee = params.get('assignee') ?? ''
   const rawPage = params.get('page') ?? '1'
-  const valid = ['PRODUCTION', 'TEST'].includes(origin) && ['currentCases', 'history'].includes(scope)
+  const q = (params.get('q') ?? '').trim()
+  const detailed = scope === 'currentCases' && !assignmentStatus
+  const source = params.get('source') ?? 'ALL', provider = params.get('provider') ?? 'ALL', environment = params.get('environment') ?? 'ALL'
+  const severity = params.get('severity') ?? 'ALL', validity = params.get('validity') ?? 'ALL'
+  const snapshotId = params.get('snapshotId') ?? ''
+  const detailedValid = !detailed || (Object.hasOwn(workbenchOptions.source, source) && Object.hasOwn(workbenchOptions.provider, provider)
+    && Object.hasOwn(workbenchOptions.environment, environment) && (severity === 'ALL' || riskSeverities.includes(severity as typeof riskSeverities[number]))
+    && (validity === 'ALL' || riskValidities.includes(validity as typeof riskValidities[number]))
+    && (!params.has('connectionId') || positiveId(params.get('connectionId')) !== null)
+    && (!snapshotId || /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(snapshotId)))
+  const valid = origin === 'ALL' && detailedValid && validSecretSearch(q) && ['currentCases', 'history'].includes(scope)
     && (!stages || stages.split(',').every((stage) => Object.hasOwn(caseStageLabels, stage)))
     && ['', 'UNASSIGNED', 'TEAM_ONLY', 'PERSONAL'].includes(assignmentStatus)
     && ['', 'ME', 'UNASSIGNED'].includes(assignee) && positiveId(rawPage) !== null && Number(rawPage) <= 1_000_001
-  return { valid, filters: { origin, scope, stages, assignmentStatus, assignee, page: (positiveId(rawPage) ?? 1) - 1, size: 20 } as CaseFilters }
+  return { valid, filters: { origin, scope, stages, assignmentStatus, assignee, page: (positiveId(rawPage) ?? 1) - 1, size: 20, ...(q ? { q } : {}),
+    ...(detailed ? { source, provider, environment, severity, validity, snapshotId, connectionId: positiveId(params.get('connectionId')) } : {}) } as CaseFilters }
 }
 export function caseSearch(filters: CaseFilters): URLSearchParams {
   const params = new URLSearchParams({ origin: filters.origin, scope: filters.scope, page: String(filters.page + 1) })
-  for (const key of ['stages', 'assignmentStatus', 'assignee'] as const) if (filters[key]) params.set(key, filters[key])
+  for (const key of ['stages', 'assignmentStatus', 'assignee', 'q'] as const) if (filters[key]) params.set(key, key === 'q' ? safeSecretSearch(filters[key]) : filters[key]!)
+  if (filters.scope === 'currentCases' && !filters.assignmentStatus) {
+    for (const key of ['source', 'provider', 'environment', 'severity', 'validity', 'connectionId', 'snapshotId'] as const) {
+      if (filters[key] && filters[key] !== 'ALL') params.set(key, String(filters[key]))
+    }
+  }
   return params
 }
 export function caseDetailPath(caseId: number, filters?: CaseFilters, occurrenceId?: number): string {
@@ -29,7 +48,7 @@ export function caseDetailPath(caseId: number, filters?: CaseFilters, occurrence
 }
 export function caseReturnPath(params: URLSearchParams, caseId: number | null): string {
   if (params.get('return') === 'workbench') return safeWorkbenchReturn(params.get('returnQuery'), caseId ? String(caseId) : undefined)
-  const fallback = new URLSearchParams({ origin: params.get('origin') === 'TEST' ? 'TEST' : 'PRODUCTION' })
+  const fallback = new URLSearchParams({ origin: 'ALL' })
   const parsed = parseCaseFilters(params.has('returnQuery') ? new URLSearchParams(params.get('returnQuery')!) : fallback)
   const search = caseSearch(parsed.valid ? parsed.filters : parseCaseFilters(fallback).filters)
   if (caseId) search.set('focus', String(caseId))

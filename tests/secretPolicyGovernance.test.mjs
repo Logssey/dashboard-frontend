@@ -50,9 +50,9 @@ test('classification mismatch retains the return path and exposes no change form
 test('a pending TEST proposal never replaces current PRODUCTION and its author cannot approve', () => {
   const html = renderPage(api.SecretScopeClassificationPage, '/secrets/connections/:connectionId/scopes/:scopeId', '/secrets/connections/2/scopes/5', [[['secret-classification', 5], classification]])
   assert.match(html, /이 대상의 현재 설정/)
-  assert.match(html, /자료 용도<\/dt><dd>운영/)
-  assert.match(html, /제안 출처<\/dt><dd>시험/)
-  assert.match(html, /아직 현재 승인 분류에 적용되지 않았어요/)
+  assert.doesNotMatch(html, /자료 용도<\/dt>|제안 출처<\/dt>/)
+  assert.match(html, /이전 관리 방식에서 제출한 변경/)
+  assert.match(html, /검토가 끝나기 전까지 현재 설정에 적용되지 않아요/)
   assert.doesNotMatch(html, /<button[^>]*>변경 승인<\/button>/)
 })
 test('policy details keep protected paths private and hide self approval', () => {
@@ -62,13 +62,13 @@ test('policy details keep protected paths private and hide self approval', () =>
   assert.doesNotMatch(html, /must-not-display-path|<button[^>]*>정책 승인<\/button>/)
 })
 
-test('source labels save without a ticket or approval-preview step and leave policy changes separate', () => {
-  const value = { ...classification, pendingProposal: null, capabilities: { canPropose: true, canDraftPolicy: false, canClassifySource: true }, setupReasonCodes: ['POLICY_MISSING'] }
+test('scope policy editing retains real classification without offering a source mode', () => {
+  const value = { ...classification, origin: 'UNCLASSIFIED', pendingProposal: null, capabilities: { canPropose: true, canDraftPolicy: true, canClassifySource: true }, setupReasonCodes: ['POLICY_MISSING'] }
   const html = renderPage(api.SecretScopeClassificationPage, '/secrets/connections/:connectionId/scopes/:scopeId', '/secrets/connections/2/scopes/5', [[['secret-classification', 5], value]])
-  assert.match(html, /운영·시험 분류/)
-  assert.match(html, /분류하지 않아도 연결 테스트와 스캔은 할 수 있어요/)
-  assert.match(html, /<button class="btn primary">분류 저장<\/button>/)
-  assert.doesNotMatch(html.match(/<section class="card secret-governance-form"><h2>운영·시험 분류[\s\S]*?<\/section>/)?.[0] ?? '', /저장 방식 확인|placeholder="TICKET:SEC-123"/)
+  assert.match(html, /보관 허용·금지 정책 변경/)
+  assert.match(html, /저장 방식 확인/)
+  assert.match(html, /적용할 보관 정책/)
+  assert.doesNotMatch(html, /운영·시험|자료 용도|현재 출처|분류 저장|출처 저장/)
 })
 
 test('pending review shows waiting owner without granting approval to the requester', () => {
@@ -83,9 +83,9 @@ test('scope details distinguish remaining policy work from saved source classifi
   const html = renderPage(api.SecretScopeClassificationPage, '/secrets/connections/:connectionId/scopes/:scopeId', '/secrets/connections/2/scopes/5', [[['secret-classification', 5], value]])
   assert.match(html, /이 대상에서 남은 일/)
   assert.match(html, /<strong>보관 정책<\/strong><span>보관 정책 만료/)
-  assert.match(html, /자료 용도<\/dt><dd>운영/)
+  assert.doesNotMatch(html, /자료 용도<\/dt>|제안 출처<\/dt>/)
   assert.match(html, /<dt>보관 정책<\/dt><dd><span>보관 정책 만료<\/span><a/)
-  assert.ok(html.indexOf('이 대상에서 남은 일') < html.indexOf('운영·시험 분류</h2>'))
+  assert.ok(html.indexOf('이 대상에서 남은 일') < html.indexOf('보관 허용·금지 정책 변경</summary>'))
 })
 
 test('approval preview is read-only POST and assignment includes optimistic version and retry key', async () => {

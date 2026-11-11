@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
-import { secretNavigation, activeSecretNavigation, withSecretOrigin } from '@/lib/secretNavigation'
+import { secretNavigation, activeSecretNavigation } from '@/lib/secretNavigation'
 import { useSecretWorkbench } from '@/lib/useSecretWorkbench'
 import { availableMetric, parseWorkbenchFilters } from '@/lib/secretWorkbench'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
+import { sanitizedSecretSearchParams, secretSearchErrorMessage } from '@/lib/secretReadSelection'
 import { Icon, type IconName } from '@/components/Icon'
 import { infrastructurePaths, LOGIN_PATH, OVERVIEW_PATH, pageTitle, sectionPages } from '@/lib/routes'
 import { ME_QUERY_KEY, useMe } from './useMe'
@@ -35,9 +36,9 @@ export function AppLayout() {
   const title = pageTitle(location.pathname)
   const inInfrastructure = infrastructurePaths.includes(location.pathname)
   const inSecrets = location.pathname === '/secrets' || location.pathname.startsWith('/secrets/')
-  const sharedSummaryRoute = location.pathname === '/secrets' || location.pathname === '/secrets/triage'
-  const routeParams = new URLSearchParams(location.search)
-  const summarySelection = parseWorkbenchFilters(sharedSummaryRoute ? routeParams : new URLSearchParams({ origin: routeParams.get('origin') === 'TEST' ? 'TEST' : 'PRODUCTION' }))
+  const safeNavigation = sanitizedSecretSearchParams(new URLSearchParams(location.search))
+
+  const summarySelection = parseWorkbenchFilters(new URLSearchParams())
   const summary = useSecretWorkbench(summarySelection.filters, inSecrets && !!me && summarySelection.valid)
   const reviewMetric = summary.data?.metrics.find((metric) => metric.key === 'reviewRequiredLocations')
 
@@ -55,6 +56,10 @@ export function AppLayout() {
       navigate(LOGIN_PATH, { replace: true })
     },
   })
+
+  if (inSecrets && safeNavigation.toString() !== location.search.replace(/^\?/, '')) {
+    return <Navigate replace to={{ pathname: location.pathname, search: safeNavigation.toString(), hash: location.hash }} />
+  }
 
   return (
     <>
@@ -92,7 +97,7 @@ export function AppLayout() {
             const active = isInfrastructure ? inInfrastructure : isSecrets ? inSecrets : location.pathname === item.path
             return (
               <div key={item.path}>
-                <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={isSecrets && inSecrets ? withSecretOrigin(item.path, routeParams) : item.path} end>
+                <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={item.path} end>
                   <Icon name={item.icon} />
                   {item.label}
                 </NavLink>
@@ -102,7 +107,7 @@ export function AppLayout() {
                       <Link
                         key={page.path}
                         className={`nav-link secret-sub ${activeSecretNavigation(page.path, location.pathname) ? 'active' : ''}`.trim()}
-                        to={withSecretOrigin(page.path, routeParams)}
+                        to={page.path}
                         aria-current={activeSecretNavigation(page.path, location.pathname) ? 'page' : undefined}
                       >
                         <Icon name={page.icon} />
@@ -168,6 +173,8 @@ export function AppLayout() {
           </div>
         </header>
         <main id="main" tabIndex={-1}>
+          {inSecrets && safeNavigation.get('searchRejected') === '1' && !['/secrets/findings', '/secrets/cases', '/secrets/triage'].includes(location.pathname)
+            && <p className="notice error" role="alert">{secretSearchErrorMessage}</p>}
           <Outlet />
           <footer className="footer">
             <span>© 2026 Logssey · Cloud security, clearly.</span>

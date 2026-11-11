@@ -1,6 +1,7 @@
 import { apiRequest } from './client'
 import type { WorkbenchQueueItem } from './secretWorkbenchQueue'
 import type { ScanAttempt } from './secretConnections'
+import type { SecretReadOrigin } from '@/lib/secretReadSelection'
 export interface WorkPreview { status: string; items: WorkbenchQueueItem[]; total: number | null; unit: string; snapshotId: string }
 export interface OverviewScope extends WorkbenchQueueItem { origin?: string; connectionStatus?: string; setupState?: string; enabled?: boolean; blockedReasonCode?: string; capabilities?: { canClassifySource?: boolean; canConfigureStoragePolicy?: boolean } }
 export interface CollectionCounts {
@@ -28,7 +29,8 @@ export interface CollectionHealth {
 }
 export interface SetupSummary { status: string; selectedOrigin: string; selectedOriginScopeCount: number | null; unclassifiedScopeCount: number | null; pausedScopeCount: number | null; reasonCounts: Record<string, number>; selectedReasonCounts?: Record<string, number>; unclassifiedReasonCounts?: Record<string, number>; pausedReasonCounts?: Record<string, number>; items: OverviewScope[]; unclassifiedItems: OverviewScope[]; pausedItems: OverviewScope[]; notApplicableFilters: string[]; globalGroupsIgnoreOrigin: boolean }
 export interface WorkbenchFilters {
-  origin: 'PRODUCTION' | 'TEST'
+  origin: SecretReadOrigin
+  q?: string
   source: string
   provider: string
   environment: string
@@ -53,7 +55,7 @@ export interface SeverityValidityMatrix {
 }
 export interface WorkbenchSummary {
   scope: 'workbench'; unit: 'Mixed'; total: null
-  origin: 'PRODUCTION' | 'TEST'
+  origin: SecretReadOrigin
   filters: Record<string, string>
   snapshotId: string; asOf: string; expiresAt: string
   restrictedCoverage: boolean

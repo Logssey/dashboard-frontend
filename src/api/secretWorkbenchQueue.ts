@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import { safeSecretSearch } from '@/lib/secretReadSelection'
 import type { WorkbenchFilters } from './secretSummary'
 import type { ScopeCoverage } from './secretConnections'
 
@@ -33,6 +34,7 @@ export const fetchWorkbenchQueue = (filters: WorkbenchFilters, bucket: string, s
   if (filters.connectionId) params.set('connectionId', String(filters.connectionId))
   if (filters.assignee) params.set('assignee', filters.assignee)
   if (filters.snapshotId) params.set('snapshotId', filters.snapshotId)
+  if (filters.q) params.set('q', safeSecretSearch(filters.q))
   if (stages) params.set('stages', stages)
   if (risk?.severity) params.set('severity', risk.severity)
   if (risk?.validity) params.set('validity', risk.validity)

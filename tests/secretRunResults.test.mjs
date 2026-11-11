@@ -19,13 +19,13 @@ after(() => Promise.all(paths.map((path) => unlink(path))))
 const snapshotId = 'a51d954e-9a37-4715-bcfb-2284d9cfac27'
 const sample = { id: 4, issuer: 'AWS', credentialType: 'AWS_ACCESS_KEY_PAIR', maskedLabel: 'AWS ••••1234', componentState: 'CONFIRMED', validationStatus: 'UNCHECKED', validationReasonCode: null, occurrenceCount: 1, firstSeenAt: '2026-10-20T00:00:00Z', lastSeenAt: '2026-10-21T00:00:00Z' }
 test('run-limited inventory restores the same run on page change and key detail return', () => {
-  const { filters, errors } = modules.inventory.parseInventoryFilters(new URLSearchParams(`origin=TEST&runId=17&page=3&snapshotId=${snapshotId}`))
+  const { filters, errors } = modules.inventory.parseInventoryFilters(new URLSearchParams(`origin=ALL&runId=17&page=3&snapshotId=${snapshotId}`))
   assert.deepEqual(errors, []); assert.equal(filters.runId, 17)
   assert.equal(modules.inventory.inventorySearch({ ...filters, page: 3 }).get('runId'), '17')
   const detail = modules.inventory.keyDetailPath(4, filters)
   const returned = modules.inventory.inventoryReturnPath(new URL(detail, 'http://local').searchParams, 4)
   const params = new URL(returned, 'http://local').searchParams
-  assert.equal(params.get('runId'), '17'); assert.equal(params.get('page'), '3'); assert.equal(params.get('origin'), 'TEST'); assert.equal(params.get('snapshotId'), snapshotId)
+  assert.equal(params.get('runId'), '17'); assert.equal(params.get('page'), '3'); assert.equal(params.get('origin'), 'ALL'); assert.equal(params.get('snapshotId'), snapshotId)
   for (const value of ['0', '-1', 'abc', '9007199254740992', '']) assert.ok(modules.inventory.parseInventoryFilters(new URLSearchParams({ runId: value })).errors.length > 0)
 })
 test('every CSV page retains runId and the export states that execution restriction', async () => {
@@ -60,12 +60,12 @@ function render(Component, route, entry, seeds) {
 }
 test('run findings show Finding units across origins without claiming they are unique keys', () => {
   const html = render(modules.findings.SecretRunFindingsPage, '/secrets/history/:runId/findings', '/secrets/history/17/findings', [[['secret-run-findings', 17, 0], { runId: 17, unit: 'Finding', total: 2, page: 0, size: 20, asOf: '2026-10-21T00:00:00Z', items: [{ findingId: 31, occurrenceId: 51, credentialSetId: 4, maskedLabel: sample.maskedLabel, componentState: 'CONFIRMED', ruleId: 'aws-access-token', ruleVersion: null, origin: 'TEST' }, { findingId: 32, occurrenceId: 52, credentialSetId: 4, maskedLabel: sample.maskedLabel, componentState: 'CONFIRMED', ruleId: 'aws-access-token', ruleVersion: '1', origin: 'PRODUCTION' }] }]])
-  assert.match(html, /탐지 근거 2건/); assert.match(html, /고유 키 수와 합산하지 않아요/); assert.match(html, /시험/); assert.match(html, /운영/); assert.match(html, /return=run-findings/)
+  assert.match(html, /탐지 근거 2건/); assert.match(html, /고유 키 수와 합산하지 않아요/); assert.doesNotMatch(html, /<th>출처<\/th>|<td>시험<\/td>|<td>운영<\/td>/); assert.match(html, /return=run-findings/)
   assert.doesNotMatch(html, /고유 키 2개|신규 키 2개/)
 })
 test('run-filtered inventory visibly marks the restriction and offers a deliberate reset', () => {
-  const params = new URLSearchParams(`runId=17&origin=TEST&snapshotId=${snapshotId}`)
+  const params = new URLSearchParams(`runId=17&origin=ALL&snapshotId=${snapshotId}`)
   const { filters } = modules.inventory.parseInventoryFilters(params)
   const html = render(modules.list.SecretsPage, '/secrets/findings', `/secrets/findings?${params}`, [[['secret-inventory', filters, 0], { items: [sample], total: 1, page: 0, size: 20, scope: 'inventory', unit: 'CredentialSet', asOf: '2026-10-21T00:00:00Z', snapshotId }]])
-  assert.match(html, /SCAN-17에서 발견한 키/); assert.match(html, /실행 조건 해제/); assert.match(html, /오탐 교정 이력/)
+  assert.match(html, /SCAN-17에서 발견한 키/); assert.match(html, /실행 조건 해제/); assert.match(html, /실행 상세/)
 })

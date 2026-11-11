@@ -95,7 +95,7 @@ test('ordered prerequisites guide the current occurrence and wait for identity b
   const location = { occurrenceId: 8, connectionId: 42, scopeId: 67, origin: 'TEST', fixtureStatus: 'POSSIBLE_REAL', safeLocationLabel: '검토할 저장소 위치', capabilities: { canViewCoverage: true } }
   const data = { ...context, identity: { ...context.identity, status: 'UNAVAILABLE' }, collectorOptions: [], latestObservation: null, capabilities: { canRequest: false, blockedReasonCodes: ['FRESH_IDENTITY_VALIDATION_REQUIRED'] }, requestReadiness: { nextAction: 'VALIDATE_CREDENTIAL', checks: [{ code: 'COLLECTOR', status: 'WAITING', action: null }] } }
   const html = render(api.SecretPermissionAssistance, { occurrenceId: 8, evidenceRevision: 3, location, onReload() {}, onValidate() {} }, [[['secret-permission-assistance', 8, 3], data]])
-  assert.match(html, /권한 확인 순서/); assert.match(html, /시험 출처만으로 합성 키라고 판단하지 않아요/)
+  assert.match(html, /권한 확인 순서/); assert.doesNotMatch(html, /시험 출처/)
   assert.match(html, /키 유효성 확인으로 이동/); assert.match(html, /유효성 확인 후 판별/)
   assert.match(html, /href="\/secrets\/connections\/42\/scopes\/67\?settings=validation&amp;origin=TEST"/)
   assert.doesNotMatch(html, /현재 선택할 수 있는 승인된 IAM 읽기 연결이 없어요/)

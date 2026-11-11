@@ -57,7 +57,7 @@ test('selecting a location opens one dialog instead of appending evidence under 
   const item = { id: 12, issuer: 'AWS', credentialType: 'AWS_ACCESS_KEY_PAIR', componentState: 'CONFIRMED', maskedLabel: 'AWS ••••1234', severity: 'UNASSESSED', validationStatus: 'UNCHECKED', occurrenceCount: 6, firstSeenAt: '2026-10-20T01:00:00Z', lastSeenAt: '2026-10-21T01:00:00Z', remediationSummary: summary, occurrences: [] }
   const location = { occurrenceId: 8, connectionId: 2, scopeId: 5, scopeRevision: 1, source: 'GITHUB', environment: 'UNKNOWN', origin: 'PRODUCTION', safeLocationLabel: '주문 서비스 · 위치 #8', presence: 'PRESENT', exposure: 'UNKNOWN', validity: { result: 'UNCHECKED' }, storagePolicy: { result: 'UNKNOWN' }, capabilities: {}, coverage: {}, caseId: null }
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, gcTime: Infinity } } })
-  client.setQueryData(['secret-detail', 12, 'PRODUCTION'], item)
+  client.setQueryData(['secret-detail', 12, 'ALL'], item)
   client.setQueryData(['secret-key-locations', 12, filters, 0], { credentialSetId: 12, credential: item, items: [location], detailVersion: 'v1', total: 6, visibleLocationCount: 6, page: 0, size: 20, readAt: '2026-10-21T01:00:00Z', locationStateCounts: { presence: { PRESENT: 3, MISSING: 1, UNKNOWN: 2 } }, sourceGroups: [{ source: 'GITHUB', locationCount: 6, scopeCount: 2, presenceCounts: { PRESENT: 3, MISSING: 1, UNKNOWN: 2 } }] })
   const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/secrets/12?occurrence=8'] }, createElement(Routes, null, createElement(Route, { path: '/secrets/:secretId', element: createElement(api.SecretKeyDetailPage) })))))
   client.clear()
@@ -103,7 +103,7 @@ test('the primary case action follows the explicit location and never falls back
     const base = { source: 'GITHUB', environment: 'UNKNOWN', origin: 'TEST', presence: 'PRESENT', exposure: 'ABNORMAL', validity: { result: 'UNCHECKED' }, storagePolicy: { result: 'UNKNOWN' }, coverage: {}, capabilities: { canViewCase: true } }
     const items = [{ ...base, occurrenceId: 8, safeLocationLabel: 'A 위치', caseId: 1 }, { ...base, occurrenceId: 9, safeLocationLabel: 'B 위치', caseId: caseForSelected }]
     const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false, gcTime: Infinity } } })
-    client.setQueryData(['secret-detail', 12, 'TEST'], item)
+    client.setQueryData(['secret-detail', 12, 'ALL'], item)
     client.setQueryData(['secret-key-locations', 12, filters, 0], { credential: item, items, total: 2, visibleLocationCount: 2, page: 0, size: 20 })
     const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [`/secrets/12?${params}`] }, createElement(Routes, null, createElement(Route, { path: '/secrets/:secretId', element: createElement(api.SecretKeyDetailPage) })))))
     client.clear(); return html.match(/<div class="secret-key-primary-actions">([\s\S]*?)<\/div><div class="secret-key-recent-scan">/)[1]

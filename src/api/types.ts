@@ -19,7 +19,7 @@ export interface OverviewSummaryResponse {
   securityScore: number
   scoreRule: string
   lastCollectedAt: string | null
-  secretIntegration?: { status: 'AVAILABLE' | 'NOT_AUTHORIZED'; unit: 'ResponseCase'; origin: 'PRODUCTION'; total: number | null; unassessedCount: number | null; notApplicableCount: number | null; restrictedCoverage: boolean }
+  secretIntegration?: { status: 'AVAILABLE' | 'NOT_AUTHORIZED'; unit: 'ResponseCase'; origin: 'PRODUCTION' | 'ALL'; total: number | null; unassessedCount: number | null; notApplicableCount: number | null; restrictedCoverage: boolean }
 }
 
 export interface RiskTrendResponse {

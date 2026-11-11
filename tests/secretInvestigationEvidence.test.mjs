@@ -36,7 +36,7 @@ test('automatic investigations with no owner or deadline remain visible without 
 test('acknowledged suspected real-key alerts stay open and cannot close without eligible evidence', () => {
   const alert = { alertId: 6, credentialSetId: 12, status: 'SUSPECTED_REAL', assigneeUserId: null, assigneeDisplayName: null, dueAt: null, version: 1, testCaseId: null, investigationTaskId: 4, acknowledgedAt: '2026-10-21T00:00:00Z', lastObservedAt: '2026-10-21T00:00:00Z', locations: [], capabilities: { canAssign: false, canAcknowledge: false, canClose: false }, eligibleClosureEvidence: { fixtureAttestations: [], corrections: [], lifecycleEvidence: [] } }
   const html = renderPage(api.SecretAlertDetailPage, '/secrets/triage/alerts/:alertId', '/secrets/triage/alerts/6', [[['secret-key-alert', 6], alert]])
-  assert.match(html, /실키 가능성 조사/)
+  assert.match(html, /자격증명 여부 조사/)
   assert.match(html, /경고 종료와 별개/)
   assert.doesNotMatch(html, /<button[^>]*>근거 확인 후 종료<\/button>/)
 })

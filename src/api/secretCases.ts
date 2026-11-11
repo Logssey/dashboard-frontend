@@ -1,19 +1,29 @@
 import { apiRequest } from './client'
 import type { KeyLocation, SecretIssuer } from './secrets'
+import type { SecretReadOrigin } from '@/lib/secretReadSelection'
+import { safeSecretSearch } from '@/lib/secretReadSelection'
 
 export type SecretCaseStage = 'OPEN' | 'IN_PROGRESS' | 'REVALIDATION_PENDING' | 'RESOLVED'
-export type SecretCaseOrigin = 'PRODUCTION' | 'TEST'
+export type SecretCaseOrigin = 'PRODUCTION' | 'TEST' | 'UNCLASSIFIED'
 export type SecretAssignmentReason = 'INITIAL_ASSIGNMENT' | 'OWNERSHIP_CHANGE' | 'TEAM_TRANSFER' | 'UNASSIGNED' | 'OTHER'
 export type SecretChecklistCode = 'IDENTIFY_OWNER' | 'ROTATE_OR_REVOKE' | 'REMOVE_EXPOSURE' | 'CHECK_ACCESS_LOGS'
 export type SecretActionType = 'ROTATED' | 'REVOKED' | 'REMOVED_FROM_SOURCE' | 'PERMISSION_REDUCED'
 export interface CaseFilters {
-  origin: SecretCaseOrigin
+  origin: SecretReadOrigin
+  q?: string
   scope: 'currentCases' | 'history'
   stages: string
   assignmentStatus: string
   assignee: string
   page: number
   size: number
+  source?: string
+  provider?: string
+  environment?: string
+  severity?: string
+  validity?: string
+  connectionId?: number | null
+  snapshotId?: string
 }
 export interface SecretCaseItem {
   taskGuidance?: import('@/lib/secretTaskGuidance').TaskGuidance
@@ -88,6 +98,7 @@ export interface SecretCaseChecklistItem {
 }
 export interface SecretAssignee { userId: number; displayName: string; team: string | null }
 export interface SecretCaseListResponse {
+  snapshotId?: string
   items: SecretCaseItem[]; total: number; page: number; size: number
   scope: 'currentCases' | 'history'; unit: 'ResponseCase'; asOf: string
 }
@@ -114,7 +125,12 @@ export interface AssignSecretCaseRequest {
 const base = '/api/v1/secrets'
 export const fetchSecretCases = (filters: CaseFilters) => {
   const params = new URLSearchParams({ origin: filters.origin, scope: filters.scope, page: String(filters.page), size: String(filters.size) })
-  for (const key of ['stages', 'assignmentStatus', 'assignee'] as const) if (filters[key]) params.set(key, filters[key])
+  for (const key of ['stages', 'assignmentStatus', 'assignee', 'q'] as const) if (filters[key]) params.set(key, key === 'q' ? safeSecretSearch(filters[key]) : filters[key]!)
+  if (filters.scope === 'currentCases' && !filters.assignmentStatus) {
+    for (const key of ['source', 'provider', 'environment', 'severity', 'validity', 'connectionId', 'snapshotId'] as const) {
+      if (filters[key]) params.set(key, String(filters[key]))
+    }
+  }
   return apiRequest<SecretCaseListResponse>(`${base}/cases?${params}`)
 }
 export const fetchSecretCase = (id: number) => apiRequest<SecretCaseDetail>(`${base}/cases/${id}`)

@@ -6,7 +6,7 @@ import { scanDate } from '@/lib/secretScan'
 const capabilityCodes = new Set(['IDENTITY_ADMINISTRATION', 'SECURITY_SETTINGS_WRITE', 'RESOURCE_ADMINISTRATION', 'PRODUCTION_DEPLOY', 'DATA_WRITE', 'SENSITIVE_DATA_READ', 'RESOURCE_READ', 'TEST_RESOURCE_READ'])
 const coverageLabels: Record<string, string> = { COMPLETE: '전체 확인', PARTIAL: '일부 확인', UNKNOWN: '미확인', NOT_APPLICABLE: '비적용 근거 있음' }
 const targetLabels: Record<string, string> = { ASSET: '특정 자산', ACCOUNT: '계정', ORGANIZATION: '조직' }
-const environmentLabels: Record<string, string> = { PROD: '운영', PRODUCTION: '운영', DEV: '개발', TEST: '시험', UNKNOWN: '환경 미확인' }
+const environmentLabels: Record<string, string> = { PROD: '운영', PRODUCTION: '운영', DEV: '개발', TEST: '검증', UNKNOWN: '환경 미확인' }
 const limitationLabels: Record<string, string> = {
   AUTOMATED_PERMISSION_ANALYSIS_UNSUPPORTED: '현재 권한·영향은 자동 조회 결과가 아닌 수용된 근거로 확인해요.',
   AUTOMATED_IMPACT_ASSESSMENT_UNSUPPORTED: '자동으로 읽은 권한 자료는 검토를 도와줘요. 실제 영향은 수용한 근거로 판단해요.',
@@ -25,7 +25,7 @@ export function SecretRiskContext({ context, occurrenceId, evidenceRevision, onC
   const accessLabel = access.status !== 'CONFIRMED' ? '읽기 범위 미확인' : access.range === 'BROAD' ? '공개·광범위 접근 확인' : access.range === 'BOUNDED' ? '제한된 접근 대상 확인' : '읽기 범위 미확인'
   const permissionsLabel = permissions.status === 'CONFIRMED' ? '권한 근거 확인' : permissions.status === 'PARTIAL' ? '일부 권한만 확인' : '권한·대상 미확인'
   const linkedAsset = asset.status !== 'UNLINKED' && asset.assetId != null && asset.label
-  const classifications = asset.status === 'CLASSIFIED' && asset.classification ? [asset.classification.sensitive ? '민감 데이터 있음' : '민감 데이터 없음 확인', asset.classification.important ? '중요 자원' : '중요 자원 아님 확인', asset.classification.testOnly ? '시험 전용' : '시험 전용 아님 확인'] : []
+  const classifications = asset.status === 'CLASSIFIED' && asset.classification ? [asset.classification.sensitive ? '민감 데이터 있음' : '민감 데이터 없음 확인', asset.classification.important ? '중요 자원' : '중요 자원 아님 확인', asset.classification.testOnly ? '검증 전용' : '검증 전용 아님 확인'] : []
   const limitationText = [...new Set(context.limitations.map((code) => limitationLabels[code] ?? riskReason(code)))]
   return <section className="secret-risk-context" aria-label="선택 위치의 권한과 자산 근거">
     <div className="secret-risk-context-heading"><h3>확인한 권한·자산</h3>{onClassifyAsset && <button type="button" className="btn outline" onClick={onClassifyAsset}>자산 분류 보완</button>}</div>
