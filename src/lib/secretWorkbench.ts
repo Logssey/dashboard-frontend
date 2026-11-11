@@ -9,6 +9,7 @@ export const workbenchOptions = {
   assignee: { '': '전체 허용 건', ME: '내 배정 위치', UNASSIGNED: '미지정 위치' },
 } as const
 export const workbenchMetricLabels: Record<string, { title: string; unit: string; description: string; bucket: string }> = {
+  reviewRequiredLocations: { title: '확인 필요', unit: '곳', description: '발견 검토와 대응 생성', bucket: 'REVIEW_REQUIRED' },
   needsDecisionLocations: { title: '확인 필요', unit: '곳', description: '노출·보관 근거 확인', bucket: 'NEEDS_DECISION' },
   ongoingCases: { title: '대응 중', unit: '건', description: '신규·조치 중인 대응', bucket: 'ACTION_REQUIRED' },
   revalidationPendingCases: { title: '재검사 대기', unit: '건', description: '조치 후 다시 확인할 건', bucket: 'ACTION_REQUIRED' },
@@ -58,6 +59,7 @@ export function summaryReason(status: string | undefined): string {
 }
 export const filterLabel = (key: string) => ({ source: '소스', provider: '발급자', environment: '환경', connectionId: '연결', assignee: '담당자' } as Record<string, string>)[key] ?? '일부 조건'
 export const workbenchBuckets: Record<string, { label: string; unit: string }> = {
+  REVIEW_REQUIRED: { label: '확인 필요', unit: '위치' },
   NEEDS_DECISION: { label: '확인 필요', unit: '위치' },
   NEEDS_CASE_LINK: { label: '건 연결 필요', unit: '위치' },
   ACTION_REQUIRED: { label: '조치 필요', unit: '대응 건' },
