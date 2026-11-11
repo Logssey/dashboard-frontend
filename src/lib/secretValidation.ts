@@ -20,7 +20,7 @@ export const validationReasonLabels: Record<string, string> = {
   SYNTHETIC_FIXTURE: '합성 표본 키로 확인되어 공급자 호출을 생략했어요.', METADATA_ONLY: '존재 정보만 있어 인증을 확인하지 않아요.',
   SOURCE_GUARD_BLOCKED: '당시 적용된 원천 보호 설정으로 인증 확인을 생략했어요. 합성 여부는 별도 근거로 확인해요.',
   VALIDATOR_NOT_ALLOWED: '이 연결에서 해당 키 발급 서비스의 검증을 허용하세요.',
-  INCOMPLETE_CREDENTIAL: '인증에 필요한 키 구성요소가 부족해요.', INCOMPLETE_PAIR: '같은 구성임이 확인된 키 쌍이 필요해요.', MISSING_SESSION_TOKEN: '임시 키의 세션 토큰이 필요해요.',
+  INCOMPLETE_CREDENTIAL: '인증에 필요한 키 구성요소가 부족해요.', INCOMPLETE_PAIR: 'AWS 키 ID와 Secret Access Key를 한 쌍으로 확인하지 못했어요.', MISSING_SESSION_TOKEN: '임시 AWS 키에 필요한 세션 토큰이 없어요.',
   NO_VERIFICATION_ATTEMPT: '아직 인증을 확인하지 않았어요.', NOT_APPROVED: '이 범위의 인증 확인 허용이 필요해요.',
   SOURCE_VALUE_UNAVAILABLE: '승인 원천에서 원문을 다시 얻을 경로가 없어요.', SOURCE_UNAVAILABLE: '승인 원천에서 값을 다시 읽지 못했어요.',
   CREDENTIAL_MISMATCH: '현재 원천의 키가 요청한 키와 달라 호출하지 않았어요.',

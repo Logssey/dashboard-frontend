@@ -54,7 +54,7 @@ function ConnectionCard({ connection, selected, result, testing, error, onTest, 
     {error && <p className="secret-connection-test-error" role="alert">{error}</p>}
     <div className="secret-connection-actions">
       <button className="btn secret-connection-test-button" disabled={testing || !connection.capabilities?.canTest} onClick={() => onTest(connection.connectionId)}>{testing ? '연결 확인 중…' : '연결 테스트'}</button>
-      <button className="btn primary" disabled={!connection.activeJob && !connection.capabilities?.canRun} onClick={() => onScan(connection)}>{connection.activeJob ? '진행 중인 검사 보기' : '스캔 요청'}</button>
+      <button className="btn primary" disabled={!connection.activeJob && !connection.capabilities?.canRun} onClick={() => onScan(connection)}>{connection.activeJob ? '검사 진행 중' : '스캔 요청'}</button>
       <Link className="btn outline" to={`/secrets/connections/${connection.connectionId}/scopes`}>검사 대상</Link>
       <button className="btn outline" onClick={() => onValidationSettings(connection.connectionId)}>키 검증 설정</button>
     </div>

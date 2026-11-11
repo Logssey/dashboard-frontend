@@ -232,7 +232,8 @@ test('connection and scope entry ignore old modes while preserving object links'
   for (const origin of ['TEST', 'PRODUCTION']) {
     const connections = renderPage(SecretConnectionsPage, '/secrets/connections', `/secrets/connections?origin=${origin}`, [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
     assert.match(connections, /결제 서비스/)
-    assert.match(connections, /진행 중인 검사 보기/)
+    assert.match(connections, /검사 진행 중/)
+    assert.doesNotMatch(connections, /진행 중인 검사 보기/)
     assert.doesNotMatch(connections, /범위 출처|운영·시험|시험 출처/)
     assert.ok(hrefs(connections).some((href) => href.includes('/secrets/connections/3/scopes')))
     const coverage = { lastAttempt: connection.lastFullScanAttempt, lastSuccessfulScan: connection.lastSuccessfulFullScan, freshness: 'CURRENT', gapReasonCodes: [], nextDueAt: null }

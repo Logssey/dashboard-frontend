@@ -2,22 +2,39 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api/client'
-import { fetchSecretScanProgress, type ScanProgressStageKey, type SecretScanProgressResponse } from '@/api/secretScanProgress'
-import { mergeScanEvents, scanEventOutcome, scanEventTime, scanOperationLabel, scanRequestFormat, scanProgressCount, scanProgressStages, scanProgressStates, scanProgressTerminal, scanStageCount } from '@/lib/secretScanProgress'
-import { scanDate, scanDuration, scanPlatforms, scanReason, scanStatus } from '@/lib/secretScan'
+import { fetchSecretScanProgress, type ScanProgressStageKey, type SecretScanProgressResponse, type ScanValidationSummary } from '@/api/secretScanProgress'
+import {
+  mergeScanEvents, scanEventOutcome, scanEventTime, scanOperationLabel,
+  scanRequestFormat, scanProgressCount, scanProgressStages, scanProgressStates,
+  scanProgressTerminal, scanStageCount, scanProgressReason, scanProgressStatusLabel,
+  scanValidationNeedsReview, scanValidationOnlyIssue,
+} from '@/lib/secretScanProgress'
+import { scanDate, scanDuration, scanPlatforms } from '@/lib/secretScan'
+import { validationIssuerLabels } from '@/lib/secretValidation'
 import './secret-scan-progress.css'
 
-function progressReason(code: string | null) {
-  if (!code) return null
-  const labels: Record<string, string> = {
-    AUTHENTICATED: '인증 확인', AUTHENTICATION_REJECTED: '인증 거부',
-    SYNTHETIC_FIXTURE: '분석 전용 표본 · 외부 인증 확인 제외',
-    SOURCE_GUARD_BLOCKED: '당시 원천 보호 설정에 따른 인증 확인 생략',
-    NO_CANDIDATES: '인증 확인 대상 없음', NO_CREDENTIALS: '인증 확인 대상 없음',
-    DISABLED: '인증 확인 설정 꺼짐', VALIDATION_DISABLED: '인증 확인 설정 꺼짐',
-    WAITING_FOR_WORKER: '워커 배정 대기', RETRY_SCHEDULED: '다음 시도 대기',
-  }
-  return labels[code] ?? scanReason(code)
+function ValidationSummary({ summary }: { summary: ScanValidationSummary }) {
+  const otherUnchecked = Math.max(0, summary.uncheckedCount - summary.incompleteCount)
+  return <section className="secret-scan-validation-summary" aria-label="인증 확인 결과 요약">
+    <h3>인증 확인 결과</h3>
+    <dl>
+      <div><dt>새 인증 요청</dt><dd>{summary.newRequestCount}건<span>처리 완료 {summary.completedRequestCount}건</span></dd></div>
+      <div><dt>이전 결과 재사용</dt><dd>{summary.reuseRecorded && scanProgressCount(summary.reusedResultCount) ? `${summary.reusedResultCount}건` : '미기록'}</dd></div>
+      <div><dt>구성 부족</dt><dd>{summary.incompleteCount}건</dd></div>
+      {otherUnchecked > 0 && <div><dt>그 외 생략</dt><dd>{otherUnchecked}건</dd></div>}
+      {summary.unknownCount > 0 && <div><dt>인증 확인 불가</dt><dd>{summary.unknownCount}건</dd></div>}
+    </dl>
+    {!summary.reuseRecorded && <p>이 실행의 이전 결과 재사용 내역은 기록되지 않았어요.</p>}
+    {summary.reusedResults.length > 0 && <details>
+      <summary>재사용한 결과와 검증 시각</summary>
+      <ul>{summary.reusedResults.map((item, index) => <li key={`${item.issuer}-${item.sourceRunId}-${item.providerCheckedAt}-${index}`}>
+        <strong>{validationIssuerLabels[item.issuer as keyof typeof validationIssuerLabels] ?? '키 발급 서비스'} · {item.result === 'VALID' ? '유효' : '사용 불가'} {item.count}건</strong>
+        <span>검증 {scanDate(item.providerCheckedAt)} · <Link to={`/secrets/history/${item.sourceRunId}`}>SCAN-{item.sourceRunId}</Link></span>
+        <span>{scanProgressReason(item.reasonCode)}</span>
+      </li>)}</ul>
+      {summary.reusedResultsTruncated && <p className="secret-scan-validation-truncated">이전 관측 일부를 표시해요. 재사용 건수는 전체 기록 기준이에요.</p>}
+    </details>}
+  </section>
 }
 
 class ScanConnectionMismatch extends Error {}
@@ -91,7 +108,7 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
   return <section className={`secret-scan-execution-panel${progress.isError ? ' stale' : ''}`} aria-labelledby={`scan-progress-${runId}`}>
     <header className="secret-scan-execution-header">
       <div><p>검사 진행 · SCAN-{runId}</p><h2 id={`scan-progress-${runId}`}>{scanPlatforms[data.provider as keyof typeof scanPlatforms] ?? '연결'} 검사</h2></div>
-      <span className={`secret-run-badge ${data.status.toLowerCase()}`}>{scanStatus(data.status)}</span>
+      <span className={`secret-run-badge ${data.status.toLowerCase()}`}>{scanProgressStatusLabel(data)}</span>
     </header>
     <dl className="secret-scan-execution-facts">
       <div><dt>요청 시각</dt><dd>{scanDate(data.requestedAt)}</dd></div>
@@ -110,12 +127,14 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
             className={`secret-scan-execution-stage${selectedKey === item.key ? ' selected' : ''}`}
             onClick={() => { setSelected(item.key); setVisibleCount(200) }}>
             <span className="secret-scan-execution-stage-icon" aria-hidden="true">{item.status === 'SUCCEEDED' ? '✓' : item.status === 'FAILED' ? '!' : item.status === 'SKIPPED' ? '−' : ''}</span>
-            <span className="secret-scan-execution-stage-content"><strong>{config?.title ?? '검사 처리'}</strong><span>{item.status === 'SKIPPED' && item.reasonCode ? progressReason(item.reasonCode) : count ?? config?.description}</span></span>
-            <span className="secret-scan-execution-stage-state">{scanProgressStates[item.status] ?? '상태 확인'}</span>
+            <span className="secret-scan-execution-stage-content"><strong>{config?.title ?? '검사 처리'}</strong><span>{['SKIPPED', 'PARTIAL', 'FAILED'].includes(item.status) && item.reasonCode ? scanProgressReason(item.reasonCode) : count ?? config?.description}</span></span>
+            <span className="secret-scan-execution-stage-state">{scanValidationNeedsReview(data) && ['VALIDATION', 'RESULT'].includes(item.key) && item.status === 'PARTIAL' ? '확인 필요' : scanProgressStates[item.status] ?? '상태 확인'}</span>
           </button>
         </li>
       })}
     </ol>
+
+    {data.validationSummary && data.stages.some((item) => item.key === 'VALIDATION' && !['PENDING', 'UNKNOWN'].includes(item.status)) && <ValidationSummary summary={data.validationSummary} />}
 
     <section id={`scan-terminal-${runId}`} className="secret-scan-execution-terminal" aria-labelledby={`scan-terminal-title-${runId}`}>
       <div className="secret-scan-execution-terminal-head">
@@ -124,11 +143,11 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
       </div>
       <div ref={terminal} className="secret-scan-execution-terminal-body" tabIndex={0} role="region" aria-label="읽기 전용 실행 내역">
         {events.length > visibleCount && <button className="secret-scan-execution-more-events" onClick={() => setVisibleCount((value) => value + 200)}>이전 내역 {Math.min(200, events.length - visibleCount)}개 보기</button>}
-        {!visible.length ? <p className="secret-scan-execution-log-empty">{data.eventsStatus === 'EXPIRED' ? '상세 실행 내역의 보존 기간이 지났어요.' : data.eventsStatus === 'NOT_RECORDED' ? '이 실행의 상세 내역이 기록되지 않았어요.' : stage?.status === 'PENDING' ? '이 단계의 시작을 기다리고 있어요.' : stage?.reasonCode ? progressReason(stage.reasonCode) : '수신된 실행 내역이 없어요.'}</p>
+        {!visible.length ? <p className="secret-scan-execution-log-empty">{data.eventsStatus === 'EXPIRED' ? '상세 실행 내역의 보존 기간이 지났어요.' : data.eventsStatus === 'NOT_RECORDED' ? '이 실행의 상세 내역이 기록되지 않았어요.' : stage?.status === 'PENDING' ? '이 단계의 시작을 기다리고 있어요.' : stage?.reasonCode ? scanProgressReason(stage.reasonCode) : '수신된 실행 내역이 없어요.'}</p>
           : <ol className="secret-scan-execution-events">{visible.map((event) => <li key={event.id} className={`event-${event.outcome.toLowerCase()}`}>
             <div className="secret-scan-execution-event-command"><time dateTime={event.observedAt}>{scanEventTime(event.observedAt)}</time><span aria-hidden="true">›</span><strong>{scanOperationLabel(event.operationCode)}</strong><small>시도 {event.attemptNo}</small></div>
             {scanRequestFormat(event.operationCode) && <div className="secret-scan-execution-request"><span>요청 형식</span><code>{scanRequestFormat(event.operationCode)}</code></div>}
-            <p><span>{event.httpStatus != null && `HTTP ${event.httpStatus} · `}{scanEventOutcome(event.outcome)}{event.durationMs != null && ` · ${event.durationMs}ms`}</span>{progressReason(event.reasonCode) && <span>{progressReason(event.reasonCode)}</span>}{scanProgressCount(event.processedCount) && <span>처리 {event.processedCount}{scanProgressCount(event.totalCount) ? ` / ${event.totalCount}` : ''}</span>}</p>
+            <p><span>{event.httpStatus != null && `HTTP ${event.httpStatus} · `}{scanEventOutcome(event.outcome)}{event.durationMs != null && ` · ${event.durationMs}ms`}</span>{scanProgressReason(event.reasonCode) && <span>{scanProgressReason(event.reasonCode)}</span>}{scanProgressCount(event.processedCount) && <span>처리 {event.processedCount}{scanProgressCount(event.totalCount) ? ` / ${event.totalCount}` : ''}</span>}</p>
           </li>)}</ol>}
       </div>
       <p className="secret-scan-execution-terminal-foot">마지막 활동 {scanDate(data.latestActivityAt)}{data.truncated && ` · 일부 상세 생략 ${data.suppressedEventCount}개`}</p>
@@ -136,7 +155,7 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
 
     {settled && <footer className="secret-scan-execution-result">
       <p>{scanProgressCount(data.finishedScopeCount) && <span>종료 대상 {data.finishedScopeCount}개</span>}{scanProgressCount(data.collectedObjectCount) && <span>수집 항목 {data.collectedObjectCount}개</span>}{scanProgressCount(data.findingCount) && <span>탐지 근거 {data.findingCount}개</span>}</p>
-      <div>{data.capabilities?.canViewFindings && <Link to={`/secrets/history/${runId}/findings`}>발견 결과 보기</Link>}{['PARTIAL', 'FAILED'].includes(data.status) && <Link to={`/secrets/history/${runId}#coverage-title`}>실패 대상 확인</Link>}<Link to={`/secrets/history/${runId}`}>실행 이력</Link></div>
+      <div>{data.capabilities?.canViewFindings && <Link to={`/secrets/history/${runId}/findings`}>{scanValidationOnlyIssue(data) ? '인증 확인이 필요한 키 보기' : '발견 결과 보기'}</Link>}{['PARTIAL', 'FAILED'].includes(data.status) && !scanValidationOnlyIssue(data) && <Link to={`/secrets/history/${runId}#coverage-title`}>실패 대상 확인</Link>}<Link to={`/secrets/history/${runId}`}>실행 이력</Link></div>
     </footer>}
   </section>
 }
