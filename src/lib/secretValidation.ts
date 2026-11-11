@@ -54,7 +54,7 @@ export const requestStatusLabel = (status: string) => ({ PENDING: '확인 대기
 export const temporaryValidationReadError = (error: Error) => !(error instanceof ApiError) || error.status === 429 || error.status >= 500
 export const canRecoverValidationRead = (error: Error | null, failures: number) => error != null && temporaryValidationReadError(error) && failures <= 5
 export function validationPresentation(data: SecretValidation): { title: string; description: string } {
-  const allReasons = [...(data.capabilities.blockedReasonCodes ?? []), data.support.reasonCode, ...(data.support.reasonCodes ?? []), data.latestAttempt?.reasonCode]
+  const allReasons = [data.latestAttempt?.reasonCode, ...(data.capabilities.blockedReasonCodes ?? []), data.support.reasonCode, ...(data.support.reasonCodes ?? [])]
   const reason = allReasons.find((code) => !!code && code !== 'SUPPORTED')
   if (data.latestRequest?.status === 'PENDING' && data.latestRequest.nextRetryAt) return { title: '재시도 대기', description: validationReason(reason) }
   if (activeRequest(data.latestRequest?.status)) return { title: requestStatusLabel(data.latestRequest!.status), description: '접수된 요청의 진행 상황이에요. 아직 새 인증 결과가 아니에요.' }

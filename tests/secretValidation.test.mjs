@@ -70,6 +70,14 @@ test('current connection and issuer policy has precedence over a historical sour
   assert.match(html, /이 연결에서 해당 키 발급 서비스의 검증을 허용/)
   assert.doesNotMatch(html, /<h3>이전 검증 생략|<h3>유효/)
 })
+
+test('another active scan does not replace the explanation of the current authentication observation', () => {
+  const value = { ...data, latestAttempt: { attemptId: 7, result: 'INVALID', reasonCode: 'AUTHENTICATION_REJECTED', providerCheckedAt: '2026-11-12T00:00:00Z' }, capabilities: { canRequestValidation: false, blockedReasonCodes: ['ACTIVE_JOB_EXISTS'] } }
+  const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value]])
+  assert.match(html, /<h3>사용 불가<\/h3>/)
+  assert.match(html, /인증이 거절됨/)
+  assert.match(html, /다른 확인 작업이 진행 중/)
+})
 test('abandoned attempts in history have no invented unchecked result or provider timestamp', () => {
   const html = render(api.SecretValidationHistory, { secretId: 12 }, [[['secret-validation-history', 12, null, 0], { items: [{ attemptId: 3, state: 'ABANDONED', result: null, reasonCode: 'LEASE_EXPIRED', purpose: 'CREDENTIAL_VALIDITY', completedAt: '2026-10-22T00:00:00Z', providerCheckedAt: null }], total: 1, page: 0, size: 20 }]])
   assert.match(html, /시도 중단 · 결론 없음/); assert.match(html, /실행 권한이 만료/); assert.doesNotMatch(html, /<td>미검증<\/td>/)
