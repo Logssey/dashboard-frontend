@@ -104,7 +104,7 @@ test('independent detail distinguishes seven successes from twelve finished scop
 })
 test('metadata skip reasons and unavailable legacy aggregates stay explicit', () => {
   assert.equal(scanReason('NO_SUPPORTED_VALIDATOR'), '지원되는 유효성 확인 방식 없음')
-  assert.equal(scanReason('SOURCE_GUARD_BLOCKED'), '원천 보호에 따른 검증 제외')
+  assert.equal(scanReason('SOURCE_GUARD_BLOCKED'), '당시 원천 보호 설정에 따른 검증 생략')
   assert.equal(scanReason('SYNTHETIC_FIXTURE'), '합성 키 검증 생략')
   const run = { ...baseRun, status: 'SUCCEEDED', aggregationStatus: 'LEGACY_UNAVAILABLE', detection: stage('SKIPPED', 'NOT_APPLICABLE_METADATA', false), validation: stage('SKIPPED', 'NOT_APPLICABLE_METADATA', false), findingCount: null, distinctCredentialCount: null }
   const html = renderPage(SecretRunDetailPage, '/secrets/history/:runId', '/secrets/history/12', [[['secret-run', 12], run]])

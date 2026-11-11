@@ -9,7 +9,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { build } from 'esbuild'
 
-const bundle = await build({ stdin: { contents: "export * from './src/api/secretValidation'; export { ApiError } from './src/api/client'; export * from './src/lib/secretValidation'; export * from './src/components/SecretValidation'; export * from './src/components/SecretValidationPolicy';", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
+const bundle = await build({ stdin: { contents: "export * from './src/api/secretValidation'; export { ApiError } from './src/api/client'; export * from './src/lib/secretValidation'; export * from './src/components/SecretValidation'; export * from './src/components/SecretValidationPolicy'; export * from './src/components/SecretConnectionValidationSettings';", resolveDir: resolve('.') }, bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', loader: { '.css': 'empty' }, alias: { '@': resolve('src') } })
 const path = resolve('node_modules/.secret-validation-test.mjs'); await writeFile(path, bundle.outputFiles[0].contents)
 const api = await import(pathToFileURL(path).href); after(() => unlink(path))
 const data = { support: { status: 'SUPPORTED' }, latestAttempt: null, lastAuthenticatedAt: null, lastConclusiveValidation: null, latestRequest: null, freshness: { status: 'UNAVAILABLE' }, nextDueAt: null, postActionValidationPending: false, capabilities: { canRequestValidation: false, blockedReasonCodes: [] }, contextVersion: 'safe-context', readAt: '2026-10-22T00:00:00Z' }
@@ -41,25 +41,34 @@ test('pending requests and stale validation are not fresh authentication success
   assert.equal(api.validationPresentation({ ...data, freshness: { status: 'STALE' } }).title, '다시 확인 필요')
   assert.equal(api.validationPresentation({ ...data, postActionValidationPending: true }).title, '조치 후 미검증')
   const html = render(api.SecretValidationPolicy, { scopeId: 5 }, [[['secret-validation-policy', 5], { enabled: true, expectedValidationApprovalRevision: 2, profileStatus: 'DISABLED', canConfigure: false }]])
-  assert.match(html, /범위를 허용해도 공급자를 호출하지 않아요/); assert.doesNotMatch(html, /<button[^>]*>이 범위 검증/)
+  assert.match(html, /서버 검증 기능이 꺼져 있어요/); assert.doesNotMatch(html, /<button[^>]*>이 범위 검증/)
 })
 test('synthetic guard takes precedence over a global disabled profile and missing setup has a concrete path', () => {
   assert.equal(api.validationPresentation({ ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'SYNTHETIC_FIXTURE'] } }).title, '합성 키 검증 생략')
   const html = render(api.SecretValidationCard, { secretId: 12, locations: [{ ...location, connectionId: 3, scopeId: 5 }] }, [[['secret-validation', 12, 8], { ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'PROFILE_UNCONFIGURED'] }, validationPolicy: { canConfigure: true } }]])
-  assert.match(html, /서버 운영 담당자의 검증 실행 설정이 필요/); assert.match(html, /href="\/secrets\/connections\/3\/scopes\/5\?settings=validation"/); assert.match(html, /인증 결과 재확인 기한 미정/); assert.doesNotMatch(html, /담당자에게 사유 코드를 알려/)
+  assert.match(html, /연결의 키 검증 설정을 저장/); assert.match(html, /href="\/secrets\/connections\?validationConnectionId=3"/); assert.match(html, /인증 결과 재확인 기한 미정/); assert.doesNotMatch(html, /담당자에게 사유 코드를 알려/)
 })
 
-test('a guarded test repository skips external validation without asserting synthetic evidence', () => {
-  const value = { ...data, capabilities: { canRequestValidation: false, blockedReasonCodes: ['DISABLED', 'SOURCE_GUARD_BLOCKED'] } }
+test('historical source protection remains an unchecked observation after the current target is allowed', () => {
+  const value = { ...data, latestAttempt: { attemptId: 4, result: 'UNCHECKED', reasonCode: 'SOURCE_GUARD_BLOCKED', providerCheckedAt: null }, capabilities: { canRequestValidation: true, blockedReasonCodes: [] } }
   const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value]])
-  assert.match(html, /<h3>원천 보호에 따른 검증 제외<\/h3>/)
-  assert.match(html, /외부 인증 확인을 실행하지 않았어요/)
+  assert.match(html, /<h3>이전 검증 생략<\/h3>/)
+  assert.match(html, /당시 적용된 원천 보호 설정으로 인증 확인을 생략/)
   assert.match(html, /합성 여부는 별도 근거로 확인/)
   assert.match(html, /실제 확인 시각<\/dt><dd>—/)
   assert.doesNotMatch(html, /합성 시험 키로 확인되어|<h3>유효<\/h3>|<h3>사용 불가<\/h3>|담당자에게 사유 코드를 알려/)
   const history = render(api.SecretValidationHistory, { secretId: 12 }, [[['secret-validation-history', 12, null, 0], { items: [{ attemptId: 4, result: 'UNCHECKED', reasonCode: 'SOURCE_GUARD_BLOCKED', providerCheckedAt: null }], total: 1, page: 0, size: 20 }]])
-  assert.match(history, /원천 보호 규칙/)
+  assert.match(history, /당시 적용된 원천 보호 설정/)
   assert.doesNotMatch(history, /합성 시험 키로 확인되어/)
+})
+
+test('current connection and issuer policy has precedence over a historical source exclusion', () => {
+  const value = { ...data, latestAttempt: { attemptId: 4, result: 'UNCHECKED', reasonCode: 'SOURCE_GUARD_BLOCKED' }, capabilities: { canRequestValidation: false, blockedReasonCodes: ['VALIDATOR_NOT_ALLOWED'] }, validationPolicy: { connectionId: 3, canConfigure: true, connectionEnabled: true } }
+  const html = render(api.SecretValidationCard, { secretId: 12, locations: [{ ...location, connectionId: 3, scopeId: 5 }] }, [[['secret-validation', 12, 8], value]])
+  assert.match(html, /<h3>키 발급 서비스 허용 필요<\/h3>/)
+  assert.match(html, /href="\/secrets\/connections\?validationConnectionId=3"/)
+  assert.match(html, /이 연결에서 해당 키 발급 서비스의 검증을 허용/)
+  assert.doesNotMatch(html, /<h3>이전 검증 생략|<h3>유효/)
 })
 test('abandoned attempts in history have no invented unchecked result or provider timestamp', () => {
   const html = render(api.SecretValidationHistory, { secretId: 12 }, [[['secret-validation-history', 12, null, 0], { items: [{ attemptId: 3, state: 'ABANDONED', result: null, reasonCode: 'LEASE_EXPIRED', purpose: 'CREDENTIAL_VALIDITY', completedAt: '2026-10-22T00:00:00Z', providerCheckedAt: null }], total: 1, page: 0, size: 20 }]])
@@ -149,4 +158,68 @@ test('a failed read marks cached authentication as historical in both collapsed 
   assert.match(html, /이전 관측 유효/)
   assert.match(html, /현재 상태를 다시 조회해야 해요/)
   assert.match(html, /잠시 후 자동으로 다시 조회/)
+})
+
+const connectionPolicy = { connectionId: 3, provider: 'GITHUB', enabled: true, allowedIssuers: ['GITHUB'], enabledIssuers: ['GITHUB', 'AWS'], expectedValidationRevision: 2, profileStatus: 'ENABLED', profileVersion: 'credential-validation-v1', canConfigure: true, blockedReasonCodes: [], approvedScopeCount: 1, scopeCount: 2 }
+const renderConnectionPolicy = (policy) => render(api.SecretConnectionValidationSettings, { connectionId: 3 }, [[['secret-connection-validation-policy', 3], policy]])
+
+test('a configured connection exposes its actual selected issuer and a distinct scope approval path', () => {
+  const html = renderConnectionPolicy(connectionPolicy)
+  assert.equal((html.match(/checked=""/g) ?? []).length, 2)
+  assert.match(html, /검증할 키 발급 서비스/)
+  assert.match(html, /저장소가 GitHub여도 안에서 AWS 키가 발견/)
+  assert.match(html, /2개 검사 대상 중 1개/)
+  assert.match(html, /href="\/secrets\/connections\/3\/scopes"/)
+  assert.doesNotMatch(html, /type="password"|name="token"|인증 성공/)
+})
+
+test('first connection setup starts with explicit empty issuer selection despite compatibility defaults', () => {
+  const html = renderConnectionPolicy({ ...connectionPolicy, enabled: false, profileStatus: 'UNCONFIGURED', profileVersion: null, allowedIssuers: ['GITHUB', 'AWS', 'NOTION'] })
+  assert.equal((html.match(/checked=""/g) ?? []).length, 0)
+  assert.match(html, /연결 검증 꺼짐/)
+})
+
+test('connection settings show server-disabled issuers and preserve read-only role boundaries', () => {
+  const html = renderConnectionPolicy({ ...connectionPolicy, enabledIssuers: [], profileStatus: 'DISABLED', canConfigure: false })
+  assert.match(html, /GitHub PAT의 서버 검증 기능이 꺼져/)
+  assert.match(html, /<fieldset disabled=""/)
+  assert.match(html, /이 연결의 보안 담당자가/)
+  assert.doesNotMatch(html, />검증 설정 저장</)
+})
+
+test('a different connection response cannot expose editable policy for the selected connection', () => {
+  const html = renderConnectionPolicy({ ...connectionPolicy, connectionId: 99 })
+  assert.match(html, /선택한 연결과 검증 설정이 달라요/)
+  assert.doesNotMatch(html, /<form|검증 설정 저장/)
+})
+
+test('scope approval displays allowed issuers and returns directly to its connection policy', () => {
+  const html = render(api.SecretValidationPolicy, { scopeId: 5 }, [[['secret-validation-policy', 5], { enabled: false, connectionId: 3, connectionEnabled: false, allowedIssuers: ['GITHUB'], expectedValidationApprovalRevision: 2, profileStatus: 'UNCONFIGURED', canConfigure: true }]])
+  assert.match(html, /허용한 키 발급 서비스 GitHub PAT/)
+  assert.match(html, /연결의 키 검증 설정을 먼저 확인/)
+  assert.match(html, /href="\/secrets\/connections\?validationConnectionId=3"/)
+})
+
+test('connection policy API uses one versioned command and explicit issuer allow-list', async () => {
+  const originalFetch = globalThis.fetch, originalDocument = globalThis.document, calls = []
+  globalThis.document = { cookie: 'XSRF-TOKEN=csrf-test' }
+  globalThis.fetch = async (url, init) => { calls.push({ url, init, body: init.body ? JSON.parse(init.body) : null }); return new Response(JSON.stringify(connectionPolicy), { status: 200, headers: { 'Content-Type': 'application/json' } }) }
+  try {
+    await api.fetchConnectionValidationPolicy(3)
+    await api.updateConnectionValidationPolicy(3, { expectedValidationRevision: 2, enabled: true, allowedIssuers: ['GITHUB'], reasonCode: 'VALIDATION_APPROVED', idempotencyKey: 'explicit-connection-policy' })
+    assert.equal(calls[0].url, '/api/v1/secrets/connections/3/validation-policy')
+    assert.equal(calls[1].init.method, 'PATCH')
+    assert.equal(calls[1].init.headers.get('X-XSRF-TOKEN'), 'csrf-test')
+    assert.deepEqual(calls[1].body, { expectedValidationRevision: 2, enabled: true, allowedIssuers: ['GITHUB'], reasonCode: 'VALIDATION_APPROVED', idempotencyKey: 'explicit-connection-policy' })
+    assert.doesNotMatch(JSON.stringify(calls), /rawSecret|authRef|sourcePath|profileVersion/)
+  } finally { globalThis.fetch = originalFetch; globalThis.document = originalDocument }
+})
+
+test('a saved connection policy gives a next action matching its actual execution conditions', () => {
+  assert.match(api.connectionValidationNextAction(connectionPolicy), /키 상세에서 확인 조건/)
+  assert.match(api.connectionValidationNextAction({ ...connectionPolicy, enabled: false }), /외부 인증 확인이 꺼져/)
+  assert.match(api.connectionValidationNextAction({ ...connectionPolicy, approvedScopeCount: 0 }), /검사 대상에서 인증 확인을 허용한 뒤/)
+  assert.match(api.connectionValidationNextAction({ ...connectionPolicy, profileStatus: 'UNCONFIGURED' }), /연결의 검증 설정을 다시 확인/)
+  assert.match(api.connectionValidationNextAction({ ...connectionPolicy, profileStatus: 'DISABLED', enabledIssuers: [] }), /서버 검증 기능을 켜야/)
+  assert.match(api.connectionValidationNextAction({ ...connectionPolicy, enabledIssuers: ['AWS'] }), /서버 검증 기능을 켜야/)
 })

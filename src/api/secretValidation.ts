@@ -13,9 +13,32 @@ export interface ValidationRequest {
   failureCode?: string | null; reasonCode?: string | null; attemptId?: number | null
 }
 export interface ValidationPolicy {
+  connectionId?: number; connectionEnabled?: boolean; allowedIssuers?: ValidationIssuer[]
   scopeId?: number; enabled: boolean; expectedValidationApprovalRevision: number; profileStatus: 'ENABLED' | 'DISABLED' | 'UNCONFIGURED'; profileVersion?: string | null
   approved?: boolean; supportedTypes?: string[]; reasonCodes?: string[]; blockedReasonCodes?: string[]
   canConfigure?: boolean
+}
+export type ValidationIssuer = 'GITHUB' | 'AWS' | 'NOTION'
+export interface ConnectionValidationPolicy {
+  connectionId: number
+  provider: string
+  enabled: boolean
+  allowedIssuers: ValidationIssuer[]
+  enabledIssuers: ValidationIssuer[]
+  expectedValidationRevision: number
+  profileStatus: 'ENABLED' | 'DISABLED' | 'UNCONFIGURED'
+  profileVersion?: string | null
+  canConfigure: boolean
+  blockedReasonCodes: string[]
+  approvedScopeCount: number
+  scopeCount: number
+}
+export interface ConnectionValidationPolicyRequest {
+  expectedValidationRevision: number
+  idempotencyKey: string
+  enabled: boolean
+  allowedIssuers: ValidationIssuer[]
+  reasonCode: 'VALIDATION_APPROVED' | 'VALIDATION_DISABLED'
 }
 export interface SecretValidation {
   support: { status: 'SUPPORTED' | 'PARTIAL' | 'UNSUPPORTED'; reasonCode?: string | null; reasonCodes?: string[]; methods?: string[] }
@@ -38,3 +61,5 @@ export const fetchValidationHistory = (id: number, occurrenceId: number | null, 
 }
 export const updateValidationPolicy = (scopeId: number, request: { expectedValidationApprovalRevision: number; idempotencyKey: string; enabled: boolean; reasonCode: string }) => apiRequest<ValidationPolicy>(`/api/v1/secrets/scopes/${scopeId}/validation-policy`, { method: 'PATCH', body: JSON.stringify(request) })
 export const fetchValidationPolicy = (scopeId: number) => apiRequest<ValidationPolicy>(`/api/v1/secrets/scopes/${scopeId}/validation-policy`)
+export const fetchConnectionValidationPolicy = (connectionId: number) => apiRequest<ConnectionValidationPolicy>(`/api/v1/secrets/connections/${connectionId}/validation-policy`)
+export const updateConnectionValidationPolicy = (connectionId: number, request: ConnectionValidationPolicyRequest) => apiRequest<ConnectionValidationPolicy>(`/api/v1/secrets/connections/${connectionId}/validation-policy`, { method: 'PATCH', body: JSON.stringify(request) })

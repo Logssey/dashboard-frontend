@@ -12,7 +12,7 @@ function progressReason(code: string | null) {
   const labels: Record<string, string> = {
     AUTHENTICATED: '인증 확인', AUTHENTICATION_REJECTED: '인증 거부',
     SYNTHETIC_FIXTURE: '분석 전용 표본 · 외부 인증 확인 제외',
-    SOURCE_GUARD_BLOCKED: '원천 보호 규칙에 따른 인증 확인 제외',
+    SOURCE_GUARD_BLOCKED: '당시 원천 보호 설정에 따른 인증 확인 생략',
     NO_CANDIDATES: '인증 확인 대상 없음', NO_CREDENTIALS: '인증 확인 대상 없음',
     DISABLED: '인증 확인 설정 꺼짐', VALIDATION_DISABLED: '인증 확인 설정 꺼짐',
     WAITING_FOR_WORKER: '워커 배정 대기', RETRY_SCHEDULED: '다음 시도 대기',
