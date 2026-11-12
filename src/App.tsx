@@ -17,6 +17,7 @@ import { VulnerabilityFindingsPage, VulnerabilitySummaryPage } from '@/pages/Vul
 import { VulnerabilityWorkloadsPage } from '@/pages/ReachWorkloadsPage'
 import { VulnerabilityScansPage } from '@/pages/ReachScansPage'
 import { VulnerabilityRulesPage } from '@/pages/ReachRulesPage'
+import { RuntimePage } from '@/pages/RuntimePage'
 
 export function App() {
   return (
@@ -38,8 +39,14 @@ export function App() {
           <Route path="/vulnerabilities/workloads" element={<VulnerabilityWorkloadsPage />} />
           <Route path="/vulnerabilities/scans" element={<VulnerabilityScansPage />} />
           <Route path="/vulnerabilities/rules" element={<VulnerabilityRulesPage />} />
+          <Route path="/runtime" element={<RuntimePage />} />
           {sectionPages
-            .filter((page) => !page.path.startsWith('/secrets') && !page.path.startsWith('/vulnerabilities'))
+            .filter(
+              (page) =>
+                !page.path.startsWith('/secrets') &&
+                !page.path.startsWith('/vulnerabilities') &&
+                page.path !== '/runtime',
+            )
             .map((page) => (
               <Route key={page.path} path={page.path} element={<ComingSoonPage page={page} />} />
             ))}
