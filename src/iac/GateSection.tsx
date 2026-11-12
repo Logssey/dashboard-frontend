@@ -12,7 +12,7 @@ export function GateSection() {
   return (
     <section className="card list-card" aria-labelledby="iac-gates-title">
       <div className="card-head">
-        <h2 id="iac-gates-title">② plan 전 검사</h2>
+        <h2 id="iac-gates-title" tabIndex={-1}>② plan 전 검사</h2>
         <span className="caption">main 기준 {formatDateTime(data?.mainCheckedAt ?? null)} · PR 차단은 최근 7일</span>
       </div>
       {gates.isPending ? (
