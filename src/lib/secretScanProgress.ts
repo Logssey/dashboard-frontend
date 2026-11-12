@@ -1,4 +1,6 @@
-import type { ScanProgressEvent, ScanProgressStage, ScanProgressStageKey } from '../api/secretScanProgress'
+import type { ScanProgressEvent, ScanProgressStage, ScanProgressStageKey, SecretScanProgressResponse } from '../api/secretScanProgress'
+import { scanReason, scanRunStatus } from './secretScan'
+import { validationReasonLabels } from './secretValidation'
 
 export const scanProgressStages: Record<ScanProgressStageKey, { title: string; description: string }> = {
   QUEUE: { title: '요청·작업 대기', description: '워커가 요청을 가져와 검사를 시작해요.' },
@@ -31,6 +33,7 @@ const operations: Record<string, string> = {
   FINDINGS_COMMIT: '탐지 결과 저장',
   AWS_CREDENTIAL_CHECK: 'AWS STS · 발견한 키 인증 확인', GITHUB_CREDENTIAL_CHECK: 'GitHub API · 발견한 키 인증 확인',
   NOTION_CREDENTIAL_CHECK: 'Notion API · 발견한 키 인증 확인', CREDENTIAL_CHECK: '발견한 키 인증 확인',
+  CREDENTIAL_RESULT_REUSED: '이전 인증 결과 재사용',
 }
 
 const outcomes: Record<ScanProgressEvent['outcome'], string> = {
@@ -56,6 +59,38 @@ export const scanRequestFormat = (code: string): string | null => requestFormats
 export const scanEventOutcome = (value: ScanProgressEvent['outcome']) => outcomes[value] ?? '결과 확인'
 export const scanProgressTerminal = (status: string) => ['SUCCEEDED', 'PARTIAL', 'FAILED', 'CANCELLED', 'SKIPPED'].includes(status)
 export const scanProgressCount = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+
+export function scanProgressReason(code: string | null): string | null {
+  if (!code) return null
+  const labels: Record<string, string> = {
+    AUTHENTICATED: '인증 확인', AUTHENTICATION_REJECTED: '인증 거부',
+    SYNTHETIC_FIXTURE: '분석 전용 표본 · 외부 인증 확인 제외',
+    SOURCE_GUARD_BLOCKED: '당시 원천 보호 설정에 따른 인증 확인 생략',
+    NO_CANDIDATES: '인증 확인 대상 없음', NO_CREDENTIALS: '인증 확인 대상 없음',
+    DISABLED: '인증 확인 설정 꺼짐', VALIDATION_DISABLED: '인증 확인 설정 꺼짐',
+    WAITING_FOR_WORKER: '워커 배정 대기', RETRY_SCHEDULED: '다음 시도 대기',
+    VALIDATION_INCONCLUSIVE: '인증을 확인하지 못한 키가 있어요. 키별 사유를 확인하세요.',
+  }
+  return labels[code] ?? validationReasonLabels[code] ?? scanReason(code)
+}
+
+export function scanValidationOnlyIssue(data: SecretScanProgressResponse): boolean {
+  return ['PARTIAL', 'FAILED'].includes(data.status)
+    && data.stages.some((item) => item.key === 'VALIDATION' && ['PARTIAL', 'FAILED'].includes(item.status))
+    && ['COLLECTION', 'DETECTION'].every((key) => data.stages.some((item) => item.key === key && item.status === 'SUCCEEDED'))
+}
+
+export function scanProgressEventOutcome(event: ScanProgressEvent, data: SecretScanProgressResponse): string {
+  const completedValidationSummary = data.status === 'PARTIAL'
+    && event.operationCode === 'STAGE_SUMMARY' && event.outcome === 'PARTIAL'
+    && event.reasonCode === 'VALIDATION_INCONCLUSIVE'
+    && ['VALIDATION', 'RESULT'].includes(event.stage) && scanValidationOnlyIssue(data)
+  return completedValidationSummary ? '검사 완료' : scanEventOutcome(event.outcome)
+}
+
+export function scanProgressStatusLabel(data: SecretScanProgressResponse): string {
+  return scanRunStatus(data.status)
+}
 
 export function scanStageCount(stage: ScanProgressStage): string | null {
   if (!scanProgressCount(stage.processedCount)) return null

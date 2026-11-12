@@ -10,13 +10,13 @@ import { SecretFilterDisclosure } from '@/components/SecretFilterDisclosure'
 import { SecretOperationsHealth } from '@/components/SecretOperationsHealth'
 import { SecretScanProgress } from '@/components/SecretScanProgress'
 import { SecretConnectionValidationSettings } from '@/components/SecretConnectionValidationSettings'
-import { positiveId, scanDate, scanPlatforms, scanReason, scanStatus } from '@/lib/secretScan'
+import { positiveId, scanDate, scanPlatforms, scanReason, scanRunStatus, scanStatus } from '@/lib/secretScan'
 import './secret-connections.css'
 import './secret-scan.css'
 import './secret-scope-workspace.css'
 
 export function AttemptLink({ attempt }: { attempt: ScanAttempt | null | undefined; origin?: string }) {
-  return attempt ? <><Link to={`/secrets/history/${attempt.runId}`}>SCAN-{attempt.runId} · {scanStatus(attempt.runStatus ?? attempt.status)}</Link><small>{scanDate(attempt.finishedAt ?? attempt.requestedAt)}</small></> : <>확인 기록 없음</>
+  return attempt ? <><Link to={`/secrets/history/${attempt.runId}`}>SCAN-{attempt.runId} · {scanRunStatus(attempt.runStatus ?? attempt.status)}</Link><small>{scanDate(attempt.finishedAt ?? attempt.requestedAt)}</small></> : <>확인 기록 없음</>
 }
 
 function probeLabel(status?: string) {
@@ -54,7 +54,7 @@ function ConnectionCard({ connection, selected, result, testing, error, onTest, 
     {error && <p className="secret-connection-test-error" role="alert">{error}</p>}
     <div className="secret-connection-actions">
       <button className="btn secret-connection-test-button" disabled={testing || !connection.capabilities?.canTest} onClick={() => onTest(connection.connectionId)}>{testing ? '연결 확인 중…' : '연결 테스트'}</button>
-      <button className="btn primary" disabled={!connection.activeJob && !connection.capabilities?.canRun} onClick={() => onScan(connection)}>{connection.activeJob ? '진행 중인 검사 보기' : '스캔 요청'}</button>
+      <button className="btn primary" disabled={!connection.activeJob && !connection.capabilities?.canRun} onClick={() => onScan(connection)}>{connection.activeJob ? '검사 진행 중' : '스캔 요청'}</button>
       <Link className="btn outline" to={`/secrets/connections/${connection.connectionId}/scopes`}>검사 대상</Link>
       <button className="btn outline" onClick={() => onValidationSettings(connection.connectionId)}>키 검증 설정</button>
     </div>

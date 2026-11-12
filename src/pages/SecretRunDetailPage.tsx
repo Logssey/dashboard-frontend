@@ -5,7 +5,7 @@ import { ApiError } from '@/api/client'
 import { fetchSecretScanRun, type ScanStage, type SecretScanRun } from '@/api/secretRuns'
 import { withSecretOrigin } from '@/lib/secretNavigation'
 import { Icon } from '@/components/Icon'
-import { findingCountLabel, hasScopeAggregation, historyReturnPath, objectCountLabel, positiveId, scanDate, scanDetailPath, scanDuration, scanConnectionLabel, scanPlatforms, scanReason, scanStatus, scanTypes, scopeTypeLabel, terminalRunStatuses } from '@/lib/secretScan'
+import { findingCountLabel, hasScopeAggregation, historyReturnPath, objectCountLabel, positiveId, scanDate, scanDetailPath, scanDuration, scanConnectionLabel, scanPlatforms, scanReason, scanRunStatus, scanStatus, scanTypes, scopeTypeLabel, terminalRunStatuses } from '@/lib/secretScan'
 import './secret-scan.css'
 
 function StageResult({ name, stage, fallback }: { name: string; stage?: ScanStage; fallback: string }) {
@@ -26,7 +26,7 @@ function RunContent({ run }: { run: SecretScanRun }) {
   const revalidation = run.revalidation
   return <>
     <section className="card secret-run-summary" aria-labelledby="run-summary-title">
-      <div className="row between"><h2 id="run-summary-title">실행 요약</h2><span className={`secret-run-badge ${run.status.toLowerCase()}`}>{scanStatus(run.status)}</span></div>
+      <div className="row between"><h2 id="run-summary-title">실행 요약</h2><span className={`secret-run-badge ${run.status.toLowerCase()}`}>{scanRunStatus(run.status)}</span></div>
       <p>{scanTypes[run.triggerType] ?? '실행 유형 미확인'} · {scanPlatforms[run.provider] ?? '플랫폼 미확인'} · {scanConnectionLabel(run)}</p>
       <dl className="secret-scan-facts"><div><dt>요청</dt><dd>{scanDate(run.requestedAt)}</dd></div><div><dt>시작</dt><dd>{run.startedAt ? scanDate(run.startedAt) : '시작 전'}</dd></div><div><dt>종료</dt><dd>{run.finishedAt ? scanDate(run.finishedAt) : '종료 전'}</dd></div><div><dt>소요 시간</dt><dd>{scanDuration(run.startedAt, run.finishedAt)}</dd></div></dl>
       {run.retryOfRunId && <p>이전 실행 <Link to={withSecretOrigin(scanDetailPath(run.retryOfRunId), params)}>SCAN-{run.retryOfRunId}</Link>의 재시도</p>}

@@ -79,6 +79,9 @@ export function scanDuration(start: string | null, end: string | null): string {
 export function scanStatus(status: string): string {
   return Object.hasOwn(scanStatuses, status) ? scanStatuses[status as keyof typeof scanStatuses] : status === 'SKIPPED' ? '건너뜀' : status === 'LEASED' ? '진행 중' : '미확인'
 }
+export function scanRunStatus(status: string): string {
+  return ['SUCCEEDED', 'PARTIAL', 'SKIPPED'].includes(status) ? '검사 완료' : scanStatus(status)
+}
 /** datetime-local is explicitly KST, independent of the browser's local timezone. */
 export function kstInput(value: string | null): string {
   if (!value || !Number.isFinite(Date.parse(value))) return ''

@@ -11,7 +11,7 @@ import { SecretFilterDisclosure } from '@/components/SecretFilterDisclosure'
 import { PageHeader } from '@/components/PageHeader'
 import { SecretDetailPanel } from '@/components/SecretDetailPanel'
 import './secret-scan-request.css'
-import { hasScopeAggregation, kstInput, kstInputToUtc, parseRunFilters, positiveId, runFilterSearch, scanDate, scanDetailPath, scanDuration, scanConnectionLabel, scanPlatforms, scanReason, scanStatus, scanStatuses, scanTypes, terminalRunStatuses } from '@/lib/secretScan'
+import { hasScopeAggregation, kstInput, kstInputToUtc, parseRunFilters, positiveId, runFilterSearch, scanDate, scanDetailPath, scanDuration, scanConnectionLabel, scanPlatforms, scanReason, scanRunStatus, scanStatuses, scanTypes, terminalRunStatuses } from '@/lib/secretScan'
 import './secret-scan.css'
 
 export function SecretHistoryPage() {
@@ -86,7 +86,7 @@ function HistoryList({ filters, errors, params, setParams }: {
       values={{ type: filters.type, status: filters.status, provider: filters.provider, connectionId: String(filters.connectionId ?? ''), from: kstInput(filters.from), to: kstInput(filters.to) }}
       fields={[
         { key: 'type', label: '실행 유형', options: scanTypes, defaultValue: 'ALL' },
-        { key: 'status', label: '실행 상태', options: { '': '전체 상태', ...scanStatuses }, defaultValue: '' },
+        { key: 'status', label: '실행 상태', options: { '': '전체 상태', ...scanStatuses, SUCCEEDED: '검사 완료', PARTIAL: '검사 완료 · 확인 항목 있음' }, defaultValue: '' },
         { key: 'provider', label: '발견 플랫폼', options: { '': '전체 플랫폼', ...scanPlatforms }, defaultValue: '' },
         { key: 'connectionId', label: '연결', options: { '': '전체 연결', ...Object.fromEntries(available.map((item) => [String(item.connectionId), scanConnectionLabel(item)])), ...(filters.connectionId ? { [String(filters.connectionId)]: available.some((item) => item.connectionId === filters.connectionId) ? scanConnectionLabel(available.find((item) => item.connectionId === filters.connectionId)!) : `연결 #${filters.connectionId}` } : {}) }, defaultValue: '' },
         { key: 'from', label: '요청 시작 (KST)', inputType: 'datetime-local', options: {}, defaultValue: '' },
@@ -114,7 +114,7 @@ function HistoryList({ filters, errors, params, setParams }: {
         <table><thead><tr><th scope="col">실행</th><th scope="col">연결</th><th scope="col">실행 상태</th><th scope="col">범위 커버리지</th><th scope="col">수집 항목</th><th scope="col">시각</th><th scope="col">소요 시간</th><th scope="col">다음 행동</th></tr></thead><tbody>{items.map((item) => <tr key={item.runId}>
           <td><Link id={`scan-link-${item.runId}`} to={withSecretOrigin(scanDetailPath(item.runId, filters), params)} onClick={() => remember(item.runId)}><strong>SCAN-{item.runId}</strong></Link><span className="asset">{scanTypes[item.triggerType] ?? '유형 미확인'}</span></td>
           <td>{scanPlatforms[item.provider] ?? '플랫폼 미확인'}<span className="asset">{scanConnectionLabel(item)}</span></td>
-          <td><span className={`secret-run-badge ${item.status.toLowerCase()}`}>{scanStatus(item.status)}</span>{item.failureCode && <span className="asset">{scanReason(item.failureCode)}</span>}</td>
+          <td><span className={`secret-run-badge ${item.status.toLowerCase()}`}>{scanRunStatus(item.status)}</span>{item.failureCode && <span className="asset">{scanReason(item.failureCode)}</span>}</td>
           <td>{hasScopeAggregation(item) ? <><strong>성공 {item.successfulScopeCount} / {item.scopeCount}</strong><span className="asset">부분 {item.scopeStatusCounts?.PARTIAL ?? '—'} · 실패 {item.scopeStatusCounts?.FAILED ?? '—'} · 건너뜀 {item.scopeStatusCounts?.SKIPPED ?? '—'}</span>{!terminalRunStatuses.has(item.status) && <span className="asset">대기 {item.scopeStatusCounts?.PENDING ?? '—'} · 진행 {item.scopeStatusCounts?.RUNNING ?? '—'}</span>}</> : '집계 확인 불가'}</td>
           <td>{item.collectedObjectCount != null && item.collectedObjectCount > 0 ? `${item.collectedObjectCount}개 확인` : hasScopeAggregation(item) && item.gapScopeCount === 0 && item.status === 'SUCCEEDED' && item.collectedObjectCount === 0 ? '0개 확인' : '확인 불가'}{(item.gapScopeCount ?? 0) > 0 && <span className="asset">일부 범위 미확인</span>}</td>
           <td>{scanDate(item.startedAt ?? item.requestedAt)}<span className="asset">{item.startedAt ? '시작' : '요청'}{item.finishedAt ? ` · 종료 ${scanDate(item.finishedAt)}` : ''}</span></td><td>{scanDuration(item.startedAt, item.finishedAt)}</td>

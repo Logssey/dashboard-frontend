@@ -131,7 +131,7 @@ test('connection authentication success is separate from failed latest scan and 
   const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
   assert.match(html, /연결 확인됨/)
   assert.match(html, /SCAN-12 · 실패/)
-  assert.match(html, /SCAN-10 · 정상 종료/)
+  assert.match(html, /SCAN-10 · 검사 완료/)
   assert.match(html, /검사 대상<\/a>/)
   assert.match(html, /<button[^>]*disabled=""[^>]*>연결 테스트<\/button>/)
 })
@@ -232,7 +232,8 @@ test('connection and scope entry ignore old modes while preserving object links'
   for (const origin of ['TEST', 'PRODUCTION']) {
     const connections = renderPage(SecretConnectionsPage, '/secrets/connections', `/secrets/connections?origin=${origin}`, [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
     assert.match(connections, /결제 서비스/)
-    assert.match(connections, /진행 중인 검사 보기/)
+    assert.match(connections, /검사 진행 중/)
+    assert.doesNotMatch(connections, /진행 중인 검사 보기/)
     assert.doesNotMatch(connections, /범위 출처|운영·시험|시험 출처/)
     assert.ok(hrefs(connections).some((href) => href.includes('/secrets/connections/3/scopes')))
     const coverage = { lastAttempt: connection.lastFullScanAttempt, lastSuccessfulScan: connection.lastSuccessfulFullScan, freshness: 'CURRENT', gapReasonCodes: [], nextDueAt: null }

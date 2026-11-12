@@ -29,6 +29,22 @@ const value = {
   stages: [stage('QUEUE', 'SUCCEEDED'), stage('COLLECTION', 'RUNNING'), stage('DETECTION', 'RUNNING'), stage('VALIDATION', 'PENDING'), stage('RESULT', 'PENDING')],
   events: [event(1)], nextAfterEventId: 1, hasMore: false,
 }
+const validationSummary = {
+  reuseRecorded: true, newRequestCount: 0, completedRequestCount: 0,
+  reusedResultCount: 7, uncheckedCount: 2, incompleteCount: 2, unknownCount: 0, reusedResultsTruncated: false,
+  reusedResults: [
+    { issuer: 'GITHUB', result: 'INVALID', reasonCode: 'AUTHENTICATION_REJECTED', providerCheckedAt: '2026-11-11T17:10:20Z', sourceRunId: 85, count: 2 },
+    { issuer: 'AWS', result: 'INVALID', reasonCode: 'INVALID_ACCESS_KEY', providerCheckedAt: '2026-11-11T17:10:30Z', sourceRunId: 85, count: 3 },
+    { issuer: 'NOTION', result: 'INVALID', reasonCode: 'AUTHENTICATION_REJECTED', providerCheckedAt: '2026-11-11T17:10:32Z', sourceRunId: 85, count: 2 },
+  ],
+}
+const incompleteRun = {
+  ...value, status: 'PARTIAL', finishedAt: '2026-11-11T17:13:53Z', validationSummary,
+  stages: [stage('QUEUE', 'SUCCEEDED'), stage('COLLECTION', 'SUCCEEDED'), stage('DETECTION', 'SUCCEEDED'),
+    { ...stage('VALIDATION', 'PARTIAL'), reasonCode: 'VALIDATION_INCONCLUSIVE' },
+    { ...stage('RESULT', 'PARTIAL'), reasonCode: 'VALIDATION_INCONCLUSIVE' }],
+  events: [], capabilities: { canViewFindings: true },
+}
 function render(data, expectedConnectionId) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   if (data) client.setQueryData(['secret-run-progress', 91, expectedConnectionId ?? null], data)
@@ -81,6 +97,93 @@ test('cursor event merge is ordered, idempotent and does not collapse separate a
   assert.equal(modules.lib.scanOperationLabel('UNREGISTERED_SENSITIVE_VALUE'), '검사 처리')
   assert.equal(modules.lib.scanRequestFormat('UNREGISTERED_SENSITIVE_VALUE'), null)
   assert.equal(modules.lib.scanRequestFormat('GITHUB_CREDENTIAL_CHECK'), 'GET /user')
+})
+
+test('incomplete AWS credentials retain their exact validation reasons in the execution log', () => {
+  assert.equal(modules.lib.scanProgressReason('INCOMPLETE_PAIR'), 'AWS 키 ID와 Secret Access Key를 한 쌍으로 확인하지 못했어요.')
+  assert.equal(modules.lib.scanProgressReason('MISSING_SESSION_TOKEN'), '임시 AWS 키에 필요한 세션 토큰이 없어요.')
+  const data = { ...value,
+    stages: [stage('QUEUE', 'SUCCEEDED'), stage('COLLECTION', 'SUCCEEDED'), stage('DETECTION', 'SUCCEEDED'), stage('VALIDATION', 'RUNNING'), stage('RESULT', 'PENDING')],
+    events: [
+      { ...event(1, 'AWS_CREDENTIAL_CHECK'), stage: 'VALIDATION', outcome: 'SKIPPED', httpStatus: null, reasonCode: 'INCOMPLETE_PAIR' },
+      { ...event(2, 'AWS_CREDENTIAL_CHECK'), stage: 'VALIDATION', outcome: 'SKIPPED', httpStatus: null, reasonCode: 'MISSING_SESSION_TOKEN' },
+    ],
+  }
+  const html = render(data)
+  assert.match(html, /AWS 키 ID와 Secret Access Key를 한 쌍으로 확인하지 못했어요/)
+  assert.match(html, /임시 AWS 키에 필요한 세션 토큰이 없어요/)
+  assert.doesNotMatch(html, /최근 검사 일부 누락|검사 근거 확인 필요|HTTP 200/)
+})
+
+test('same-cycle reused results show their original observations separately from new API requests', () => {
+  const html = render(incompleteRun)
+  assert.match(html, /새 인증 요청<\/dt><dd>0건/)
+  assert.match(html, /이전 결과 재사용<\/dt><dd>7건/)
+  assert.match(html, /구성 부족<\/dt><dd>2건/)
+  assert.match(html, /GitHub PAT · 사용 불가 2건/)
+  assert.match(html, /검증 2026\. 11\. 12\. 02:10 KST/)
+  assert.match(html, /href="\/secrets\/history\/85"/)
+  assert.match(html, /검사 완료/)
+  assert.match(html, /인증 미확인 2건의 사유를 결과에서 확인하세요/)
+  assert.match(html, /인증 확인이 필요한 키 보기/)
+  assert.doesNotMatch(html, /실패 대상 확인|부분 실패|HTTP 401|GET \/user/)
+  const capped = render({ ...incompleteRun, validationSummary: { ...validationSummary, reusedResults: validationSummary.reusedResults.slice(0, 1), reusedResultsTruncated: true } })
+  assert.match(capped, /이전 관측 일부를 표시해요/)
+  assert.match(capped, /이전 결과 재사용<\/dt><dd>7건/)
+})
+
+test('historical reuse gaps stay unknown and real operational failures retain failure navigation', () => {
+  const historical = render({ ...incompleteRun, validationSummary: { ...validationSummary, reuseRecorded: false, reusedResultCount: null, reusedResults: [] } })
+  assert.match(historical, /이전 결과 재사용<\/dt><dd>미기록/)
+  assert.match(historical, /이 실행의 이전 결과 재사용 내역은 기록되지 않았어요/)
+  assert.doesNotMatch(historical, /이전 결과 재사용<\/dt><dd>0건/)
+  const failed = render({ ...incompleteRun, validationSummary: { ...validationSummary, unknownCount: 1 } })
+  assert.match(failed, /검사 완료/)
+  assert.match(failed, /인증 확인 불가<\/dt><dd>1건/)
+  assert.match(failed, /인증 확인이 필요한 키 보기/)
+  assert.doesNotMatch(failed, /실패 대상 확인/)
+  const collectionFailure = render({ ...incompleteRun, stages: incompleteRun.stages.map((item) => item.key === 'COLLECTION' ? { ...item, status: 'PARTIAL' } : item) })
+  assert.match(collectionFailure, /실패 대상 확인/)
+  assert.match(collectionFailure, /확인이 필요한 항목과 대상별 사유를 결과에서 확인하세요/)
+})
+
+test('completed processing keeps credential outcomes while failed and cancelled executions keep their status', () => {
+  for (const status of ['SUCCEEDED', 'PARTIAL', 'SKIPPED']) {
+    assert.equal(modules.lib.scanProgressStatusLabel({ ...incompleteRun, status }), '검사 완료')
+  }
+  const completed = render(incompleteRun)
+  assert.match(completed, /secret-run-badge succeeded">검사 완료/)
+  assert.match(completed, /구성 부족<\/dt><dd>2건/)
+  assert.equal(incompleteRun.status, 'PARTIAL')
+  assert.equal(incompleteRun.validationSummary.uncheckedCount, 2)
+  for (const [status, label] of [['FAILED', '실패'], ['CANCELLED', '취소']]) {
+    assert.equal(modules.lib.scanProgressStatusLabel({ ...incompleteRun, status }), label)
+    assert.match(render({ ...incompleteRun, status }), new RegExp(`secret-run-badge ${status.toLowerCase()}">${label}`))
+  }
+})
+
+test('completed validation summaries keep per-key reasons while actual partial and failed operations stay factual', () => {
+  const summary = { ...event(1, 'STAGE_SUMMARY'), stage: 'VALIDATION', outcome: 'PARTIAL', httpStatus: null, reasonCode: 'VALIDATION_INCONCLUSIVE' }
+  assert.equal(modules.lib.scanProgressEventOutcome(summary, incompleteRun), '검사 완료')
+  assert.equal(modules.lib.scanProgressReason(summary.reasonCode), '인증을 확인하지 못한 키가 있어요. 키별 사유를 확인하세요.')
+  assert.equal(modules.lib.scanProgressEventOutcome({ ...summary, stage: 'RESULT' }, incompleteRun), '검사 완료')
+  assert.equal(modules.lib.scanProgressEventOutcome({ ...summary, operationCode: 'GITHUB_CREDENTIAL_CHECK' }, incompleteRun), '일부 처리')
+  assert.equal(modules.lib.scanProgressEventOutcome({ ...summary, stage: 'COLLECTION' }, incompleteRun), '일부 처리')
+  assert.equal(modules.lib.scanProgressEventOutcome({ ...summary, outcome: 'FAILED', reasonCode: 'NETWORK_ERROR' }, incompleteRun), '실패')
+  assert.equal(modules.lib.scanProgressEventOutcome(summary, { ...incompleteRun, status: 'FAILED' }), '일부 처리')
+  assert.equal(modules.lib.scanProgressEventOutcome(summary, { ...incompleteRun, stages: incompleteRun.stages.map((item) => item.key === 'COLLECTION' ? { ...item, status: 'PARTIAL' } : item) }), '일부 처리')
+})
+
+test('reuse operations never claim a new HTTP request format', () => {
+  assert.equal(modules.lib.scanOperationLabel('CREDENTIAL_RESULT_REUSED'), '이전 인증 결과 재사용')
+  assert.equal(modules.lib.scanRequestFormat('CREDENTIAL_RESULT_REUSED'), null)
+  const data = { ...value, validationSummary,
+    stages: [stage('QUEUE', 'SUCCEEDED'), stage('COLLECTION', 'SUCCEEDED'), stage('DETECTION', 'SUCCEEDED'), stage('VALIDATION', 'RUNNING'), stage('RESULT', 'PENDING')],
+    events: [{ ...event(1, 'CREDENTIAL_RESULT_REUSED'), stage: 'VALIDATION', httpStatus: null, durationMs: null, reasonCode: 'AUTHENTICATION_REJECTED' }],
+  }
+  const html = render(data)
+  assert.match(html, /이전 인증 결과 재사용/)
+  assert.doesNotMatch(html, /요청 형식|GET \/user|HTTP 401/)
 })
 
 test('progress API passes the cursor and abort signal without registering an execution', async () => {

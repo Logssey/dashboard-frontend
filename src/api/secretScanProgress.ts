@@ -28,6 +28,25 @@ export interface ScanProgressEvent {
   observedAt: string
 }
 
+export interface ScanValidationSummary {
+  reuseRecorded: boolean
+  newRequestCount: number
+  completedRequestCount: number
+  reusedResultCount: number | null
+  uncheckedCount: number
+  incompleteCount: number
+  unknownCount: number
+  reusedResultsTruncated: boolean
+  reusedResults: {
+    issuer: string
+    result: 'VALID' | 'INVALID'
+    reasonCode: string
+    providerCheckedAt: string
+    sourceRunId: number
+    count: number
+  }[]
+}
+
 export interface SecretScanProgressResponse {
   runId: number
   connectionId: number
@@ -53,6 +72,7 @@ export interface SecretScanProgressResponse {
   suppressedEventCount: number
   recordedFrom?: string | null
   expiredAt?: string | null
+  validationSummary?: ScanValidationSummary | null
   stages: ScanProgressStage[]
   events: ScanProgressEvent[]
   nextAfterEventId: number
