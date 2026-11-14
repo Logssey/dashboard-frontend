@@ -3,6 +3,7 @@
 import { compareFindings, summarizeFindings } from '@/lib/reach'
 import { ApiError } from './client'
 import type {
+  ReachAppItem,
   ReachFindingDetail,
   ReachFindingFilter,
   ReachFindingListItem,
@@ -110,6 +111,15 @@ const items: ReachFindingListItem[] = rows.map((row, index) => ({
   review: { reviewState: row.review, disagreesWithTool: false, proposal: proposalOf(row) },
   firstSeenAt: SEEN_AT,
 }))
+
+/** API-14 예시. Re:Used 설치의 설정 (명세 API-14) */
+export function sampleReachApps(): ReachAppItem[] {
+  return [
+    { code: 'API', repo: 'service-backend', path: null, image: 'logssey/reused-api' },
+    { code: 'WEB', repo: 'service-frontend', path: null, image: 'logssey/reused-web' },
+    { code: 'CHAT', repo: 'service-backend', path: 'chat-server', image: 'logssey/reused-chat' },
+  ]
+}
 
 export function sampleReachSummary(): ReachSummary {
   return summarizeFindings(items, { targetId: 1, scanId: 1 }, GENERATED_AT)

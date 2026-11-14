@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
-import { createReachScan, type ReachScan } from '@/api/reach'
+import { createReachScan, fetchReachApps, type ReachScan } from '@/api/reach'
 import { type NewScanForm, newScanRequest, scanRequestErrorText } from '@/lib/reach'
 
 // SCR-05-09 새 스캔 대화상자. [스캔 요청] → API-01. 대화상자를 열 때마다 멱등 키를 새로 만들어,
@@ -49,6 +49,17 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
     setKey(newKey())
   }
 
+  // 앱 선택지와 입력 예시는 설치 설정(API-14)에서 온다. 못 받으면 "자동으로 정하기"만 남는다
+  const apps = useQuery({ queryKey: ['reach', 'apps'], queryFn: fetchReachApps, enabled: Boolean(form), staleTime: 300_000 })
+  const appItems = apps.data?.data ?? []
+  const appCodes = appItems.map((app) => app.code)
+  if (form?.app && !appCodes.includes(form.app)) appCodes.push(form.app)   // 주소로 받은 값은 목록에 없어도 보인다
+  const example = {
+    image: appItems.find((app) => app.image)?.image ?? 'org/app',
+    repo: appItems.find((app) => app.repo)?.repo ?? 'app-repo',
+    path: appItems.find((app) => app.path)?.path ?? 'sub-dir',
+  }
+
   const result = form ? newScanRequest(form) : { errors: {} }
   const errors = touched ? result.errors : {}
   const requestError =
@@ -93,7 +104,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
                 <input
                   className="input"
                   value={form.repository}
-                  placeholder="logssey/reused-api"
+                  placeholder={example.image}
                   aria-invalid={Boolean(errors.repository)}
                   onChange={(event) => set('repository', event.target.value)}
                 />
@@ -119,7 +130,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
                 <input
                   className="input"
                   value={form.repoName}
-                  placeholder="service-backend"
+                  placeholder={example.repo}
                   aria-invalid={Boolean(errors.repoName)}
                   onChange={(event) => set('repoName', event.target.value)}
                 />
@@ -138,18 +149,20 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
               </label>
               <label className="field">
                 레포 안 경로 (선택)
-                <input className="input" value={form.path} placeholder="chat-server" onChange={(event) => set('path', event.target.value)} />
+                <input className="input" value={form.path} placeholder={example.path} onChange={(event) => set('path', event.target.value)} />
               </label>
             </>
           )}
 
           <label className="field">
             앱
-            <select className="select" value={form.app} onChange={(event) => set('app', event.target.value as NewScanForm['app'])}>
-              <option value="">저장소 이름으로 정하기</option>
-              <option value="API">API</option>
-              <option value="WEB">WEB</option>
-              <option value="CHAT">CHAT</option>
+            <select className="select" value={form.app} onChange={(event) => set('app', event.target.value)}>
+              <option value="">설정의 레포·저장소로 정하기</option>
+              {appCodes.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
             </select>
           </label>
 

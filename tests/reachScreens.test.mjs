@@ -238,6 +238,14 @@ test('rerun refills the dialog with the failed target', () => {
   assert.equal(reach.readNewScan(new URLSearchParams('scan=1')), null)
 })
 
+test('new scan keeps any app code from the URL; the installation config decides which exist', () => {
+  // 앱 코드는 열거값이 아니다(API-14). 형식만 보고, 없는 코드는 서버가 400으로 알린다
+  assert.equal(reach.readNewScan(new URLSearchParams('new=repo&app=ORDER')).app, 'ORDER')
+  assert.equal(reach.readNewScan(new URLSearchParams('new=repo&app=BATCH_2')).app, 'BATCH_2')
+  assert.equal(reach.readNewScan(new URLSearchParams('new=repo&app=order')).app, '')
+  assert.equal(reach.readNewScan(new URLSearchParams('new=image&app=TOO_LONG_CODE')).app, '')
+})
+
 test('new scan dialog opens from the URL with the values filled in', () => {
   const queryClient = client()
   queryClient.setQueryData(['reach-scans', noScanFilter], {
