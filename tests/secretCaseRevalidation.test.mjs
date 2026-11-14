@@ -6,80 +6,59 @@ import { test, after } from 'node:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { build } from 'esbuild'
 
-const bundled = await build({
-  entryPoints: [resolve('src/components/SecretCaseRevalidation.tsx')],
-  bundle: true,
-  write: false,
-  format: 'esm',
-  platform: 'node',
-  jsx: 'automatic',
-  packages: 'external',
-  alias: { '@': resolve('src') },
-})
+const bundled = await build({ entryPoints: [resolve('src/components/SecretCaseRevalidation.tsx')], bundle: true, write: false, format: 'esm', platform: 'node', jsx: 'automatic', packages: 'external', alias: { '@': resolve('src') } })
 const bundlePath = resolve('node_modules/.secret-case-revalidation-test.mjs')
 await writeFile(bundlePath, bundled.outputFiles[0].contents)
 const { SecretCaseRevalidation } = await import(pathToFileURL(bundlePath).href)
 after(() => unlink(bundlePath))
-
-const baseCase = {
-  caseId: 7,
-  version: 3,
-  stage: 'REVALIDATION_PENDING',
-  occurrences: [{ occurrenceId: 11, responseStatus: 'REVALIDATION_PENDING', canRequestRevalidation: true, canResume: false }],
-  capabilities: {
-    canRequestRevalidation: false, canResolve: false, canResume: false,
-  },
-}
-
-function renderFor(record, capabilities, occurrenceCapabilities = {}) {
+const base = { caseId: 7, version: 3, stage: 'REVALIDATION_PENDING', occurrences: [{ occurrenceId: 11, safeLocationLabel: '위치 #11', version: 5, responseStatus: 'REVALIDATION_PENDING', canRequestRevalidation: true, canResume: false }], capabilities: { canResolve: true, canRequestRevalidation: true } }
+function renderFor(result, jobStatus = 'SUCCEEDED', occurrence = {}, canViewRun = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  client.setQueryData(['secret-case-revalidations', 7], [record])
-  return renderToStaticMarkup(createElement(QueryClientProvider, { client },
-    createElement(SecretCaseRevalidation, {
-      detail: {
-        ...baseCase,
-        occurrences: [{ ...baseCase.occurrences[0], canResume: record.result === 'PRESENT', ...occurrenceCapabilities }],
-        capabilities: { ...baseCase.capabilities, ...capabilities },
-      },
-      onUpdated: () => {}, onRefresh: () => {},
-    })))
+  client.setQueryData(['secret-case-revalidations', 7], [{ revalidationId: 21, occurrenceId: 11, runId: 8, canViewRun, jobStatus, result, failureCode: null, requestedAt: '2026-10-19T00:00:00Z', finishedAt: '2026-10-19T00:01:00Z' }])
+  return renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, {}, createElement(SecretCaseRevalidation, { detail: { ...base, occurrences: [{ ...base.occurrences[0], ...occurrence }] }, onReload() {}, onStale() {}, disabled: false }))))
 }
-
-function record(result, jobStatus = 'SUCCEEDED') {
-  return {
-    revalidationId: 21, occurrenceId: 11, runId: 8, jobStatus, result,
-    failureCode: null, requestedAt: '2026-10-19T00:00:00Z', finishedAt: '2026-10-19T00:01:00Z',
-  }
-}
-
-test('a missing key shows evidence and a separate security-only resolve action', () => {
-  const html = renderFor(record('MISSING'), { canResolve: true })
+test('missing is a location observation and never a direct case resolution action', () => {
+  const html = renderFor('MISSING')
   assert.match(html, /재검사에서 미발견/)
-  assert.match(html, /<button[^>]*>대응 건 해결<\/button>/)
-  assert.doesNotMatch(html, /추가 조치 시작/)
-})
-
-test('a present key offers assigned remediator resume without claiming resolution', () => {
-  const html = renderFor(record('PRESENT'), { canResume: true })
-  assert.match(html, /다시 발견됨/)
-  assert.match(html, /추가 조치 시작/)
+  assert.match(html, /키 폐기·교체 확인과 대응 건 해결은 별도로/)
   assert.doesNotMatch(html, /<button[^>]*>대응 건 해결<\/button>/)
+  assert.match(html, /href="\/secrets\/history\/8"/)
 })
-
-test('unknown or unfinished scans never appear as missing or resolved', () => {
-  const unknown = renderFor(record('UNKNOWN'), {})
-  const pending = renderFor(record('PENDING', 'PENDING'), { canRequestRevalidation: true })
-  assert.match(unknown, /판정 불가/)
-  assert.doesNotMatch(unknown, /<button[^>]*>대응 건 해결<\/button>/)
-  assert.match(pending, /대기 중/)
-  assert.match(pending, /진행 중인 검사를 기다려 주세요/)
-  assert.doesNotMatch(pending, /재검사에서 미발견/)
+test('present evidence does not silently select or act on the first location', () => {
+  const html = renderFor('PRESENT', 'SUCCEEDED', { canResume: true })
+  assert.match(html, /다시 발견됨/)
+  assert.match(html, /<option value="" selected="">위치 선택<\/option>/)
+  assert.doesNotMatch(html, /<button[^>]*>이 위치 추가 조치<\/button>/)
 })
-
-test('a case-level permission does not expose an ineligible occurrence as a scan target', () => {
-  const html = renderFor(record('UNKNOWN'), { canRequestRevalidation: true }, { canRequestRevalidation: false })
+test('failed, unknown, or unfinished scans never display a missing conclusion', () => {
+  for (const [result, job] of [['UNKNOWN', 'SUCCEEDED'], ['MISSING', 'FAILED'], ['MISSING', 'LEASED']]) {
+    const html = renderFor(result, job)
+    assert.doesNotMatch(html, /재검사에서 미발견/)
+    assert.match(html, /판정 불가|검사 진행 중/)
+  }
+})
+test('a case capability never overrides an ineligible location capability', () => {
+  const html = renderFor('UNKNOWN', 'SUCCEEDED', { canRequestRevalidation: false })
   assert.match(html, /현재 재검증 가능한 위치가 없어요/)
   assert.doesNotMatch(html, /<option value="11"/)
+})
+test('an assigned location reader can see its scan identifier without a full run detail link', () => {
+  const html = renderFor('MISSING', 'SUCCEEDED', {}, false)
+  assert.match(html, /SCAN-8/)
+  assert.doesNotMatch(html, /href="\/secrets\/history\/8"/)
+})
+
+test('AWS source rechecks use server capability and never interpret source read failure as removal', () => {
+  const missing = renderFor('MISSING', 'SUCCEEDED', { source: 'AWS', safeLocationLabel: '승인된 AWS 값', canRequestRevalidation: true })
+  assert.match(missing, /<option value="11">승인된 AWS 값 · 재검사/)
+  assert.match(missing, /재검사에서 미발견/)
+  assert.match(missing, /키 폐기·교체 확인과 대응 건 해결은 별도로/)
+  for (const result of ['UNKNOWN', 'PENDING']) {
+    const unavailable = renderFor(result, 'FAILED', { source: 'AWS', safeLocationLabel: '승인된 AWS 값', canRequestRevalidation: false })
+    assert.doesNotMatch(unavailable, /재검사에서 미발견/)
+    assert.match(unavailable, /판정 불가/)
+  }
 })

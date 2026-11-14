@@ -18,7 +18,8 @@ export interface OverviewSummaryResponse {
   connectedAssetCount: number
   securityScore: number
   scoreRule: string
-  lastCollectedAt: string
+  lastCollectedAt: string | null
+  secretIntegration?: { status: 'AVAILABLE' | 'NOT_AUTHORIZED'; unit: 'ResponseCase'; origin: 'PRODUCTION' | 'ALL'; total: number | null; unassessedCount: number | null; notApplicableCount: number | null; restrictedCoverage: boolean }
 }
 
 export interface RiskTrendResponse {
@@ -29,6 +30,8 @@ export interface RiskTrendResponse {
     high: number
     medium: number
     low: number
+    unassessed?: number
+    notApplicable?: number
   }>
 }
 
@@ -49,15 +52,19 @@ export interface AssetRef {
 }
 
 export interface PriorityFinding {
-  eventId: number
+  eventId: number | null
+  sourceType?: 'DETECTION_EVENT' | 'SECRET_CASE'
+  sourceId?: number
+  detailPath?: string | null
   displayId: string | null
-  severity: Severity
+  severity: Severity | 'UNASSESSED' | null
+  assessmentStatus?: string | null
   title: string
   asset: AssetRef | null
-  environment: Exclude<Environment, 'ALL'>
+  environment: Exclude<Environment, 'ALL'> | 'UNKNOWN' | 'MIXED'
   ownerTeam: string
-  reviewStatus: 'UNREVIEWED' | 'REVIEWED'
-  actionStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'RISK_ACCEPTED'
+  reviewStatus: 'UNREVIEWED' | 'REVIEWED' | null
+  actionStatus: 'OPEN' | 'IN_PROGRESS' | 'REVALIDATION_PENDING' | 'RESOLVED' | 'RISK_ACCEPTED'
   detectedAt: string
   domain: Domain | null
   evidence: string | null

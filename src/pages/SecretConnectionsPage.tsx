@@ -1,202 +1,237 @@
-import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
-import { testSecretConnection, type SecretConnectionTestResult } from '@/api/secretConnections'
-import { fetchSecretConnections, type SecretConnection } from '@/api/secrets'
-import { Icon } from '@/components/Icon'
+import { fetchManagedConnections, testSecretConnection, type ManagedSecretConnection, type ScanAttempt, type SecretConnectionTestResult } from '@/api/secretConnections'
+import { requestSecretScan } from '@/api/secretRuns'
 import { PageHeader } from '@/components/PageHeader'
+import { SecretDetailPanel } from '@/components/SecretDetailPanel'
+import { SecretFilterDisclosure } from '@/components/SecretFilterDisclosure'
+import { SecretOperationsHealth } from '@/components/SecretOperationsHealth'
+import { SecretScanProgress } from '@/components/SecretScanProgress'
+import { SecretConnectionValidationSettings } from '@/components/SecretConnectionValidationSettings'
+import { positiveId, scanDate, scanPlatforms, scanReason, scanRunStatus, scanStatus } from '@/lib/secretScan'
 import './secret-connections.css'
+import './secret-scan.css'
+import './secret-scope-workspace.css'
 
-const koreaDate = new Intl.DateTimeFormat('ko-KR', {
-  dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Seoul',
-})
-
-function testDescription(provider: SecretConnection['provider']): string {
-  switch (provider) {
-    case 'GITHUB': return '승인 저장소 1개의 읽기 토큰 발급'
-    case 'AWS': return 'AWS STS 계정 확인'
-    default: return '지원 여부 확인'
-  }
+export function AttemptLink({ attempt }: { attempt: ScanAttempt | null | undefined; origin?: string }) {
+  return attempt ? <><Link to={`/secrets/history/${attempt.runId}`}>SCAN-{attempt.runId} · {scanRunStatus(attempt.runStatus ?? attempt.status)}</Link><small>{scanDate(attempt.finishedAt ?? attempt.requestedAt)}</small></> : <>확인 기록 없음</>
 }
 
-function connectionPurpose(provider: SecretConnection['provider']): string {
-  switch (provider) {
-    case 'GITHUB': return '승인 저장소 콘텐츠 수집'
-    case 'AWS': return '승인된 AWS 범위 수집'
-    default: return '등록된 수집 연결'
-  }
+function probeLabel(status?: string) {
+  return status === 'CONNECTED' ? '연결 확인됨' : status === 'FAILED' ? '연결 확인 실패' : status === 'UNAVAILABLE' ? '연결 확인 불가' : '연결 테스트 전'
 }
+const blockedLabel = (reason?: string | null) => ({
+  OPERATIONS_ROLE_REQUIRED: '연결 운영 권한이 필요해요.', PROVIDER_UNSUPPORTED: '현재 수집을 지원하지 않는 플랫폼이에요.',
+  CONNECTION_PAUSED: '일시중지된 연결이에요.', NO_SCAN_TARGETS: '검사할 대상을 등록하세요.',
+  INVALID_APPROVED_SCOPE: '등록된 검사 대상 형식을 확인하세요.', NOTION_COLLECTION_DISABLED: scanReason('NOTION_COLLECTION_DISABLED'),
+} as Record<string, string>)[reason ?? ''] ?? '연결 권한과 설정을 확인하세요.'
 
-function testResultLabel(result: SecretConnectionTestResult): string {
-  switch (result.status) {
-    case 'CONNECTED': return '연결 확인 완료'
-    case 'FAILED': return '연결 확인 실패'
-    case 'UNAVAILABLE': return '지금 확인할 수 없음'
-  }
-}
-
-function testResultDetail(result: SecretConnectionTestResult): string {
-  switch (result.status) {
-    case 'CONNECTED': return '인증 경로를 확인했어요. 이 결과가 실제 스캔 성공을 보장하지는 않아요.'
-    case 'FAILED':
-    case 'UNAVAILABLE': return testReasonLabel(result.reasonCode)
-  }
-}
-
-function testReasonLabel(reasonCode: string | null): string {
-  switch (reasonCode) {
-    case 'INVALID_APPROVED_SCOPE': return '승인 범위 설정을 확인해 주세요.'
-    case 'AWS_ACCOUNT_MISMATCH': return '연결된 AWS 계정이 승인된 계정과 달라요.'
-    case 'AWS_ACCESS_DENIED': return 'AWS 인증 경로를 확인해 주세요.'
-    case 'AWS_RATE_LIMITED': return 'AWS 요청 한도에 도달했어요. 잠시 후 다시 시도해 주세요.'
-    case 'AWS_UNAVAILABLE': return 'AWS 응답을 확인할 수 없어요. 잠시 후 다시 시도해 주세요.'
-    case 'GITHUB_APP_UNAVAILABLE': return 'GitHub App 설정을 확인해 주세요.'
-    case 'GITHUB_ACCESS_DENIED': return '승인된 GitHub 저장소의 읽기 권한을 확인해 주세요.'
-    case 'GITHUB_RATE_LIMITED': return 'GitHub 요청 한도에 도달했어요. 잠시 후 다시 시도해 주세요.'
-    case 'GITHUB_UNAVAILABLE': return 'GitHub 응답을 확인할 수 없어요. 잠시 후 다시 시도해 주세요.'
-    default: return '연결 상태를 확인한 뒤 다시 시도해 주세요.'
-  }
-}
-
-function testErrorMessage(error: Error): string {
-  if (error instanceof ApiError) {
-    if (error.status === 403) return '연결 테스트는 관리자 권한이 필요해요.'
-    if (error.status === 404) return '연결을 찾을 수 없어요. 목록을 새로고침해 주세요.'
-    if (error.status === 409) return '현재 이 연결은 테스트할 수 없어요. 연결 상태를 확인해 주세요.'
-  }
-  return '연결 테스트 요청을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.'
-}
-
-function ConnectionCard({
-  connection, result, error, testing, busy, onTest,
-}: {
-  connection: SecretConnection
-  result?: SecretConnectionTestResult
-  error?: string
-  testing: boolean
-  busy: boolean
-  onTest: (connectionId: number) => void
+function ConnectionCard({ connection, selected, result, testing, error, onTest, onSelect, onScan, onValidationSettings }: {
+  connection: ManagedSecretConnection; selected: boolean; result?: SecretConnectionTestResult;
+  testing: boolean; error?: string; onTest: (id: number) => void;
+  onSelect: (connection: ManagedSecretConnection) => void; onScan: (connection: ManagedSecretConnection) => void;
+  onValidationSettings: (connectionId: number) => void;
 }) {
-  const isGitHub = connection.provider === 'GITHUB'
-  return (
-    <article className="secret-connection-card">
-      <div className="secret-connection-card-top">
-        <span className={`secret-provider-mark ${isGitHub ? 'github' : 'aws'}`} aria-hidden="true">
-          {isGitHub ? 'GH' : 'aws'}
-        </span>
-        <span className="secret-connection-state">활성</span>
+  const probe = result && (!connection.latestProbe || Date.parse(result.checkedAt) >= Date.parse(connection.latestProbe.checkedAt)) ? result : connection.latestProbe
+  const name = connection.safeDisplayAlias ?? `${scanPlatforms[connection.provider]} 연결`
+  return <article className={`secret-connection-card${selected ? ' selected' : ''}`}>
+    <button className="secret-connection-select" data-connection-id={connection.connectionId} type="button" aria-pressed={selected} aria-controls="secret-selected-scan" onClick={() => onSelect(connection)}>
+      <span className={`secret-provider-mark ${connection.provider.toLowerCase()}`} aria-hidden="true">{connection.provider === 'GITHUB' ? 'GH' : connection.provider === 'AWS' ? 'aws' : 'N'}</span>
+      <span><strong>{scanPlatforms[connection.provider] ?? '수집 연결'}</strong><span>{name}</span></span>
+      <span className={`secret-connection-state ${connection.connectionStatus === 'ACTIVE' ? '' : 'inactive'}`}>{connection.connectionStatus === 'ACTIVE' ? '사용 중' : connection.connectionStatus === 'PAUSED' ? '일시중지' : '확인 필요'}</span>
+    </button>
+    <p className="secret-connection-target-count">검사 대상 {connection.approvedScopeCount}개{connection.activeJob && <span> · {scanStatus(connection.activeJob.status)}</span>}</p>
+    {selected && <>
+      {!!connection.targetSummary?.length && <ul className="secret-connection-targets">{connection.targetSummary.slice(0, 2).map((target) => <li key={target}>{target}</li>)}</ul>}
+      <div className={`secret-connection-probe ${probe?.status.toLowerCase() ?? 'unavailable'}`} role="status">
+        <strong>{probeLabel(probe?.status)}</strong>
+        {probe?.checkedAt && <span>{scanDate(probe.checkedAt)}</span>}
+        {probe?.reasonCode && <p>{scanReason(probe.reasonCode)}</p>}
       </div>
-      <h2>{isGitHub ? 'GitHub' : 'AWS'}</h2>
-      <p className="secret-connection-name">{connection.displayName}</p>
-
-      <dl className="secret-connection-facts">
-        <dt>연결 용도</dt><dd>{connectionPurpose(connection.provider)}</dd>
-        <dt>허용 범위</dt><dd>{connection.approvedScopeCount}개 승인</dd>
-        <dt>테스트 항목</dt><dd>{testDescription(connection.provider)}</dd>
-      </dl>
-
-      {result && (
-        <div className={`secret-connection-test-result ${result.status.toLowerCase()}`} role="status">
-          <strong>{testResultLabel(result)}</strong>
-          <span>{testResultDetail(result)}</span>
-          <time dateTime={result.checkedAt}>{koreaDate.format(new Date(result.checkedAt))} KST</time>
-        </div>
-      )}
-      {error && <p className="secret-connection-test-error" role="alert">{error}</p>}
-
-      <div className="secret-connection-actions">
-        <button className="btn outline" type="button" disabled title="연결 설정 화면은 아직 제공되지 않아요.">
-          설정 보기
-        </button>
-        <button className="btn secret-connection-test-button" type="button"
-          onClick={() => onTest(connection.connectionId)} disabled={busy}>
-          <span className="secret-connection-refresh" aria-hidden="true">↻</span>
-          {testing ? '확인 중…' : '연결 테스트'}
-        </button>
-      </div>
-    </article>
-  )
+    </>}
+    {error && <p className="secret-connection-test-error" role="alert">{error}</p>}
+    <div className="secret-connection-actions">
+      <button className="btn secret-connection-test-button" disabled={testing || !connection.capabilities?.canTest} onClick={() => onTest(connection.connectionId)}>{testing ? '연결 확인 중…' : '연결 테스트'}</button>
+      <button className="btn primary" disabled={!connection.activeJob && !connection.capabilities?.canRun} onClick={() => onScan(connection)}>{connection.activeJob ? '검사 진행 중' : '스캔 요청'}</button>
+      <Link className="btn outline" to={`/secrets/connections/${connection.connectionId}/scopes`}>검사 대상</Link>
+      <button className="btn outline" onClick={() => onValidationSettings(connection.connectionId)}>키 검증 설정</button>
+    </div>
+    {selected && <>
+      {!connection.capabilities?.canRun && !connection.activeJob && <p className="caption">{blockedLabel(connection.scanBlockedReasonCode)}</p>}
+      {!connection.capabilities?.canTest && <p className="caption">연결 테스트 · {blockedLabel(connection.testBlockedReasonCode)}</p>}
+      <details className="secret-connection-explanation"><summary>검사 일정·최근 성공</summary><dl className="secret-connection-facts">
+        <dt>최근 시도</dt><dd><AttemptLink attempt={connection.lastFullScanAttempt} /></dd>
+        <dt>최근 전체 성공</dt><dd><AttemptLink attempt={connection.lastSuccessfulFullScan} /></dd>
+        <dt>다음 정기 검사</dt><dd>{connection.nextDueAt ? scanDate(connection.nextDueAt) : '예정 시각 미확인'}</dd>
+      </dl></details>
+    </>}
+  </article>
 }
 
-/** 승인된 활성 수집 연결만 노출한다. 연결 등록·수정 API가 생기면 버튼을 연결한다. */
 export function SecretConnectionsPage() {
-  const connections = useQuery({ queryKey: ['secret-connections'], queryFn: fetchSecretConnections })
+  const [params, setParams] = useSearchParams()
+  const page = (positiveId(params.get('page')) ?? 1) - 1
+  const status = params.get('status') ?? ''
+  const requestedConnection = positiveId(params.get('connectionId'))
+  const requestedRun = positiveId(params.get('runId'))
+  const validationConnectionId = positiveId(params.get('validationConnectionId'))
+  const valid = ['', 'ACTIVE', 'PAUSED', 'ERROR'].includes(status)
+    && (!params.get('connectionId') || requestedConnection != null)
+    && (!params.get('runId') || requestedRun != null)
+    && (!params.has('validationConnectionId') || validationConnectionId != null)
+  const client = useQueryClient()
+  const mounted = useRef(true)
   const [results, setResults] = useState<Record<number, SecretConnectionTestResult>>({})
   const [errors, setErrors] = useState<Record<number, string>>({})
+  const [confirmConnection, setConfirmConnection] = useState<ManagedSecretConnection | null>(null)
+  const [showOperations, setShowOperations] = useState(false)
+  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1000px)').matches)
+  const progressPanel = useRef<HTMLElement>(null)
+  const returnFocusConnection = useRef<number | null>(null)
+  const request = useRef({ connectionId: 0, key: '' })
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1000px)')
+    const update = () => setCompact(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  useEffect(() => {
+    if (compact && requestedRun) progressPanel.current?.focus()
+  }, [compact, requestedRun])
+
+  const connections = useQuery({
+    queryKey: ['secret-connections-manage', page, status, ''],
+    queryFn: () => fetchManagedConnections(page, status, ''),
+    enabled: valid,
+    placeholderData: keepPreviousData,
+    retry: false,
+    refetchInterval: (query) => query.state.error ? false : query.state.data?.items.some((item) => item.activeJob) ? 10_000 : false,
+    refetchIntervalInBackground: false,
+  })
+  const items = connections.data?.items ?? []
+  const selected = requestedConnection ? items.find((item) => item.connectionId === requestedConnection) : items.find((item) => item.activeJob) ?? items.find((item) => item.connectionStatus === 'ACTIVE') ?? items[0]
+  const runId = requestedRun ?? selected?.activeJob?.runId ?? selected?.lastFullScanAttempt?.runId
+
+  useEffect(() => {
+    if (!compact || requestedRun || returnFocusConnection.current == null || !connections.isSuccess) return
+    const button = document.querySelector<HTMLButtonElement>(`[data-connection-id="${returnFocusConnection.current}"]`)
+    if (!button) return
+    button.focus()
+    returnFocusConnection.current = null
+  }, [compact, requestedRun, connections.data, connections.isSuccess])
+
+  useEffect(() => {
+    if (!params.has('origin')) return
+    const next = new URLSearchParams(params)
+    next.delete('origin')
+    setParams(next, { replace: true })
+  }, [params, setParams])
+
+  const selectConnection = (connection: ManagedSecretConnection) => {
+    const next = new URLSearchParams(params)
+    next.delete('origin')
+    next.set('connectionId', String(connection.connectionId))
+    const latest = connection.activeJob?.runId ?? connection.lastFullScanAttempt?.runId
+    if (latest) next.set('runId', String(latest))
+    else next.delete('runId')
+    setParams(next)
+  }
+  const openValidationSettings = (connectionId: number) => {
+    const next = new URLSearchParams(params)
+    next.set('validationConnectionId', String(connectionId))
+    setParams(next)
+  }
+  const closeValidationSettings = () => {
+    const next = new URLSearchParams(params)
+    next.delete('validationConnectionId')
+    setParams(next)
+  }
+  const changeStatus = (value: string) => {
+    const next = new URLSearchParams()
+    if (value) next.set('status', value)
+    next.set('page', '1')
+    setParams(next)
+  }
+  const showConnections = () => {
+    returnFocusConnection.current = requestedConnection ?? selected?.connectionId ?? null
+    const next = new URLSearchParams(params)
+    next.delete('runId')
+    setParams(next)
+  }
   const test = useMutation({
     mutationFn: testSecretConnection,
-    onMutate: (connectionId) => {
-      setErrors((current) => ({ ...current, [connectionId]: '' }))
-      setResults((current) => {
-        const next = { ...current }
-        delete next[connectionId]
-        return next
-      })
-    },
+    onMutate: (id) => setErrors((current) => ({ ...current, [id]: '' })),
     onSuccess: (result) => {
       setResults((current) => ({ ...current, [result.connectionId]: result }))
+      void client.invalidateQueries({ queryKey: ['secret-connections-manage'] })
     },
-    onError: (error, connectionId) => {
-      setErrors((current) => ({ ...current, [connectionId]: testErrorMessage(error) }))
+    onError: (error, id) => setErrors((current) => ({ ...current, [id]: error instanceof ApiError && error.status === 403 ? '연결 테스트 권한을 확인하세요.' : error instanceof ApiError && error.status === 409 ? '연결의 중지 상태와 설정을 확인하세요.' : '연결 테스트를 마치지 못했어요. 다시 확인해 주세요.' })),
+  })
+  const start = useMutation({
+    mutationFn: requestSecretScan,
+    onSuccess: (accepted, variables) => {
+      void client.invalidateQueries({ queryKey: ['secret-connections-manage'] })
+      void client.invalidateQueries({ queryKey: ['secret-runs'] })
+      if (!mounted.current) return
+      setConfirmConnection(null)
+      request.current = { connectionId: 0, key: '' }
+      const next = new URLSearchParams(params)
+      next.delete('origin')
+      next.set('connectionId', String(variables.connectionId))
+      next.set('runId', String(accepted.runId))
+      setParams(next)
     },
   })
+  const openScan = (connection: ManagedSecretConnection) => {
+    if (connection.activeJob) { selectConnection(connection); return }
+    if (request.current.connectionId !== connection.connectionId || !request.current.key) request.current = { connectionId: connection.connectionId, key: crypto.randomUUID() }
+    start.reset()
+    setConfirmConnection(connection)
+  }
+  const completed = () => {
+    for (const key of ['secret-connections-manage', 'secret-runs', 'secret-summary', 'secrets', 'secret-review-queue', 'secret-cases']) void client.invalidateQueries({ queryKey: [key] })
+  }
 
-  const items = connections.data?.items ?? []
-  return (
-    <>
-      <PageHeader title="연결 관리" description="탐지 원본과 검증 연결을 분리하고, 승인된 범위만 읽습니다."
-        actions={<button className="btn secret-connection-add" type="button" disabled
-          title="연결 등록 화면은 아직 제공되지 않아요.">
-          <Icon name="plus" /> 연결 추가
-        </button>} />
-
-      <div className="secret-connection-info" role="note">
-        <span className="secret-connection-info-icon" aria-hidden="true">ⓘ</span>
-        <span><strong>연결 유형</strong> · 현재 등록된 활성 GitHub·AWS 연결을 표시합니다. 연결 테스트는 인증 경로만 확인하며 스캔이나 값 수집을 시작하지 않습니다. 화면에서 연결 추가·설정 변경은 아직 지원하지 않습니다.</span>
-      </div>
-
-      {connections.isPending && <div className="secret-connection-loading" aria-live="polite">
-        <div className="skeleton" /><div className="skeleton" /><div className="skeleton" />
-      </div>}
-      {connections.isError && <div className="secret-connection-page-error" role="alert">
-        <p>{connections.error instanceof ApiError && connections.error.status === 403
-          ? '연결 조회에는 관리자 권한이 필요해요.' : '연결 목록을 불러오지 못했어요.'}</p>
-        <button className="btn outline" type="button" onClick={() => void connections.refetch()}>다시 시도</button>
-      </div>}
-      {connections.isSuccess && items.length === 0 && <div className="secret-connection-empty">
-        <strong>사용할 수 있는 연결이 없어요.</strong>
-        <p>승인 범위가 있는 활성 연결을 등록하면 이곳에 표시됩니다.</p>
-      </div>}
-      {connections.isSuccess && items.length > 0 && <div className="secret-connection-grid">
-        {items.map((connection) => <ConnectionCard key={connection.connectionId}
-          connection={connection} result={results[connection.connectionId]}
-          error={errors[connection.connectionId]}
-          testing={test.isPending && test.variables === connection.connectionId}
-          busy={test.isPending}
-          onTest={(id) => test.mutate(id)} />)}
-      </div>}
-
-      <div className="secret-connection-guides">
-        <section className="secret-connection-guide">
-          <h2>연결 권한 안내</h2>
-          <p>수집 연결은 승인된 범위와 읽기 권한을 기준으로 구성합니다.</p>
-          <ul>
-            <li><span aria-hidden="true">♙</span><div><strong>탐지 원본은 읽기 권한만</strong><small>GitHub 저장소는 콘텐츠 읽기, AWS는 승인한 대상에 필요한 조회 권한을 사용합니다.</small></div></li>
-            <li><span aria-hidden="true">◎</span><div><strong>소유자와 허용 범위 확인</strong><small>연결을 추가하거나 범위를 바꿀 때 대상과 권한을 함께 검토합니다.</small></div></li>
-            <li><span aria-hidden="true">◇</span><div><strong>연결 테스트는 검사와 분리</strong><small>연결 테스트는 키 탐지나 유효성 검증 작업을 시작하지 않습니다.</small></div></li>
-          </ul>
+  return <>
+    <PageHeader title="연결 관리" description="연결과 검사 대상을 확인하고 실제 스캔 진행을 추적하세요." actions={<>
+      <Link className="btn outline" to="/secrets/connections/policies">보관 규칙</Link>
+      <button className="btn outline" disabled={connections.isFetching} onClick={() => void connections.refetch()}>새로고침</button>
+    </>} />
+    <SecretFilterDisclosure label="연결 조회" fields={[{ key: 'status', label: '연결 상태', options: { '': '전체 상태', ACTIVE: '활성', PAUSED: '일시중지', ERROR: '확인 필요' }, defaultValue: '' }]}
+      values={{ status }} busy={connections.isFetching} onApply={(next) => changeStatus(next.status)} onReset={() => changeStatus('')} />
+    {!valid ? <p className="notice error" role="alert">조회 주소를 확인해 주세요. <button className="btn outline" onClick={() => setParams(new URLSearchParams())}>조건 초기화</button></p>
+      : connections.isPending ? <p className="card secret-scan-message" role="status">연결 정보를 불러오는 중이에요.</p>
+      : connections.isError ? <div className="secret-connection-page-error" role="alert"><p>{connections.error instanceof ApiError && connections.error.status === 403 ? '연결 정보를 조회할 권한이 없어요.' : '연결 목록을 불러오지 못했어요.'}</p><button className="btn outline" onClick={() => void connections.refetch()}>다시 조회</button></div>
+      : <div className={`secret-connection-workspace${requestedRun ? ' show-run' : ''}`}>
+        <section aria-label="검사 연결 목록" aria-busy={connections.isFetching}>
+          {!items.length ? <div className="secret-connection-empty"><strong>조건에 맞는 연결이 없어요.</strong><p>{status ? '연결 상태 조건을 초기화하거나 등록된 연결을 확인하세요.' : '연결과 수집 자격 증명을 등록하면 검사를 시작할 수 있어요.'}</p>{status && <button className="btn outline" onClick={() => changeStatus('')}>조건 초기화</button>}</div>
+            : <div className="secret-connection-list">{items.map((connection) => <ConnectionCard key={connection.connectionId} connection={connection} selected={selected?.connectionId === connection.connectionId}
+              result={results[connection.connectionId]} error={errors[connection.connectionId]} testing={test.isPending && test.variables === connection.connectionId}
+              onSelect={selectConnection} onTest={(id) => test.mutate(id)} onScan={openScan} onValidationSettings={openValidationSettings} />)}</div>}
+          {connections.isSuccess && connections.data.total > connections.data.size && <div className="table-foot secret-table-foot"><span>연결 {connections.data.total}개</span><div className="row">
+            <button className="btn outline" disabled={page === 0} onClick={() => { const next = new URLSearchParams(params); next.set('page', String(page)); setParams(next) }}>이전</button>
+            <span>{page + 1} / {Math.max(1, Math.ceil(connections.data.total / connections.data.size))}</span>
+            <button className="btn outline" disabled={(page + 1) * connections.data.size >= connections.data.total || connections.isPlaceholderData} onClick={() => { const next = new URLSearchParams(params); next.set('page', String(page + 2)); setParams(next) }}>다음</button>
+          </div></div>}
         </section>
-        <section className="secret-connection-guide">
-          <h2>스캔 이력</h2>
-          <p>연결별 검사 실행 상태와 부분 실패를 확인할 수 있습니다.</p>
-          <div className="secret-connection-guide-divider" />
-          <Link className="btn secret-connection-history-link" to="/secrets/history">
-            스캔 이력으로 이동 <Icon name="chevron" />
-          </Link>
-          <small>연결 테스트 결과는 현재 화면에서 확인하고, 실제 검사 결과는 실행 이력에서 확인하세요.</small>
-        </section>
-      </div>
-    </>
-  )
+        <aside ref={progressPanel} id="secret-selected-scan" tabIndex={-1} aria-label="선택한 검사 실행">
+          {compact && requestedRun && <button className="btn outline secret-connection-back" onClick={showConnections}>연결 목록으로</button>}
+          {(!compact || requestedRun) && (runId ? <SecretScanProgress key={runId} runId={runId} expectedConnectionId={selected?.connectionId ?? requestedConnection ?? undefined} onComplete={completed} /> : <section className="secret-scan-execution-panel secret-scan-execution-placeholder"><h2>검사 진행</h2><p>{selected ? '이 연결의 스캔을 요청하면 단계별 진행과 실행 내역을 확인할 수 있어요.' : '검사할 연결을 선택하세요.'}</p>{selected?.capabilities?.canRun && <button className="btn primary" onClick={() => openScan(selected)}>스캔 요청</button>}</section>)}
+        </aside>
+      </div>}
+    <SecretDetailPanel open={confirmConnection != null} title="스캔 요청" closeLabel="스캔 요청 닫기" className="secret-scan-request-dialog" onClose={() => { if (!start.isPending) setConfirmConnection(null) }}>
+      {confirmConnection && <div className="secret-connection-scan-confirm"><h3>{scanPlatforms[confirmConnection.provider]} 연결을 검사할까요?</h3><p>{confirmConnection.safeDisplayAlias ?? `연결 #${confirmConnection.connectionId}`}</p><p>승인된 검사 대상 {confirmConnection.approvedScopeCount}개에서 내용을 읽고 키를 탐지해요.</p>
+        {start.isError && <p className="notice error" role="alert">{start.error instanceof ApiError && start.error.status === 409 ? '진행 중인 검사와 현재 승인 대상을 확인하세요.' : start.error instanceof ApiError && start.error.status === 403 ? '스캔 실행 권한을 확인하세요.' : '요청 결과를 확인하지 못했어요. 다시 요청하면 같은 등록 요청을 확인해요.'}</p>}
+        <div className="row"><button className="btn outline" disabled={start.isPending} onClick={() => setConfirmConnection(null)}>취소</button><button className="btn primary" disabled={start.isPending} onClick={() => start.mutate({ connectionId: confirmConnection.connectionId, idempotencyKey: request.current.key })}>{start.isPending ? '등록 중…' : '스캔 시작'}</button></div>
+      </div>}
+    </SecretDetailPanel>
+    <SecretDetailPanel open={validationConnectionId != null} title="키 검증 설정" closeLabel="키 검증 설정 닫기" className="secret-connection-validation-dialog" onClose={closeValidationSettings}>
+      {validationConnectionId != null && <SecretConnectionValidationSettings key={validationConnectionId} connectionId={validationConnectionId} />}
+    </SecretDetailPanel>
+    <details className="secret-connection-operations" onToggle={(event) => setShowOperations(event.currentTarget.open)}><summary>워커 운영 상태</summary>{showOperations && <SecretOperationsHealth />}</details>
+  </>
 }

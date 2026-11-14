@@ -11,7 +11,8 @@ export const LOGIN_PATH = '/login'
 
 export const sectionPages: SectionPage[] = [
   { path: '/secrets', title: '시크릿 현황', description: '발견한 시크릿과 대응 현황을 확인하세요.' },
-  { path: '/secrets/findings', title: '탐지 목록', description: '발견한 키 후보와 검증 상태를 확인하세요.' },
+  { path: '/secrets/findings', title: '키·노출 위치', description: '발견한 키 후보와 검증 상태를 확인하세요.' },
+  { path: '/secrets/triage', title: '확인 대기열', description: '근거 확인·추가 조사·대응 연결 작업을 확인하세요.' },
   { path: '/secrets/cases', title: '대응 관리', description: '시크릿 대응 건과 담당자 변경 이력을 확인하세요.' },
   { path: '/secrets/connections', title: '연결 관리', description: '승인된 수집 연결과 연결 상태를 확인하세요.' },
   { path: '/secrets/history', title: '스캔 이력', description: '검사 실행과 부분 실패 범위를 확인하세요.' },
@@ -31,7 +32,14 @@ export const infrastructurePaths = ['/configuration', '/identities', '/runtime',
 
 export function pageTitle(pathname: string): string {
   if (pathname === OVERVIEW_PATH) return '통합 현황'
-  if (pathname === '/secrets/triage') return '수동 노출 판정'
-  if (pathname.startsWith('/secrets/triage/')) return '노출 판정'
+  if (pathname === '/secrets/triage') return '확인 대기열'
+  if (pathname.startsWith('/secrets/triage/investigations')) return '추가 조사'
+  if (pathname.startsWith('/secrets/triage/alerts')) return '실키 경고'
+  if (pathname.endsWith('/fixture-attestations')) return '합성 표본 근거'
+  if (pathname.startsWith('/secrets/triage/')) return '위치 확인'
+  if (pathname.startsWith('/secrets/history/')) return '스캔 상세'
+  if (pathname.startsWith('/secrets/cases/')) return '대응 상세'
+  if (pathname.startsWith('/secrets/connections/')) return '연결 범위'
+  if (/^\/secrets\/\d+$/.test(pathname)) return '키 상세'
   return sectionPages.find((page) => page.path === pathname)?.title ?? '통합 현황'
 }

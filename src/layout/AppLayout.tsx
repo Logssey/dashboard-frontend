@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
-import { fetchSecrets } from '@/api/secrets'
+import { secretNavigation, activeSecretNavigation } from '@/lib/secretNavigation'
+import { useSecretWorkbench } from '@/lib/useSecretWorkbench'
+import { availableMetric, parseWorkbenchFilters } from '@/lib/secretWorkbench'
+import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
+import { sanitizedSecretSearchParams, secretSearchErrorMessage } from '@/lib/secretReadSelection'
 import { Icon, type IconName } from '@/components/Icon'
 import { infrastructurePaths, LOGIN_PATH, OVERVIEW_PATH, pageTitle, sectionPages } from '@/lib/routes'
 import { isVulnerabilityPath, vulnerabilityPages } from '@/lib/reachRoutes'
@@ -15,13 +19,7 @@ const navigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: '/vulnerabilities', icon: 'shield', label: '취약점 관리' },
 ]
 
-const secretNavigation: Array<{ path: string; icon: IconName; label: string }> = [
-  { path: '/secrets', icon: 'key', label: '시크릿 현황' },
-  { path: '/secrets/findings', icon: 'list', label: '탐지 목록' },
-  { path: '/secrets/cases', icon: 'shield', label: '대응 관리' },
-  { path: '/secrets/connections', icon: 'plug', label: '연결 관리' },
-  { path: '/secrets/history', icon: 'clock', label: '스캔 이력' },
-]
+
 
 function initials(name: string): string {
   const words = name.trim().split(/\s+/)
@@ -40,11 +38,11 @@ export function AppLayout() {
   const inInfrastructure = infrastructurePaths.includes(location.pathname)
   const inSecrets = location.pathname === '/secrets' || location.pathname.startsWith('/secrets/')
   const inVulnerabilities = isVulnerabilityPath(location.pathname)
-  const secretCount = useQuery({
-    queryKey: ['secret-navigation-count'],
-    queryFn: () => fetchSecrets({ page: 0, size: 1, issuer: 'ALL', componentState: 'ALL' }),
-    enabled: inSecrets && me?.role === 'ADMIN',
-  })
+  const safeNavigation = sanitizedSecretSearchParams(new URLSearchParams(location.search))
+
+  const summarySelection = parseWorkbenchFilters(new URLSearchParams())
+  const summary = useSecretWorkbench(summarySelection.filters, inSecrets && !!me && summarySelection.valid)
+  const reviewMetric = summary.data?.metrics.find((metric) => metric.key === 'reviewRequiredLocations')
 
   useEffect(() => {
     document.title = `${title} · Logssey`
@@ -60,6 +58,10 @@ export function AppLayout() {
       navigate(LOGIN_PATH, { replace: true })
     },
   })
+
+  if (inSecrets && safeNavigation.toString() !== location.search.replace(/^\?/, '')) {
+    return <Navigate replace to={{ pathname: location.pathname, search: safeNavigation.toString(), hash: location.hash }} />
+  }
 
   return (
     <>
@@ -105,18 +107,18 @@ export function AppLayout() {
                 {isSecrets && inSecrets && (
                   <div className="secret-subnav" role="group" aria-label="시크릿 세부 메뉴">
                     {secretNavigation.map((page) => (
-                      <NavLink
+                      <Link
                         key={page.path}
-                        className={`nav-link secret-sub ${location.pathname === page.path ? 'active' : ''}`.trim()}
+                        className={`nav-link secret-sub ${activeSecretNavigation(page.path, location.pathname) ? 'active' : ''}`.trim()}
                         to={page.path}
-                        end
+                        aria-current={activeSecretNavigation(page.path, location.pathname) ? 'page' : undefined}
                       >
                         <Icon name={page.icon} />
                         <span>{page.label}</span>
-                        {page.path === '/secrets/findings' && secretCount.isSuccess && (
-                          <span className="secret-nav-count" title="키·메타데이터 기록 수" aria-label={`키·메타데이터 기록 ${secretCount.data.total}개`}>{secretCount.data.total}</span>
+                        {page.path === '/secrets/findings' && summary.isSuccess && !isSecretSnapshotInvalidated(summarySelection.filters.snapshotId) && availableMetric(reviewMetric) && (
+                          <span className="secret-nav-count" title="검토·대응 생성이 필요한 발견 위치" aria-label={`확인 필요 위치 ${reviewMetric!.value}곳`}>{reviewMetric!.value}</span>
                         )}
-                      </NavLink>
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -180,6 +182,8 @@ export function AppLayout() {
           </div>
         </header>
         <main id="main" tabIndex={-1}>
+          {inSecrets && safeNavigation.get('searchRejected') === '1' && !['/secrets/findings', '/secrets/cases', '/secrets/triage'].includes(location.pathname)
+            && <p className="notice error" role="alert">{secretSearchErrorMessage}</p>}
           <Outlet />
           <footer className="footer">
             <span>© 2026 Logssey · Cloud security, clearly.</span>

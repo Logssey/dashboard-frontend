@@ -6,11 +6,13 @@
 export class ApiError extends Error {
   readonly status: number
   readonly code: string | null
+  readonly details: Record<string, unknown> | null
 
-  constructor(status: number, code: string | null, message: string) {
+  constructor(status: number, code: string | null, message: string, details: Record<string, unknown> | null = null) {
     super(message)
     this.status = status
     this.code = code
+    this.details = details
   }
 }
 
@@ -44,14 +46,16 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if (!response.ok) {
     let code: string | null = null
     let message = '요청을 처리하지 못했어요.'
+    let details: Record<string, unknown> | null = null
     try {
-      const body = (await response.json()) as { code?: string; message?: string }
+      const body = (await response.json()) as { code?: string; message?: string; details?: Record<string, unknown> }
       code = body.code ?? null
       message = body.message ?? message
+      details = body.details && typeof body.details === 'object' && !Array.isArray(body.details) ? body.details : null
     } catch {
       // 본문이 없는 오류 (예: 404)
     }
-    throw new ApiError(response.status, code, message)
+    throw new ApiError(response.status, code, message, details)
   }
   return (await response.json()) as T
 }
