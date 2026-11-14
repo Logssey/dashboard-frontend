@@ -39,3 +39,146 @@ export interface IacPathList {
   items: IacPath[]
   nextCursor: number | null
 }
+
+/** 경로에서 끊을 수 있는 관계. fromHop·toHop 은 hops 의 순번 (0 = 인터넷) */
+export interface IacCutPoint {
+  fromHop: number
+  toHop: number
+  action: string
+  templateKey: string
+}
+
+export interface IacPathDetail {
+  path: IacPath
+  cutPoints: IacCutPoint[]
+}
+
+export type IacVerdict = 'BLOCK' | 'WARN' | 'INFO' | 'PASS'
+export type IacRunStatus = 'QUEUED' | 'GATE_FAILED' | 'PLANNING' | 'ANALYZING' | 'DONE' | 'ERROR' | 'SUPERSEDED'
+
+/** S-01 D. PR 별 최신 판정 */
+export interface IacPullRequestSummary {
+  number: number
+  runId: number
+  headSha: string
+  status: IacRunStatus
+  verdict: IacVerdict | null
+  highestSeverity: IacSeverity | null
+  checkedAt: string | null
+  pathsAdded: number
+  pathsRemoved: number
+  removedRoutes: number
+  stateReaderIncrease: boolean
+  reason: string | null
+}
+
+export interface IacGateFinding {
+  ruleId: string
+  enforcement: string
+  severity: IacSeverity | null
+  address: string | null
+}
+
+export interface IacResourceFinding {
+  ruleId: string
+  enforcement: string
+  severity: IacSeverity | null
+  address: string | null
+  action: string | null
+}
+
+export interface IacPathChange {
+  change: 'ADDED' | 'SHORTENED' | 'REMOVED'
+  tier: number
+  ruleId: string
+  severity: IacSeverity | null
+  hops: IacHop[]
+  cause: { address: string | null; action: string | null }
+  evidence: { simulator?: { before: string; after: string } } | null
+}
+
+/** S-02. plan 원문은 오지 않고 수만 온다 */
+export interface IacPullRequest {
+  number: number
+  title: string | null
+  runId: number
+  headSha: string
+  status: IacRunStatus
+  verdict: IacVerdict | null
+  highestSeverity: IacSeverity | null
+  checkedAt: string | null
+  gate: { status: 'BLOCK' | 'PASS'; findings: IacGateFinding[] }
+  paths: IacPathChange[]
+  /** 경로 없이 리소스 하나에 걸리는 ① 발견 건 (path.imds_v1_added) */
+  resourceFindings: IacResourceFinding[]
+  resources: { add: number; change: number; delete: number } | null
+  state: { ruleId: string | null; severity: IacSeverity | null; readersBefore: number; readersAfter: number; secretsAdded: number } | null
+}
+
+/** S-01 E. 관문 순서는 infrastructure policy/gate.sh 와 같다 */
+export interface IacGateStage {
+  stage: string
+  name: string
+  ruleIds: string[]
+  mainOpen: number
+  prBlocked7d: number
+}
+
+export interface IacGates {
+  mainCheckedAt: string | null
+  stages: IacGateStage[]
+  supplyChain: { unpinnedProviders: number; unpinnedModules: number; changedModules: number; lockChanges: number }
+}
+
+/** S-01 F. tfstate 버킷별 읽기 주체 (CHECK_STATE 결과) */
+export interface IacStateSummary {
+  checkedAt: string | null
+  readerCount: number
+  tfstate: { arn: string; name: string; readers: { kind: string; name: string }[] }[] | null
+  bucketPolicy: unknown | null
+  sensitiveCandidates: number | null
+  sensitiveActual: number | null
+}
+
+/** 드리프트. attributes 는 속성 이름만 온다 (값 없음) */
+export interface IacDrift {
+  findingId: number
+  ruleId: string
+  enforcement: string
+  severity: IacSeverity | null
+  address: string
+  action: string
+  attributes: string[]
+  status: 'OPEN' | 'FIXED' | 'ACCEPTED'
+  assigneeUserId: number | null
+  version: number
+  firstSeenAt: string
+  lastSeenAt: string
+}
+
+/** PATCH /findings/{id}. version 은 읽었을 때의 값 (다르면 409) */
+export interface IacFindingUpdate {
+  assigneeUserId?: number
+  unassign?: boolean
+  version: number
+}
+
+/** S-01 G. 조치 하나가 끊는 열린 경로 수 */
+export interface IacRemediation {
+  action: string
+  source: string
+  pathsCut: number
+  tier1PathsCut: number
+  templateKey: string
+}
+
+/** S-01 H. 주기는 gitops CronJob·CI 가 정하고 여기서는 보여주기만 한다 */
+export interface IacJobStatus {
+  job: string
+  schedule: string
+  input: string
+  lastFinishedAt: string | null
+  lastStatus: 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | null
+  lastErrorCode: string | null
+  pending: number
+}

@@ -9,6 +9,7 @@ import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
 import { sanitizedSecretSearchParams, secretSearchErrorMessage } from '@/lib/secretReadSelection'
 import { Icon, type IconName } from '@/components/Icon'
 import { infrastructurePaths, LOGIN_PATH, OVERVIEW_PATH, pageTitle, sectionPages } from '@/lib/routes'
+import { isVulnerabilityPath, vulnerabilityPages } from '@/lib/reachRoutes'
 import { ME_QUERY_KEY, useMe } from './useMe'
 
 const navigation: Array<{ path: string; icon: IconName; label: string }> = [
@@ -36,6 +37,7 @@ export function AppLayout() {
   const title = pageTitle(location.pathname)
   const inInfrastructure = infrastructurePaths.includes(location.pathname)
   const inSecrets = location.pathname === '/secrets' || location.pathname.startsWith('/secrets/')
+  const inVulnerabilities = isVulnerabilityPath(location.pathname)
   const safeNavigation = sanitizedSecretSearchParams(new URLSearchParams(location.search))
 
   const summarySelection = parseWorkbenchFilters(new URLSearchParams())
@@ -94,7 +96,8 @@ export function AppLayout() {
           {navigation.map((item) => {
             const isInfrastructure = item.path === '/configuration'
             const isSecrets = item.path === '/secrets'
-            const active = isInfrastructure ? inInfrastructure : isSecrets ? inSecrets : location.pathname === item.path
+            const active = isInfrastructure ? inInfrastructure : isSecrets ? inSecrets
+              : item.path === '/vulnerabilities' ? inVulnerabilities : location.pathname === item.path
             return (
               <div key={item.path}>
                 <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={item.path} end>
@@ -119,6 +122,12 @@ export function AppLayout() {
                     ))}
                   </div>
                 )}
+                {item.path === '/vulnerabilities' && inVulnerabilities &&
+                  vulnerabilityPages.map((page) => (
+                    <NavLink key={page.path} className={`nav-link sub ${location.pathname === page.path ? 'active' : ''}`.trim()} to={page.path} end>
+                      {page.title}
+                    </NavLink>
+                  ))}
                 {isInfrastructure &&
                   active &&
                   sectionPages

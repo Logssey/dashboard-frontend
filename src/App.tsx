@@ -15,6 +15,11 @@ import { SecretHistoryPage } from '@/pages/SecretHistoryPage'
 import { SecretRunDetailPage } from '@/pages/SecretRunDetailPage'
 import { SecretPageBoundary } from '@/components/SecretPageBoundary'
 import { IacPage } from '@/iac/IacPage'
+import { VulnerabilityFindingsPage, VulnerabilitySummaryPage } from '@/pages/VulnerabilitiesPage'
+import { VulnerabilityWorkloadsPage } from '@/pages/ReachWorkloadsPage'
+import { VulnerabilityScansPage } from '@/pages/ReachScansPage'
+import { VulnerabilityRulesPage } from '@/pages/ReachRulesPage'
+import { RuntimePage } from '@/pages/RuntimePage'
 
 const SecretClassificationQueuePage = lazy(() => import('@/pages/SecretScopeClassificationPage').then((module) => ({ default: module.SecretClassificationQueuePage })))
 const SecretScopeClassificationPage = lazy(() => import('@/pages/SecretScopeClassificationPage').then((module) => ({ default: module.SecretScopeClassificationPage })))
@@ -60,8 +65,19 @@ export function App() {
           <Route path="/secrets/history/:runId" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunDetailPage /></SecretPageBoundary>} />
           <Route path="/secrets/history/:runId/findings" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunFindingsPage /></SecretPageBoundary>} />
           <Route path="/iac" element={<IacPage />} />
+          <Route path="/vulnerabilities" element={<VulnerabilitySummaryPage />} />
+          <Route path="/vulnerabilities/findings" element={<VulnerabilityFindingsPage />} />
+          <Route path="/vulnerabilities/workloads" element={<VulnerabilityWorkloadsPage />} />
+          <Route path="/vulnerabilities/scans" element={<VulnerabilityScansPage />} />
+          <Route path="/vulnerabilities/rules" element={<VulnerabilityRulesPage />} />
+          <Route path="/runtime" element={<RuntimePage />} />
           {sectionPages
-            .filter((page) => !page.path.startsWith('/secrets'))
+            .filter(
+              (page) =>
+                !page.path.startsWith('/secrets') &&
+                !page.path.startsWith('/vulnerabilities') &&
+                page.path !== '/runtime',
+            )
             .map((page) => (
               <Route key={page.path} path={page.path} element={<ComingSoonPage page={page} />} />
             ))}
