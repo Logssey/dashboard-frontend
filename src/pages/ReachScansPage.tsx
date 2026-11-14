@@ -36,7 +36,8 @@ import './reach.css'
 // 탭(SCR-05-02)은 주소 쿼리 tab=ci로 남긴다. CI 검사 탭(SCR-05-10)은 API-12 목록 조회가 없어(미결 7) 검사 ID(check)로 한 건씩 본다
 
 const POLL_MS = 10_000
-const APPS = ['API', 'WEB', 'CHAT'] as const
+/** 앱 코드 형식 (명세 3-2). 어떤 코드가 있는지는 설치 설정이 정하고 서버가 확인한다 */
+const APP_CODE = /^[A-Z][A-Z0-9_]{0,9}$/
 /** 새 스캔 대화상자를 여는 주소 쿼리 */
 const NEW_SCAN_KEYS = ['new', 'app', 'repository', 'digest', 'repo', 'commit', 'path'] as const
 const CLOSED_NEW_SCAN = Object.fromEntries(NEW_SCAN_KEYS.map((key) => [key, null])) as Record<string, null>
@@ -61,7 +62,7 @@ export function readNewScan(params: URLSearchParams): NewScanForm | null {
   return {
     ...emptyNewScanForm,
     type: kind === 'repo' ? 'REPO' : 'IMAGE',
-    app: (APPS as readonly string[]).includes(app ?? '') ? (app as NewScanForm['app']) : '',
+    app: app && APP_CODE.test(app) ? app : '',
     repository: params.get('repository') ?? '',
     digest: params.get('digest') ?? '',
     repoName: params.get('repo') ?? '',

@@ -1,5 +1,6 @@
 import { ApiError, apiRequest } from './client'
 import {
+  sampleReachApps,
   sampleReachFinding,
   sampleReachFindings,
   sampleReachScan,
@@ -223,6 +224,18 @@ export function reachFindingQuery(filter: ReachFindingFilter, cursor: string | n
   return params.toString()
 }
 
+/** API-14 한 항목. repo·path·image는 설정에 없으면 null */
+export interface ReachAppItem {
+  code: ReachApp
+  repo: string | null
+  path: string | null
+  image: string | null
+}
+
+/** API-14 감시 대상 앱. 설정 순서 그대로 */
+export const fetchReachApps = () =>
+  orSample(async () => (await apiRequest<{ items: ReachAppItem[] }>('/api/v1/reach/apps')).items, sampleReachApps)
+
 /** API-08 */
 export const fetchReachSummary = () =>
   orSample(() => apiRequest<ReachSummary>('/api/v1/reach/summary?include=matrix'), sampleReachSummary)
@@ -259,7 +272,8 @@ export const fetchReachFinding = (findingId: number) =>
 // ---- 워크로드 (API-07, SCR-04) ----
 
 export type ReachScanMatchStatus = 'MATCH' | 'MISMATCH' | 'NO_SCAN'
-export type ReachApp = 'API' | 'WEB' | 'CHAT'
+/** 앱 코드. 열거값이 아니라 대시보드 설치 설정(logssey.reach.apps)의 값이다 (API-14, PRD FR-15) */
+export type ReachApp = string
 
 /** API-07 한 항목. 워크로드 안의 (컨테이너, digest) 하나다. id는 업로드마다 바뀐다 */
 export interface ReachWorkload {

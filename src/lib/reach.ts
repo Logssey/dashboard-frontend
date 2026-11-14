@@ -303,7 +303,8 @@ export function scanCountsText(scan: ReachScan): string {
 
 export type NewScanForm = {
   type: 'IMAGE' | 'REPO'
-  app: '' | 'API' | 'WEB' | 'CHAT'
+  /** 빈 값이면 서버가 설치 설정의 레포·저장소 대응으로 정한다 (API-14) */
+  app: string
   repository: string
   digest: string
   repoName: string
@@ -336,7 +337,7 @@ export function newScanRequest(form: NewScanForm): { errors: Partial<Record<keyo
     const repository = form.repository.trim()
     const digest = form.digest.trim()
     if (!repository) errors.repository = '이미지 저장소를 입력하세요.'
-    else if (/[:@]/.test(repository)) errors.repository = '태그나 digest 없이 저장소 이름만 입력하세요. 예: logssey/reused-api'
+    else if (/[:@]/.test(repository)) errors.repository = '태그나 digest 없이 저장소 이름만 입력하세요.'
     if (!/^sha256:[0-9a-f]{64}$/.test(digest)) errors.digest = 'sha256: 뒤에 소문자 16진수 64자를 입력하세요.'
     if (Object.keys(errors).length) return { errors }
     return {
@@ -347,7 +348,7 @@ export function newScanRequest(form: NewScanForm): { errors: Partial<Record<keyo
   const name = form.repoName.trim()
   const commit = form.commit.trim()
   const path = form.path.trim()
-  if (!name) errors.repoName = '레포 이름을 입력하세요. 예: service-backend'
+  if (!name) errors.repoName = '레포 이름을 입력하세요.'
   if (!/^[0-9a-f]{40}$/.test(commit)) errors.commit = '커밋 SHA 40자(소문자 16진수)를 입력하세요.'
   if (Object.keys(errors).length) return { errors }
   return {
