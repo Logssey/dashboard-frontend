@@ -3,11 +3,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { login } from '@/api/auth'
 import { ApiError } from '@/api/client'
+import { GitHubLoginButton } from '@/components/GitHubLoginButton'
 import { Icon } from '@/components/Icon'
 import { OVERVIEW_PATH } from '@/lib/routes'
 import { ME_QUERY_KEY, useMe } from '@/layout/useMe'
 
-/** 로그인 (02 기능 설계 1). 회원가입·소셜 로그인 없음 */
+/** 로그인 (02 기능 설계 1). 회원가입 없음. 소셜 로그인은 GitHub 조직 로그인만(ADR-D010) */
 export function LoginPage() {
   const { data: me, isPending } = useMe()
   const queryClient = useQueryClient()
@@ -92,6 +93,7 @@ export function LoginPage() {
             {loginMutation.isPending ? '로그인 중…' : '로그인'}
           </button>
         </form>
+        <GitHubLoginButton />
       </section>
     </div>
   )
