@@ -7,6 +7,7 @@ const guideReasons: Record<string, string> = {
   KEY_MISSING: '서버에 AI 제공자 키가 설정되지 않았어요. 운영 담당자가 설정하면 AI 보조를 요청할 수 있어요.',
   KEY_INVALID: '서버의 AI 제공자 키 설정을 사용할 수 없어요. 운영 담당자에게 설정 확인을 요청하세요.',
   KEY_FILE_UNREADABLE: '서버의 AI 제공자 키 파일을 읽지 못했어요. 운영 담당자가 파일 위치와 읽기 권한을 확인해야 해요.',
+  KEY_STORE_UNAVAILABLE: 'Claude 인증 저장소에 연결하지 못했어요. 기본 안내를 사용하고 운영 담당자에게 연결 상태를 확인해 주세요.',
   WORKSPACE_INVALID: '서버의 AI 워크스페이스 설정을 확인해야 해요. 운영 담당자에게 설정 확인을 요청하세요.',
   CONFIGURATION_INVALID: '서버의 AI 안전 설정을 확인해야 해요. 운영 담당자에게 설정 확인을 요청하세요.',
   ENDPOINT_NOT_ALLOWED: '서버의 AI 연결 주소가 허용된 설정과 달라요. 운영 담당자에게 연결 설정을 확인해 달라고 요청하세요.',
@@ -47,6 +48,7 @@ export function guideReadinessMessage(guide: SecretCaseGuide): string {
   const provider = guideProviderName(guide)
   return provider === 'AI' ? reason : reason.replaceAll('AI 제공자 키', `${provider} API 키`).replaceAll('AI 제공자', provider)
 }
+export const guideReasonMessage = (code: string) => Object.hasOwn(guideReasons, code) ? guideReasons[code] : '현재 기본 안내를 사용하고 있어요.'
 export const canRequestGuideAi = (guide: SecretCaseGuide) => guide.readiness?.aiAvailable === true && guide.readiness.status !== 'UNAVAILABLE' && Object.hasOwn(guideReasons, guide.readiness.reasonCode) && !['REQUEST_IN_PROGRESS', 'CALL_BUDGET_EXHAUSTED', 'CONTEXT_CHANGED'].includes(guide.readiness.reasonCode)
 
 /** Safe local baseline remains available while the server-authored guide is loading. */
