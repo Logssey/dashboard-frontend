@@ -154,6 +154,7 @@ function CreateConnectionForm({
             }
           : {})
       }
+      setDraft((current) => ({ ...current, privateKey: '' }))
       const idempotencyKey = await connectionCreateRequestKey(
         requestKey,
         payload
@@ -781,19 +782,20 @@ export function SecretConnectionCredentialForm({
   )
   const submit = async () => {
     if (disabled || !storageConfigured || error) return
+    const payload = {
+      expectedScopeVersion: settings.scopeVersion,
+      displayName: settings.displayName,
+      status: 'PAUSED' as const,
+      githubCredential: githubCredential(
+        draft.appId,
+        draft.installationId,
+        draft.privateKey
+      )
+    }
+    setDraft((current) => ({ ...current, privateKey: '' }))
     try {
       await save(
-        () =>
-          updateSecretConnection(settings.connectionId, {
-            expectedScopeVersion: settings.scopeVersion,
-            displayName: settings.displayName,
-            status: 'PAUSED',
-            githubCredential: githubCredential(
-              draft.appId,
-              draft.installationId,
-              draft.privateKey
-            )
-          }),
+        () => updateSecretConnection(settings.connectionId, payload),
         '인증을 저장했어요. 검사 대상을 확인하고 연결을 활성화하세요.'
       )
     } finally {
