@@ -20,6 +20,7 @@ import { VulnerabilityWorkloadsPage } from '@/pages/ReachWorkloadsPage'
 import { VulnerabilityScansPage } from '@/pages/ReachScansPage'
 import { VulnerabilityRulesPage } from '@/pages/ReachRulesPage'
 import { RuntimePage } from '@/pages/RuntimePage'
+import { CompliancePage } from '@/pages/CompliancePage'
 
 const SecretClassificationQueuePage = lazy(() => import('@/pages/SecretScopeClassificationPage').then((module) => ({ default: module.SecretClassificationQueuePage })))
 const SecretScopeClassificationPage = lazy(() => import('@/pages/SecretScopeClassificationPage').then((module) => ({ default: module.SecretScopeClassificationPage })))
@@ -71,12 +72,14 @@ export function App() {
           <Route path="/vulnerabilities/scans" element={<VulnerabilityScansPage />} />
           <Route path="/vulnerabilities/rules" element={<VulnerabilityRulesPage />} />
           <Route path="/runtime" element={<RuntimePage />} />
+          <Route path="/configuration" element={<CompliancePage />} />
           {sectionPages
             .filter(
               (page) =>
                 !page.path.startsWith('/secrets') &&
                 !page.path.startsWith('/vulnerabilities') &&
-                page.path !== '/runtime',
+                page.path !== '/runtime' &&
+                page.path !== '/configuration',
             )
             .map((page) => (
               <Route key={page.path} path={page.path} element={<ComingSoonPage page={page} />} />
