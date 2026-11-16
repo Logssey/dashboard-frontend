@@ -599,11 +599,41 @@ export interface ReachCiCheck {
     newFindings: { total: number; byStatus: Partial<Record<ReachStatus, number>> }
   } | null
   findingsUrl: string | null
+  /** 목록이 생기며 더한 칸. 옛 서버는 주지 않는다 */
+  createdAt?: string | null
   finishedAt: string | null
 }
 
 /**
- * API-12 결과 조회. 검사 목록 API가 없어(미결 7) 검사 ID로 한 건씩 본다.
- * 예시 값으로 대신하지 않는다: 사용자가 넣은 검사 ID라 실제 결과가 아니면 의미가 없다
+ * API-12 결과 조회. 검사 하나를 검사 ID로 본다.
+ * 예시 값으로 대신하지 않는다: 실제 CI가 만든 검사라 실제 결과가 아니면 의미가 없다
  */
 export const fetchReachCiCheck = (checkId: number) => apiRequest<ReachCiCheck>(`/api/v1/reach/ci/checks/${checkId}`)
+
+export interface ReachCiCheckPage {
+  items: ReachCiCheck[]
+  nextCursor: string | null
+  hasNext: boolean
+  totalCount?: number | null
+}
+
+export interface ReachCiCheckFilter {
+  mode: ReachTrigger[]
+  scanStatus: ReachScanStatus[]
+}
+
+export const REACH_CI_CHECK_PAGE_SIZE = 20
+
+export function reachCiCheckQuery(filter: ReachCiCheckFilter, cursor: string | null): string {
+  const params = new URLSearchParams()
+  if (filter.mode.length) params.set('mode', filter.mode.join(','))
+  if (filter.scanStatus.length) params.set('scanStatus', filter.scanStatus.join(','))
+  params.set('size', String(REACH_CI_CHECK_PAGE_SIZE))
+  params.set('include', 'total')
+  if (cursor) params.set('cursor', cursor)
+  return params.toString()
+}
+
+/** API-12 목록. 최신 검사부터. 예시 값으로 대신하지 않는다(결과 조회와 같은 이유) */
+export const fetchReachCiChecks = (filter: ReachCiCheckFilter, cursor: string | null) =>
+  apiRequest<ReachCiCheckPage>(`/api/v1/reach/ci/checks?${reachCiCheckQuery(filter, cursor)}`)

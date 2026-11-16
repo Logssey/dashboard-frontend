@@ -13,7 +13,7 @@ import { build } from 'esbuild'
 const bundled = await build({
   stdin: {
     contents: [
-      "export { CiChecksTab, CiCheckResult, parseCheckId, CI_PLAN } from '@/pages/ReachCiChecksTab'",
+      "export { CiChecksTab, CiCheckResult, CiCheckTable, parseCheckId, CI_PLAN } from '@/pages/ReachCiChecksTab'",
       "export { VulnerabilityScansPage } from '@/pages/ReachScansPage'",
     ].join('\n'),
     resolveDir: resolve('.'),
@@ -124,15 +124,52 @@ test('without a gate the check says why', () => {
   assert.doesNotMatch(manual, /<dt>커밋<\/dt>/)
 })
 
-test('the CI tab shows the not-connected notice, lookup and plan', () => {
-  const html = render(reach.CiChecksTab, { checkId: null, onCheck: () => {}, onShowPrScans: () => {} })
-  assert.match(html, /CI 연동은 아직 연결되지 않았어요/)
+test('the CI tab shows the notice, lookup and plan with each status', () => {
+  const html = renderToStaticMarkup(createElement(QueryClientProvider, { client: client() },
+    createElement(MemoryRouter, null, createElement(reach.CiChecksTab, { checkId: null, onCheck: () => {}, onShowPrScans: () => {} }))))
+  assert.match(html, /CI가 PR마다 검사를 등록하고 결과를 올려요/)
+  assert.doesNotMatch(html, /연결되지 않았어요/)
   assert.match(html, /스캔 이력의 PR 트리거/)
   assert.match(html, /<label[^>]*for="reach-ci-check-id"[^>]*>검사 ID/)
   assert.doesNotMatch(html, /지우기/)
   assert.equal(reach.CI_PLAN.length, 4)
   for (const label of ['PR', '이미지 빌드', '일정', '수동']) assert.match(html, new RegExp(`<strong>${label}</strong>`))
-  assert.equal((html.match(/reach-flag">계획/g) ?? []).length, 4)
+  // PR은 동작, 이미지는 준비(권한 남음), 일정·수동은 계획
+  assert.deepEqual(reach.CI_PLAN.map((row) => row.status), ['WORKING', 'READY', 'PLANNED', 'PLANNED'])
+  assert.equal((html.match(/badge success">동작/g) ?? []).length, 1)
+  assert.equal((html.match(/reach-flag">준비/g) ?? []).length, 1)
+  assert.equal((html.match(/reach-flag">계획/g) ?? []).length, 2)
+  assert.match(html, /ECR 읽기 권한을 넣으면 돌아요/)
+})
+
+test('the check list shows one row per check and marks the selected one', () => {
+  const queued = check({ id: 3, mode: 'IMAGE_BUILD', pullRequest: null, scanStatus: 'QUEUED', gate: null, createdAt: '2026-11-15T09:20:00Z' })
+  const done = check({ id: 1, repository: 'service-backend', pullRequest: { number: 58, baseRef: 'develop', headRef: 'ci/reach-scan' }, createdAt: '2026-11-15T09:07:00Z' })
+  const html = render(reach.CiCheckTable, { items: [queued, done], selectedId: 1, onSelect: () => {} })
+  assert.equal((html.match(/<tr class="reach-row/g) ?? []).length, 2)
+  assert.match(html, />#3</)
+  assert.match(html, /이미지 빌드/)
+  assert.match(html, /#58<span class="caption reach-nowrap"> ci\/reach-scan → develop/)
+  assert.match(html, /title="bb4639b7e45c21d5ced03a5f541b1982093e0865">bb4639b</)
+  assert.match(html, /reach-gate pass">통과/)                                         // 끝난 검사는 게이트
+  assert.match(html, /대기/)                                                            // 진행 중은 스캔 상태
+  assert.match(html, /class="reach-row selected" aria-selected="true"/)
+  assert.match(html, /2026\. 11\. 15\. 18:07/)                                          // 등록 시각(KST)
+})
+
+test('the CI tab lists checks from the list API above the plan', () => {
+  const queryClient = client()
+  const items = [check({ id: 2, createdAt: '2026-11-15T09:30:00Z' }), check({ id: 1, createdAt: '2026-11-15T09:07:00Z' })]
+  queryClient.setQueryData(['reach-ci-checks', { mode: [], scanStatus: [] }], {
+    pages: [{ items, nextCursor: 'next', hasNext: true, totalCount: 5 }],
+    pageParams: [null],
+  })
+  const html = renderPage(queryClient, '/vulnerabilities/scans?tab=ci')
+  assert.match(html, /검사 목록/)
+  assert.match(html, /5건 중 2건 표시/)
+  assert.match(html, /더 보기/)
+  assert.match(html, /모든 실행/)
+  assert.ok(html.indexOf('검사 목록') < html.indexOf('실행 계획'))
 })
 
 test('scans page keeps the tab and check id in the address', () => {
@@ -143,7 +180,7 @@ test('scans page keeps the tab and check id in the address', () => {
   assert.match(ci, /검사 #1/)
   assert.match(ci, /value="1"/)
   assert.match(ci, /지우기/)
-  assert.doesNotMatch(ci, /필터 초기화/)
+  assert.doesNotMatch(ci, /모든 트리거/)                 // 스캔 이력 필터는 CI 탭에 없다
 
   const history = renderPage(client(), '/vulnerabilities/scans')
   assert.match(history, /aria-selected="true" class="tab reach-tab active">스캔 이력/)
