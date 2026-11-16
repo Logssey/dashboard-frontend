@@ -92,7 +92,7 @@ export function githubCredential(
 export function githubTargetsError(targets: GitHubScanTarget[]): string | null {
   if (targets.length > 100)
     return '검사 대상은 한 연결에 최대 100개까지 등록할 수 있어요.'
-  const seen = new Set<string>()
+  const repositoryPaths = new Map<string, string[]>()
   for (const target of targets) {
     if (
       !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9_.-]{1,100}$/.test(
@@ -119,13 +119,17 @@ export function githubTargetsError(targets: GitHubScanTarget[]): string | null {
         .some((part) => path && (!part.trim() || part === '.' || part === '..'))
     )
       return '폴더는 250자 이내의 저장소 상대 경로로 입력하세요.'
-    const key = JSON.stringify([
-      target.repository,
-      target.branch,
-      path.replace(/\/+$/, '')
-    ])
-    if (seen.has(key)) return '같은 검사 대상이 중복되어 있어요.'
-    seen.add(key)
+    const repository = target.repository.toLowerCase()
+    const paths = repositoryPaths.get(repository) ?? []
+    if (
+      paths.some(
+        (existing) =>
+          existing.startsWith(canonicalPath) ||
+          canonicalPath.startsWith(existing)
+      )
+    )
+      return '같은 저장소의 겹치는 경로는 연결을 나눠 등록하세요.'
+    repositoryPaths.set(repository, [...paths, canonicalPath])
   }
   return null
 }

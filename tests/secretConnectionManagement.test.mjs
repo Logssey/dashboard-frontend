@@ -218,7 +218,7 @@ test('repository root and slash branches are supported while traversal and dupli
       { ...target, path: 'fixtures' },
       { ...target, path: 'fixtures/' }
     ]),
-    /중복/
+    /겹치는 경로/
   )
   for (const path of ['a//b', 'a*/b', 'x'.repeat(250)])
     assert.ok(api.githubTargetsError([{ ...target, path }]))
@@ -234,6 +234,56 @@ test('repository root and slash branches are supported while traversal and dupli
       }))
     ),
     /최대 100개/
+  )
+})
+
+test('GitHub paths cannot overlap across branches in one connection while disjoint folders remain supported', () => {
+  const target = {
+    repository: 'Logssey/test-find-key',
+    branch: 'main',
+    path: 'fixtures/'
+  }
+  for (const other of [
+    { ...target, branch: 'develop' },
+    { ...target, branch: 'feat/secret', path: 'fixtures/config' },
+    { ...target, path: '' },
+    {
+      ...target,
+      repository: 'logssey/TEST-FIND-KEY',
+      branch: 'develop',
+      path: 'fixtures'
+    }
+  ]) {
+    assert.equal(
+      api.githubTargetsError([target, other]),
+      '같은 저장소의 겹치는 경로는 연결을 나눠 등록하세요.'
+    )
+    assert.equal(
+      api.githubTargetsError([other, target]),
+      '같은 저장소의 겹치는 경로는 연결을 나눠 등록하세요.'
+    )
+  }
+  assert.equal(
+    api.githubTargetsError([
+      target,
+      { ...target, branch: 'develop', path: 'other/' }
+    ]),
+    null
+  )
+  assert.equal(
+    api.githubTargetsError([target, { ...target, path: 'fixtures-extra/' }]),
+    null
+  )
+  assert.equal(
+    api.githubTargetsError([
+      target,
+      { ...target, repository: 'Logssey/another-repo' }
+    ]),
+    null
+  )
+  assert.equal(
+    api.githubTargetsError([target, { ...target, path: 'Fixtures/' }]),
+    null
   )
 })
 
