@@ -187,7 +187,6 @@ export function AppLayout() {
           <Outlet />
           <footer className="footer">
             <span>© 2026 Logssey · Cloud security, clearly.</span>
-            {!inSecrets && <span>샘플 데이터로 동작 중입니다.</span>}
           </footer>
         </main>
       </div>
