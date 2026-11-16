@@ -140,6 +140,53 @@ test('GitHub App draft requires safe positive numeric IDs and a complete bounded
   })
 })
 
+test('create retries keep a request ID only for the same canonical payload without retaining credentials', async () => {
+  const identity = { current: { digest: '', key: '' } }
+  const payload = {
+    provider: 'GITHUB',
+    displayName: '개발 저장소',
+    githubCredential: { appId: 101, installationId: 202, privateKey: pem }
+  }
+  const original = await api.connectionCreateRequestKey(identity, payload)
+  assert.equal(identity.current.digest.length, 64)
+  assert.doesNotMatch(
+    JSON.stringify(identity.current),
+    /PRIVATE|AAAA|개발 저장소/
+  )
+  assert.equal(
+    await api.connectionCreateRequestKey(identity, {
+      ...payload,
+      displayName: ' 개발 저장소 ',
+      githubCredential: {
+        ...payload.githubCredential,
+        privateKey: `\n${pem}\n`
+      }
+    }),
+    original
+  )
+  const changedKey = await api.connectionCreateRequestKey(identity, {
+    ...payload,
+    githubCredential: {
+      ...payload.githubCredential,
+      privateKey: pem.replace('AAAA', 'BBBB')
+    }
+  })
+  assert.notEqual(changedKey, original)
+  const awsKey = await api.connectionCreateRequestKey(identity, {
+    provider: 'AWS',
+    displayName: '개발 저장소'
+  })
+  assert.notEqual(awsKey, changedKey)
+  assert.equal(
+    await api.connectionCreateRequestKey(identity, {
+      provider: 'AWS',
+      displayName: '개발 저장소'
+    }),
+    awsKey
+  )
+  assert.deepEqual(Object.keys(identity.current).sort(), ['digest', 'key'])
+})
+
 test('repository root and slash branches are supported while traversal and duplicate scopes are rejected', () => {
   const target = {
     repository: 'Logssey/test-find-key',
@@ -231,6 +278,26 @@ test('management errors never render provider error bodies or credential text', 
   assert.match(
     api.connectionManagementError(new api.ApiError(403, null, '')),
     /운영 권한/
+  )
+  assert.match(
+    api.connectionManagementError(
+      new api.ApiError(
+        503,
+        'SOURCE_CONNECTION_UNAVAILABLE',
+        'PRIVATE-KEY-MUST-NOT-SHOW'
+      )
+    ),
+    /서버 설정과 접근 권한/
+  )
+  assert.doesNotMatch(
+    api.connectionManagementError(
+      new api.ApiError(
+        503,
+        'SOURCE_CONNECTION_UNAVAILABLE',
+        'PRIVATE-KEY-MUST-NOT-SHOW'
+      )
+    ),
+    /입력값|PRIVATE-KEY/
   )
 })
 

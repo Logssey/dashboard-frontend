@@ -2,9 +2,47 @@ import { ApiError } from '@/api/client'
 import type {
   AwsMetadataKind,
   AwsScanTarget,
+  CreateSecretConnectionRequest,
   GitHubAppCredential,
   GitHubScanTarget
 } from '@/api/secretConnections'
+
+interface CreateRequestIdentity {
+  digest: string
+  key: string
+}
+
+export async function connectionCreateRequestKey(
+  reference: { current: CreateRequestIdentity },
+  request: Omit<CreateSecretConnectionRequest, 'idempotencyKey'>
+): Promise<string> {
+  const credential = request.githubCredential
+  const canonical = JSON.stringify({
+    provider: request.provider,
+    displayName: request.displayName.trim(),
+    githubCredential: credential
+      ? {
+          appId: credential.appId,
+          installationId: credential.installationId,
+          privateKey: credential.privateKey.trim()
+        }
+      : null
+  })
+  const bytes = new TextEncoder().encode(canonical)
+  let digest: string
+  try {
+    const hashed = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))
+    digest = Array.from(hashed, (value) =>
+      value.toString(16).padStart(2, '0')
+    ).join('')
+  } finally {
+    bytes.fill(0)
+  }
+  if (reference.current.digest !== digest || !reference.current.key) {
+    reference.current = { digest, key: crypto.randomUUID() }
+  }
+  return reference.current.key
+}
 
 export const awsMetadataLabels: Record<AwsMetadataKind, string> = {
   IAM_ACCESS_KEY_METADATA: 'IAM 액세스 키',
@@ -117,6 +155,8 @@ export function awsTargetOptions(
 export function connectionManagementError(error: unknown): string {
   if (!(error instanceof ApiError))
     return '요청 결과를 확인하지 못했어요. 연결 상태를 확인하고 다시 시도하세요.'
+  if (error.code === 'SOURCE_CONNECTION_UNAVAILABLE')
+    return '인증 저장소나 연결 서비스에 접근하지 못했어요. 서버 설정과 접근 권한을 확인하세요.'
   if (error.status === 401) return '로그인 후 다시 시도하세요.'
   if (error.status === 403) return '이 연결을 설정할 운영 권한이 없어요.'
   if (error.status === 404)

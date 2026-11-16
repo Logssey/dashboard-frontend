@@ -24,6 +24,7 @@ import {
 import {
   awsMetadataLabels,
   awsTargetOptions,
+  connectionCreateRequestKey,
   connectionManagementError,
   githubCredential,
   githubCredentialError,
@@ -122,7 +123,7 @@ function CreateConnectionForm({
     privateKey: ''
   })
   const [error, setError] = useState('')
-  const requestKey = useRef('')
+  const requestKey = useRef({ digest: '', key: '' })
   const validation =
     provider === 'GITHUB'
       ? githubCredentialError(
@@ -134,25 +135,15 @@ function CreateConnectionForm({
   const storageMissing =
     provider === 'GITHUB' && !setup.credentialStorageConfigured
   const disabled = busy || !setup.enabled || !setup.canCreate || storageMissing
-  const changeDraft = (next: CredentialDraft) => {
-    if (
-      draft.appId !== next.appId ||
-      draft.installationId !== next.installationId
-    )
-      requestKey.current = ''
-    setDraft(next)
-  }
   const submit = async () => {
     if (disabled || !name.trim() || validation) return
-    if (!requestKey.current) requestKey.current = crypto.randomUUID()
     setBusy(true)
     setError('')
     try {
       // Credentials stay outside the React Query mutation cache.
-      const created = await createSecretConnection({
+      const payload = {
         provider,
         displayName: name.trim(),
-        idempotencyKey: requestKey.current,
         ...(provider === 'GITHUB'
           ? {
               githubCredential: githubCredential(
@@ -162,6 +153,14 @@ function CreateConnectionForm({
               )
             }
           : {})
+      }
+      const idempotencyKey = await connectionCreateRequestKey(
+        requestKey,
+        payload
+      )
+      const created = await createSecretConnection({
+        ...payload,
+        idempotencyKey
       })
       onCreated(created)
     } catch (failure) {
@@ -189,7 +188,6 @@ function CreateConnectionForm({
             onChange={(event) => {
               setProvider(event.target.value as EditableSecretProvider)
               setDraft({ appId: '', installationId: '', privateKey: '' })
-              requestKey.current = ''
             }}
           >
             {setup.providers.map((value) => (
@@ -209,7 +207,6 @@ function CreateConnectionForm({
             }
             onChange={(event) => {
               setName(event.target.value)
-              requestKey.current = ''
             }}
           />
         </label>
@@ -217,7 +214,7 @@ function CreateConnectionForm({
       {provider === 'GITHUB' ? (
         <fieldset disabled={disabled}>
           <legend>GitHub App 인증</legend>
-          <CredentialFields draft={draft} onChange={changeDraft} />
+          <CredentialFields draft={draft} onChange={setDraft} />
           <p className="caption">
             수집할 저장소에 설치한 App의 Contents 읽기 권한을 사용해요.
           </p>
