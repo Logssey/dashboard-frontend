@@ -32,7 +32,7 @@ export function SecretCaseAssignment({ detail, occurrence, onReload, onStale, di
   })
   const self = useMutation({ mutationFn: () => assignSecretCaseToSelf(detail.caseId, { expectedVersion: detail.version, applyToUnassigned: detail.capabilities.canAssignUnassigned === true && inherit }), onSuccess: success, onError: failure })
   const busy = disabled || mutation.isPending || self.isPending
-  return <section className="secret-case-assignment" id={occurrence ? undefined : "case-assignment"} tabIndex={-1}>
+  return <section className="secret-case-assignment" id={occurrence ? "case-location-assignment" : "case-assignment"} tabIndex={-1}>
     {!occurrence && detail.capabilities.canAssignSelf && <div className="row"><button className="btn primary" disabled={busy} onClick={() => self.mutate()}>{self.isPending ? '배정 중…' : '내가 담당하기'}</button><span className="caption">현재 조치 가능한 위치를 함께 맡을 수 있어요.</span></div>}
     {!occurrence && detail.capabilities.canAssignUnassigned && unassigned > 0 && <label className="secret-check-label"><input type="checkbox" checked={inherit} onChange={(event) => setInherit(event.target.checked)} /> 미배정 조치 위치 {unassigned}곳에도 적용</label>}
     <details className="secret-response-disclosure" open={!!occurrence && !currentUser && !currentTeam}><summary>{occurrence ? '이 위치의 담당자 지정·변경' : '대응 담당자 지정·변경'}</summary><div className="secret-governance-form">

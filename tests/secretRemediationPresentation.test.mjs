@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test, { after } from 'node:test'
-import { writeFile, unlink } from 'node:fs/promises'
+import { writeFile, unlink, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createElement } from 'react'
@@ -153,4 +153,14 @@ test('GitHub original links must match the observed repository branch file and l
     { ...source, sourceUrl: source.sourceUrl.replace('#L4-L8', '#L9') },
     { ...source, sourceUrl: source.sourceUrl + '?redirect=elsewhere' },
   ]) assert.doesNotMatch(render(bad), /<a /)
+})
+
+
+test('narrow source graphs stack and notebook location tables keep their action column in view', async () => {
+  const css = await readFile(resolve('src/pages/secret-inventory.css'), 'utf8')
+  const narrow = css.slice(css.indexOf('@media(max-width:1100px)'))
+  assert.match(narrow, /\.secret-key-source-graph \{ grid-template-columns:1fr;/)
+  const sticky = css.slice(css.indexOf('@media(min-width:851px)'))
+  assert.match(sticky, /\.secret-location-table td:last-child[^}]*position:sticky; right:0;/)
+  assert.match(css, /@media\(max-width:850px\)/)
 })
