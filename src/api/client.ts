@@ -34,7 +34,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const method = (init.method ?? 'GET').toUpperCase()
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json')
-  if (init.body !== undefined) headers.set('Content-Type', 'application/json')
+  // FormData의 boundary는 브라우저가 붙여야 한다. JSON 요청만 명시적으로 지정한다.
+  if (init.body !== undefined && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (method !== 'GET') {
     const token = await ensureCsrfToken()
     if (token) headers.set('X-XSRF-TOKEN', token)
