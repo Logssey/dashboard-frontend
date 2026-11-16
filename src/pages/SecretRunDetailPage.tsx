@@ -6,6 +6,7 @@ import { fetchSecretScanRun, retryFailedSecretScopes, type ScanStage, type Secre
 import { safeMutationMessage } from '@/lib/secretEvidence'
 import { withSecretOrigin } from '@/lib/secretNavigation'
 import { Icon } from '@/components/Icon'
+import { SecretExplanation } from '@/components/SecretExplanation'
 import { findingCountLabel, hasScopeAggregation, historyReturnPath, objectCountLabel, positiveId, scanDate, scanDetailPath, scanDuration, scanConnectionLabel, scanPlatforms, scanReason, scanRunStatus, scanStatus, scanTypes, scopeTypeLabel, terminalRunStatuses } from '@/lib/secretScan'
 import './secret-scan.css'
 
@@ -45,6 +46,7 @@ function RunContent({ run }: { run: SecretScanRun }) {
   const connectionLink = `/secrets/connections/${run.connectionId}/scopes`
   const revalidation = run.revalidation
   return <>
+    <SecretExplanation topic="SCAN" id={run.runId} contextVersion={`${run.status}:${run.finishedAt ?? ''}`} />
     <section className="card secret-run-summary" aria-labelledby="run-summary-title">
       <div className="row between"><h2 id="run-summary-title">실행 요약</h2><span className={`secret-run-badge ${run.status.toLowerCase()}`}>{scanRunStatus(run.status)}</span></div>
       <p>{scanTypes[run.triggerType] ?? '실행 유형 미확인'} · {scanPlatforms[run.provider] ?? '플랫폼 미확인'} · {scanConnectionLabel(run)}</p>

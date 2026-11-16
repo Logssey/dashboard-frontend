@@ -7,6 +7,7 @@ import type { WorkbenchQueueItem } from '@/api/secretWorkbenchQueue'
 import { useSecretListParams } from '@/lib/useSecretListParams'
 import { PageHeader } from '@/components/PageHeader'
 import { SecretRiskDistribution } from '@/components/SecretRiskDistribution'
+import { SecretCommonCauses } from '@/components/SecretCommonCauses'
 import { withSecretOrigin } from '@/lib/secretNavigation'
 import { availableMetric, filterLabel, parseWorkbenchFilters, summaryReason, workbenchQueuePath, workbenchSearch, workbenchWhyLabel } from '@/lib/secretWorkbench'
 import { actionLabels, blockerLabels, priorityLabels } from '@/lib/secretTaskGuidance'
@@ -256,6 +257,7 @@ export function SecretOverviewPage() {
       : hasData && data ? <>
         <div className="secret-overview-asof"><span>기준 {scanDate(data.asOf)}</span><span>{data.restrictedCoverage ? '열람 가능한 범위' : '승인된 범위'}</span></div>
         <OverviewCards summary={data} view={view} onSelect={(next) => setParams(overviewSearch(filters, next))} />
+        <SecretCommonCauses summary={data} filters={filters} />
         <div className="secret-overview-layout">
           <section id="secret-overview-work-list" className="card secret-overview-work" aria-labelledby="secret-work-title">
             <div className="secret-overview-section-title">

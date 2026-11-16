@@ -209,3 +209,18 @@ test('review queue return paths preserve the union bucket and original location 
   assert.equal(url.searchParams.get('page'), '2')
   assert.equal(url.searchParams.get('focus'), '11:21')
 })
+
+
+test('common causes use server-wide counts and start a fresh snapshot when narrowing the connection', () => {
+  const value = { ...summary, commonCauseGroups: [
+    { code: 'EXPOSURE_REVIEW_REQUIRED', connectionId: 7, connectionLabel: '개발 저장소', count: 37, unit: 'Occurrence', nextAction: 'REVIEW_LOCATION', canExecute: true, target: { type: 'OCCURRENCE', id: 12, connectionId: 7 } },
+    { code: 'POLICY_MISSING', connectionId: 8, count: 4, unit: 'Scope', nextAction: 'CONFIGURE_STORAGE_POLICY', canExecute: false, target: { type: 'SCOPE', id: 13, connectionId: 8 } },
+  ] }
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], value]])
+  assert.match(html, /연결별 공통 원인 2개/)
+  assert.match(html, /개발 저장소 · 37곳의 발견 위치/)
+  const narrowed = decodeLinks(html).find((url) => url.pathname === '/secrets/triage' && url.searchParams.get('connectionId') === '7')
+  assert.ok(narrowed)
+  assert.equal(narrowed.searchParams.has('snapshotId'), false)
+  assert.match(html, /href="\/secrets\/connections\/8\/scopes"/)
+})

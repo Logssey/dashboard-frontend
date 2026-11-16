@@ -11,6 +11,7 @@ import {
 } from '@/lib/secretScanProgress'
 import { scanDate, scanDuration, scanPlatforms } from '@/lib/secretScan'
 import { validationIssuerLabels } from '@/lib/secretValidation'
+import { SecretExplanation } from './SecretExplanation'
 import './secret-scan-progress.css'
 
 function ValidationSummary({ summary }: { summary: ScanValidationSummary }) {
@@ -167,5 +168,6 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
       <p>{scanProgressCount(data.finishedScopeCount) && <span>종료 대상 {data.finishedScopeCount}개</span>}{scanProgressCount(data.collectedObjectCount) && <span>수집 항목 {data.collectedObjectCount}개</span>}{scanProgressCount(data.findingCount) && <span>탐지 근거 {data.findingCount}개</span>}</p>
       <div>{data.capabilities?.canViewFindings && <Link to={`/secrets/history/${runId}/findings`}>{scanValidationOnlyIssue(data) ? '인증 확인이 필요한 키 보기' : '발견 결과 보기'}</Link>}{['PARTIAL', 'FAILED'].includes(data.status) && !scanValidationOnlyIssue(data) && <Link to={`/secrets/history/${runId}#coverage-title`}>실패 대상 확인</Link>}<Link to={`/secrets/history/${runId}`}>실행 이력</Link></div>
     </footer>}
+    {settled && <SecretExplanation topic="SCAN" id={runId} contextVersion={`${data.status}:${data.finishedAt ?? ''}`} />}
   </section>
 }
