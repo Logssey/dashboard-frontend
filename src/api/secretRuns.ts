@@ -59,12 +59,14 @@ export interface SecretRunScope {
   validation: ScanStage
   objectCount: number | null
   excludedObjectCount?: number | null
+  exclusionReasons?: { code: string; count: number; expected?: boolean }[]
   gapCode: string | null
   startedAt?: string | null
   finishedAt?: string | null
   retryable?: boolean
 }
 export interface SecretScanRun extends SecretRunListItem {
+  scanKind?: 'METADATA' | 'CONTENT' | 'UNKNOWN'
   collectionStatus: string
   detectionStatus: string
   validationStatus: string
@@ -84,7 +86,7 @@ export interface SecretScanRun extends SecretRunListItem {
   occurrenceId?: number | null
   revalidation?: { caseId: number; occurrenceId: number } | null
   newCredentialCountReason?: string | null
-  capabilities?: { canViewFindings: boolean }
+  capabilities?: { canViewFindings: boolean; canRetryFailedScopes?: boolean }
 }
 
 export interface SecretRunListResponse {
@@ -105,6 +107,10 @@ export function fetchSecretRuns(filter: RunFilters): Promise<SecretRunListRespon
   return apiRequest(`/api/v1/secrets/runs?${params}`)
 }
 export const fetchSecretScanRun = (runId: number) => apiRequest<SecretScanRun>(`/api/v1/secrets/runs/${runId}`)
+export const retryFailedSecretScopes = (runId: number, idempotencyKey: string) =>
+  apiRequest<{ runId: number; status: SecretRunStatus }>(`/api/v1/secrets/runs/${runId}/retry-failed`, {
+    method: 'POST', body: JSON.stringify({ idempotencyKey }),
+  })
 export interface RunFinding { findingId: number; occurrenceId: number; credentialSetId: number; secretId: number; maskedLabel: string; componentState: string; ruleId: string; ruleVersion: string | null; origin: string }
 export interface RunFindings { items: RunFinding[]; total: number; unit: 'Finding'; page: number; size: number; runId: number; asOf: string }
 export const fetchRunFindings = (runId: number, page: number) => apiRequest<RunFindings>(`/api/v1/secrets/runs/${runId}/findings?page=${page}&size=20`)

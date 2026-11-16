@@ -45,14 +45,12 @@ function ConnectionCard({ connection, selected, result, testing, error, onTest, 
       <span className={`secret-connection-state ${connection.connectionStatus === 'ACTIVE' ? '' : 'inactive'}`}>{connection.connectionStatus === 'ACTIVE' ? '사용 중' : connection.connectionStatus === 'PAUSED' ? '일시중지' : '확인 필요'}</span>
     </button>
     <p className="secret-connection-target-count">검사 대상 {connection.approvedScopeCount}개{connection.activeJob && <span> · {scanStatus(connection.activeJob.status)}</span>}</p>
-    {selected && <>
-      {!!connection.targetSummary?.length && <ul className="secret-connection-targets">{connection.targetSummary.slice(0, 2).map((target) => <li key={target}>{target}</li>)}</ul>}
+    {selected && !!connection.targetSummary?.length && <ul className="secret-connection-targets">{connection.targetSummary.slice(0, 2).map((target) => <li key={target}>{target}</li>)}</ul>}
       <div className={`secret-connection-probe ${probe?.status.toLowerCase() ?? 'unavailable'}`} role="status">
         <strong>{probeLabel(probe?.status)}</strong>
         {probe?.checkedAt && <span>{scanDate(probe.checkedAt)}</span>}
         {probe?.reasonCode && <p>{scanReason(probe.reasonCode)}</p>}
       </div>
-    </>}
     {error && <p className="secret-connection-test-error" role="alert">{error}</p>}
     <div className="secret-connection-actions">
       <button className="btn secret-connection-test-button" disabled={testing || !connection.capabilities?.canTest} onClick={() => onTest(connection.connectionId)}>{testing ? '연결 확인 중…' : '연결 테스트'}</button>

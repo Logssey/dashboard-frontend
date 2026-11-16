@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
-import { fetchSecretScanRun, type ScanStage, type SecretScanRun } from '@/api/secretRuns'
+import { fetchSecretScanRun, retryFailedSecretScopes, type ScanStage, type SecretScanRun } from '@/api/secretRuns'
+import { safeMutationMessage } from '@/lib/secretEvidence'
 import { withSecretOrigin } from '@/lib/secretNavigation'
 import { Icon } from '@/components/Icon'
 import { findingCountLabel, hasScopeAggregation, historyReturnPath, objectCountLabel, positiveId, scanDate, scanDetailPath, scanDuration, scanConnectionLabel, scanPlatforms, scanReason, scanRunStatus, scanStatus, scanTypes, scopeTypeLabel, terminalRunStatuses } from '@/lib/secretScan'
@@ -10,6 +11,25 @@ import './secret-scan.css'
 
 function StageResult({ name, stage, fallback }: { name: string; stage?: ScanStage; fallback: string }) {
   return <div className="secret-scan-stage"><span>{name}</span><strong>{scanStatus(stage?.status ?? fallback)}</strong>{stage?.reasonCode && <small>{scanReason(stage.reasonCode)}</small>}</div>
+}
+
+function RetryFailedScopes({ run }: { run: SecretScanRun }) {
+  const navigate = useNavigate()
+  const key = useRef<string>('')
+  const request = useMutation({
+    mutationFn: () => {
+      if (!key.current) key.current = crypto.randomUUID()
+      return retryFailedSecretScopes(run.runId, key.current)
+    },
+    onSuccess: (result) => navigate(`/secrets/history/${result.runId}`),
+  })
+  if (!run.capabilities?.canRetryFailedScopes) return null
+  return <div className="secret-scan-retry">
+    <button className="btn primary" disabled={request.isPending} onClick={() => request.mutate()}>
+      {request.isPending ? '재검사 등록 중…' : '실패·미처리 대상만 재검사'}
+    </button>
+    {request.isError && <p role="alert">{safeMutationMessage(request.error)}</p>}
+  </div>
 }
 
 function RunContent({ run }: { run: SecretScanRun }) {
@@ -28,7 +48,7 @@ function RunContent({ run }: { run: SecretScanRun }) {
     <section className="card secret-run-summary" aria-labelledby="run-summary-title">
       <div className="row between"><h2 id="run-summary-title">실행 요약</h2><span className={`secret-run-badge ${run.status.toLowerCase()}`}>{scanRunStatus(run.status)}</span></div>
       <p>{scanTypes[run.triggerType] ?? '실행 유형 미확인'} · {scanPlatforms[run.provider] ?? '플랫폼 미확인'} · {scanConnectionLabel(run)}</p>
-      <dl className="secret-scan-facts"><div><dt>요청</dt><dd>{scanDate(run.requestedAt)}</dd></div><div><dt>시작</dt><dd>{run.startedAt ? scanDate(run.startedAt) : '시작 전'}</dd></div><div><dt>종료</dt><dd>{run.finishedAt ? scanDate(run.finishedAt) : '종료 전'}</dd></div><div><dt>소요 시간</dt><dd>{scanDuration(run.startedAt, run.finishedAt)}</dd></div></dl>
+      <dl className="secret-scan-facts"><div><dt>요청</dt><dd>{scanDate(run.requestedAt)}</dd></div><div><dt>시작</dt><dd>{run.startedAt ? scanDate(run.startedAt) : '시작 전'}</dd></div><div><dt>대기 시간</dt><dd>{run.startedAt ? scanDuration(run.requestedAt, run.startedAt) : '검사 대기 중'}</dd></div><div><dt>실행 시간</dt><dd>{scanDuration(run.startedAt, run.finishedAt)}</dd></div></dl>
       {run.retryOfRunId && <p>이전 실행 <Link to={withSecretOrigin(scanDetailPath(run.retryOfRunId), params)}>SCAN-{run.retryOfRunId}</Link>의 재시도</p>}
     </section>
     <section className={`secret-scan-next ${hasGaps || run.status === 'FAILED' ? 'warning' : ''}`} aria-labelledby="run-next-title" aria-live="polite">
@@ -46,7 +66,7 @@ function RunContent({ run }: { run: SecretScanRun }) {
         {run.capabilities?.canViewFindings && <div className="row"><Link className="btn primary" to={`/secrets/history/${run.runId}/findings`}>이 실행의 탐지 근거</Link><Link className="btn outline" to={`/secrets/findings?origin=ALL&runId=${run.runId}`}>이 실행에서 찾은 키</Link></div>}
       </>}
     </section>
-    <section className="card secret-scan-section" aria-labelledby="coverage-title"><h2 id="coverage-title">범위 커버리지</h2>
+    <section className="card secret-scan-section" aria-labelledby="coverage-title"><div className="row between"><h2 id="coverage-title">검사 대상별 처리 결과</h2><RetryFailedScopes run={run} /></div>
       {aggregate ? <><div className="secret-scan-counts"><div><span>성공 범위</span><strong>{run.successfulScopeCount}<small> / {run.scopeCount}개</small></strong></div><div><span>종료된 범위</span><strong>{run.finishedScopeCount ?? '—'}<small>개</small></strong></div><div><span>확인된 검사 누락</span><strong>{run.gapScopeCount ?? '—'}<small>개</small></strong></div><div><span>아직 성공 미확인</span><strong>{run.unverifiedScopeCount ?? '—'}<small>개</small></strong></div></div>
         <p className="caption">종료에는 성공·부분 실패·실패·건너뜀이 포함돼요. 성공 미확인에는 대기·진행 중인 범위도 포함돼요.</p>
         <ul className="secret-scan-status-counts">{['SUCCEEDED', 'PARTIAL', 'FAILED', 'SKIPPED', 'PENDING', 'RUNNING'].map((state) => <li key={state}><span className={`secret-run-badge ${state.toLowerCase()}`}>{scanStatus(state)}</span> {run.scopeStatusCounts?.[state] ?? '—'}개</li>)}</ul>
@@ -56,7 +76,7 @@ function RunContent({ run }: { run: SecretScanRun }) {
         <td><strong>{scope.safeDisplayAlias ?? `범위 #${scope.scopeId ?? scope.runScopeId}`}</strong><span className="asset">{scopeTypeLabel(scope.contentType)}{scope.region ? ` · ${scope.region}` : ''}</span>{['NOTION_PAGE_CONTENT', 'NOTION_PAGE_BLOCKS'].includes(scope.contentType) && <span className="asset">현재 페이지 텍스트 · 하위 페이지·외부 본문은 별도 대상</span>}<span className="asset">실행 범위 #{scope.runScopeId} · 승인 버전 {scope.scopeRevision ?? '미기록'}</span></td>
         <td><span className={`secret-run-badge ${scope.scopeOutcome?.toLowerCase() ?? 'unknown'}`}>{scanStatus(scope.scopeOutcome)}</span><span className="asset">{scanDate(scope.finishedAt ?? scope.collection?.observedAt)}</span></td>
         <td><div className="secret-scan-scope-stages">{(['collection', 'detection', 'validation'] as const).map((key, index) => <div key={key}><span>{['수집', '탐지', '검증'][index]} {scanStatus(scope[key]?.status ?? 'UNKNOWN')}</span>{scope[key]?.reasonCode && <small>{scanReason(scope[key].reasonCode)}</small>}</div>)}</div></td>
-        <td>{objectCountLabel(scope)}{scope.excludedObjectCount != null && scope.excludedObjectCount > 0 && <span className="asset">본문 제외 {scope.excludedObjectCount}개</span>}</td><td>{scope.gapCode ? <><strong>{scanReason(scope.gapCode)}</strong><details className="secret-scope-error-info"><summary>오류 정보</summary><code>{scope.gapCode}</code><p>실행 SCAN-{run.runId} · 실행 범위 #{scope.runScopeId}</p></details><Link to={withSecretOrigin(`${connectionLink}?scopeId=${scope.scopeId}`, params)}>범위 확인</Link></> : scope.scopeOutcome === 'SUCCEEDED' ? '적용 단계 완료' : '결과 확인 중 또는 근거 미기록'}</td>
+        <td>{objectCountLabel(scope)}{scope.excludedObjectCount != null && scope.excludedObjectCount > 0 && <span className="asset">본문 제외 {scope.excludedObjectCount}개</span>}{!!scope.exclusionReasons?.length && <ul className="secret-scan-exclusion-reasons">{scope.exclusionReasons.map((item) => <li key={item.code}>{scanReason(item.code)} · {item.count}개{item.expected ? ' · 예정된 제외' : ' · 미처리'}</li>)}</ul>}</td><td>{scope.gapCode ? <><strong>{scanReason(scope.gapCode)}</strong><details className="secret-scope-error-info"><summary>오류 정보</summary><code>{scope.gapCode}</code><p>실행 SCAN-{run.runId} · 실행 범위 #{scope.runScopeId}</p></details><Link to={withSecretOrigin(`${connectionLink}?scopeId=${scope.scopeId}`, params)}>범위 확인</Link></> : scope.scopeOutcome === 'SUCCEEDED' ? '적용 단계 완료' : '결과 확인 중 또는 근거 미기록'}</td>
       </tr>)}</tbody></table></div>}</details>
     </section>
     <section className="card secret-scan-section" aria-labelledby="stages-title"><h2 id="stages-title">수집·탐지·유효성 검증</h2><p className="caption">수집 성공은 모든 키의 유효성 확인을 의미하지 않아요. 범위마다 적용 단계가 다를 수 있어요.</p><div className="secret-scan-stages"><StageResult name="수집" stage={run.collection} fallback={run.collectionStatus} /><StageResult name="탐지" stage={run.detection} fallback={run.detectionStatus} /><StageResult name="유효성 검증" stage={run.validation} fallback={run.validationStatus} /></div></section>
