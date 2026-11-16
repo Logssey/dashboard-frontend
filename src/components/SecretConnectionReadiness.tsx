@@ -8,6 +8,8 @@ const readinessReasons: Record<string, string> = {
   VALIDATION_DISABLED: '연결의 인증 확인을 허용하세요.',
   VALIDATOR_DISABLED: '선택한 키 발급 서비스의 서버 기능을 확인하세요.',
   SCOPES_NOT_APPROVED: '검사 대상에서 인증 확인을 허용하세요.',
+  WORKER_CAPABILITIES_UNKNOWN: '워커가 실행 가능한 검증 기능을 아직 보고하지 않았어요.',
+  WORKER_CONFIGURATION_MISMATCH: '서버와 워커의 검증 기능 설정을 맞춰야 해요.',
 }
 
 export function SecretConnectionReadiness({ settings }: { settings: SecretConnectionSettings }) {

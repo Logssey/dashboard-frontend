@@ -14,7 +14,7 @@ import { scanReason } from '../src/lib/secretScan.ts'
 const bundle = await build({
   stdin: {
     contents:
-      "export * from './src/api/secretConnections'; export * from './src/lib/secretConnectionManagement'; export { ApiError } from './src/api/client'; export { SecretConnectionManager, SecretConnectionCredentialForm } from './src/components/SecretConnectionManager'; export { SecretConnectionsPage } from './src/pages/SecretConnectionsPage'; export { SecretDetailPanel } from './src/components/SecretDetailPanel'",
+      "export * from './src/api/secretConnections'; export * from './src/lib/secretConnectionManagement'; export { ApiError } from './src/api/client'; export { SecretConnectionManager, SecretConnectionCredentialForm } from './src/components/SecretConnectionManager'; export { SecretConnectionReadiness } from './src/components/SecretConnectionReadiness'; export { SecretConnectionsPage } from './src/pages/SecretConnectionsPage'; export { SecretDetailPanel } from './src/components/SecretDetailPanel'",
     resolveDir: resolve('.')
   },
   bundle: true,
@@ -860,4 +860,22 @@ test('legacy shared credentials use disconnect wording while managed credentials
   })
   assert.match(managed, />인증 정보 삭제<\/button>/)
   assert.doesNotMatch(managed, /<textarea|-----BEGIN/)
+})
+
+
+test('saved connection readiness exposes server and scope blockers without claiming authentication success', () => {
+  const html = renderToStaticMarkup(createElement(api.SecretConnectionReadiness, { settings: {
+    ...github, status: 'ACTIVE', validationReadiness: {
+      ready: false, reasonCodes: ['WORKER_CONFIGURATION_MISMATCH', 'SCOPES_NOT_APPROVED'],
+      validators: [
+        { issuer: 'GITHUB', serverEnabled: false, connectionAllowed: true, scopeCount: 6, allowedScopeCount: 6 },
+        { issuer: 'AWS', serverEnabled: true, connectionAllowed: true, scopeCount: 6, allowedScopeCount: 2 },
+      ],
+    },
+  } }))
+  assert.match(html, /검사 사용 중/)
+  assert.match(html, /서버 기능 꺼짐/)
+  assert.match(html, /2 \/ 6개 대상에서 허용/)
+  assert.match(html, /서버와 워커의 검증 기능 설정을 맞춰야/)
+  assert.doesNotMatch(html, /인증 확인을 실행할 수 있어요/)
 })
