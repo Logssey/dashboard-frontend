@@ -7,6 +7,10 @@
 name: Dashboard deploy
 
 on:
+  pull_request:
+    branches: [develop]
+    paths-ignore:
+      - '**/*.md'
   push:
     branches: [develop]
     paths-ignore:
@@ -17,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dashboard-deploy-frontend
+  group: dashboard-deploy-frontend-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 env:

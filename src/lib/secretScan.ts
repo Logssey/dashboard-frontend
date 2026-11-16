@@ -106,6 +106,7 @@ export function scanReason(code: string | null | undefined): string {
     VALIDATOR_NOT_ALLOWED: '이 연결에서 해당 키 발급 서비스의 검증을 허용하지 않았어요.',
     SYNTHETIC_FIXTURE: '합성 키 검증 생략',
     STAGE_NOT_RECORDED: '단계 실행 근거 미기록',
+    SOURCE_CONFIGURATION_CHANGED: '연결 설정 변경으로 중단',
     AWS_CONTENT_NOT_FOUND: '승인된 AWS 값을 읽지 못해 위치의 제거 여부 확인 불가',
     AWS_CONTENT_ACCESS_DENIED: 'AWS 값 읽기 권한이 없어 위치의 제거 여부 확인 불가',
     NOTION_COLLECTION_DISABLED: 'Notion 수집 연결 설정을 확인하세요.',

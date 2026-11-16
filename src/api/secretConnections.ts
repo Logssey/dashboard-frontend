@@ -95,3 +95,61 @@ export const testSecretConnection = (connectionId: number) =>
   apiRequest<SecretConnectionTestResult>(`/api/v1/secrets/connections/${connectionId}/test`, {
     method: 'POST',
   })
+
+export type EditableSecretProvider = 'GITHUB' | 'AWS'
+export type AwsMetadataKind = 'IAM_ACCESS_KEY_METADATA' | 'AWS_S3_BUCKET_METADATA' | 'AWS_SECRETS_MANAGER_METADATA' | 'AWS_SSM_PARAMETER_METADATA'
+export interface GitHubScanTarget { repository: string; branch: string; path: string }
+export interface AwsScanTarget { kind: AwsMetadataKind; region: string }
+export interface GitHubAppCredential { appId: number; installationId: number; privateKey: string }
+export interface SecretConnectionSetupOptions {
+  enabled: boolean
+  canCreate: boolean
+  credentialStorageConfigured: boolean
+  providers: EditableSecretProvider[]
+  aws: { accountId: string; regions: string[]; targetKinds: AwsMetadataKind[] }
+}
+export interface SecretConnectionSettings {
+  connectionId: number
+  provider: EditableSecretProvider
+  displayName: string
+  status: 'ACTIVE' | 'PAUSED' | 'ERROR'
+  scopeVersion: number
+  credentialConfigured: boolean
+  credentialVersion: number | null
+  credentialDeletionPending: boolean
+  credentialRecoveryUntil: string | null
+  canRestoreCredential: boolean
+  githubApp: { appId: number; installationId: number } | null
+  githubTargets: GitHubScanTarget[]
+  awsTargets: AwsScanTarget[]
+  canManage: boolean
+}
+export interface CreateSecretConnectionRequest {
+  provider: EditableSecretProvider
+  displayName: string
+  idempotencyKey: string
+  githubCredential?: GitHubAppCredential
+}
+export interface UpdateSecretConnectionRequest {
+  expectedScopeVersion: number
+  displayName: string
+  status: SecretConnectionSettings['status']
+  githubCredential?: GitHubAppCredential
+}
+export interface UpdateSecretTargetsRequest {
+  expectedScopeVersion: number
+  githubTargets?: GitHubScanTarget[]
+  awsTargets?: AwsScanTarget[]
+}
+export interface GitHubRepositoryOption { fullName: string; defaultBranch: string; private: boolean }
+export interface GitHubBranchOption { name: string }
+
+export const fetchConnectionSetupOptions = () => apiRequest<SecretConnectionSetupOptions>('/api/v1/secrets/connections/setup-options')
+export const fetchConnectionSettings = (connectionId: number) => apiRequest<SecretConnectionSettings>(`/api/v1/secrets/connections/${connectionId}/settings`)
+export const createSecretConnection = (request: CreateSecretConnectionRequest) => apiRequest<SecretConnectionSettings>('/api/v1/secrets/connections', { method: 'POST', body: JSON.stringify(request) })
+export const updateSecretConnection = (connectionId: number, request: UpdateSecretConnectionRequest) => apiRequest<SecretConnectionSettings>(`/api/v1/secrets/connections/${connectionId}/settings`, { method: 'PATCH', body: JSON.stringify(request) })
+export const updateSecretTargets = (connectionId: number, request: UpdateSecretTargetsRequest) => apiRequest<SecretConnectionSettings>(`/api/v1/secrets/connections/${connectionId}/targets`, { method: 'PUT', body: JSON.stringify(request) })
+export const deleteGitHubCredential = (connectionId: number, expectedScopeVersion: number) => apiRequest<SecretConnectionSettings>(`/api/v1/secrets/connections/${connectionId}/credential?${new URLSearchParams({ expectedScopeVersion: String(expectedScopeVersion) })}`, { method: 'DELETE' })
+export const restoreGitHubCredential = (connectionId: number, expectedScopeVersion: number) => apiRequest<SecretConnectionSettings>(`/api/v1/secrets/connections/${connectionId}/credential/restore`, { method: 'POST', body: JSON.stringify({ expectedScopeVersion }) })
+export const fetchGitHubRepositories = (connectionId: number, page = 1) => apiRequest<{ items: GitHubRepositoryOption[] }>(`/api/v1/secrets/connections/${connectionId}/github/repositories?${new URLSearchParams({ page: String(page) })}`)
+export const fetchGitHubBranches = (connectionId: number, repository: string, page = 1) => apiRequest<{ items: GitHubBranchOption[] }>(`/api/v1/secrets/connections/${connectionId}/github/branches?${new URLSearchParams({ repository, page: String(page) })}`)
