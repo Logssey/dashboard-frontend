@@ -27,6 +27,23 @@ test('observation never prefills full coverage or accepts a grade without delibe
   assert.equal(ready.attestation, true); assert.equal(ready.observedAt, input.attestedAt); assert.equal(ready.facts.permissionCoverage, 'COMPLETE'); assert.equal(ready.expectedContextVersion, preview.contextVersion)
   assert.doesNotMatch(JSON.stringify(ready), /impact|severity|PROVIDER_OBSERVED|secret-sentinel/)
 })
+
+test('partial observations can be saved with unknown scope and no invented ticket while full confirmation stays blocked', () => {
+  const partialPreview = { ...preview, canConfirm: false, canSavePartial: true, availableSourceRefs: [] }
+  const partialInput = { ...input, capability: '', targetScope: '', coverage: preview.coverage,
+    selectedSourceKeys: [], evidenceRef: '', until: '', applicableFrom: '', applicableUntil: '' }
+  const facts = api.partialPermissionConfirmationFacts(partialPreview, 3, partialInput, now)
+  assert.equal(facts.savePartial, true)
+  assert.equal(facts.evidenceRef, undefined)
+  assert.equal(facts.facts.capability, 'UNKNOWN')
+  assert.equal(facts.facts.targetScope, 'UNKNOWN')
+  assert.equal(facts.facts.permissionCoverage, 'PARTIAL')
+  assert.deepEqual(facts.sourceRefs, [])
+  assert.equal(api.permissionConfirmationFacts(partialPreview, 3, partialInput, now), null)
+  assert.equal(api.partialPermissionConfirmationFacts(partialPreview, 4, partialInput, now), null)
+  assert.equal(api.partialPermissionConfirmationFacts({ ...partialPreview, canSavePartial: false }, 3, partialInput, now), null)
+  assert.equal(api.partialPermissionConfirmationFacts(partialPreview, 3, { ...partialInput, attested: false }, now), null)
+})
 test('stale, wrong revision, unavailable capability and extra assertion fields cannot be confirmed', () => {
   assert.equal(api.permissionConfirmationFacts({ ...preview, expiresAt: new Date(now - 1).toISOString() }, 3, input, now), null)
   assert.equal(api.permissionConfirmationFacts(preview, 4, input, now), null)
@@ -43,11 +60,13 @@ test('stale, wrong revision, unavailable capability and extra assertion fields c
   assert.equal(saved.applicableFrom, api.riskInputUtc(input.applicableFrom))
   assert.equal(saved.applicableUntil, api.riskInputUtc(input.applicableUntil))
 })
-test('manual review shows observation limitations and never preselects a coverage value', () => {
+test('manual review preserves observed partial coverage and requires deliberate final confirmation', () => {
   const html = render(api.PermissionReviewForm, { occurrenceId: 8, preview, evidenceRevision: 3, onUpdated() {}, onStale() {} })
-  assert.match(html, /자동으로 영향도나 등급을 확정하지 않아요/); assert.match(html, /직접 확인한 값 선택/)
+  assert.match(html, /부분 자료로 저장하고 필요한 근거를 보완해 확정/)
+  assert.match(html, /value="PARTIAL" selected/)
+  assert.match(html, /직접 확인한 값 선택/)
   assert.doesNotMatch(html, /value="COMPLETE" selected|checked=""|secret-sentinel|textarea|type="file"/)
-  assert.match(html, /검토한 권한 근거 저장/); assert.match(html, /확인 자료의 기록 번호/); assert.match(html, /TICKET·CHANGE·POLICY로 시작하는 실제 내부 기록 번호/)
+  assert.match(html, /평가 근거로 확정/); assert.match(html, /외부 기록 번호/); assert.match(html, /외부 근거가 있으면 TICKET·CHANGE·POLICY 참조/)
   assert.match(html, /disabled=""/)
 })
 test('missing independent proof links the exact existing investigation and the relevant asset form', () => {
@@ -136,4 +155,25 @@ test('another occurrence location never supplies the validation route, synthetic
   const html = render(api.SecretPermissionAssistance, { occurrenceId: 8, evidenceRevision: 3, location, onReload() {}, onValidate() {} }, [[['secret-permission-assistance', 8, 3], context]])
   assert.doesNotMatch(html, /other-location-sentinel|scopes\/67|승인된 합성 표본이에요/)
   assert.equal(api.permissionReason('__proto__'), '조회 범위와 부족한 근거를 확인해 주세요.')
+})
+
+
+test('partial review opens with observed values even when complete-evidence requirements are missing', () => {
+  const value = { ...preview, canConfirm: false, canSavePartial: true, availableSourceRefs: [], blockedReasonCodes: ['PERMISSION_ASSERTION_REQUIRED'] }
+  const html = render(api.PermissionReviewForm, { occurrenceId: 8, preview: value, evidenceRevision: 3, onUpdated() {}, onStale() {} })
+  assert.match(html, /확인한 내용 저장/)
+  assert.match(html, /value="PARTIAL" selected/)
+  assert.match(html, /value="UNKNOWN" selected/)
+  assert.doesNotMatch(html, /평가 근거로 확정<|지금은 이 자료를 수용할 수 없어요/)
+})
+
+
+test('a saved partial draft remains editable and can be fully confirmed after evidence is completed', () => {
+  const draft = { ...preview, decision: 'DRAFTED', canSavePartial: true }
+  assert.ok(api.permissionConfirmationFacts(draft, 3, input, now))
+  assert.ok(api.partialPermissionConfirmationFacts(draft, 3, input, now))
+  const html = render(api.PermissionReviewForm, { occurrenceId: 8, preview: draft, evidenceRevision: 3, onUpdated() {}, onStale() {} })
+  assert.match(html, /확인한 내용 저장/)
+  assert.match(html, /평가 근거로 확정/)
+  assert.doesNotMatch(html, /이미 검토를 기록한 자료/)
 })

@@ -14,7 +14,7 @@ import { scanReason } from '../src/lib/secretScan.ts'
 const bundle = await build({
   stdin: {
     contents:
-      "export * from './src/api/secretConnections'; export * from './src/lib/secretConnectionManagement'; export { ApiError } from './src/api/client'; export { SecretConnectionManager, SecretConnectionCredentialForm } from './src/components/SecretConnectionManager'; export { SecretConnectionReadiness } from './src/components/SecretConnectionReadiness'; export { SecretConnectionsPage } from './src/pages/SecretConnectionsPage'; export { SecretDetailPanel } from './src/components/SecretDetailPanel'",
+      "export * from './src/api/secretConnections'; export * from './src/lib/secretConnectionManagement'; export { ApiError } from './src/api/client'; export { SecretConnectionManager, SecretConnectionCredentialForm } from './src/components/SecretConnectionManager'; export { SecretConnectionReadiness } from './src/components/SecretConnectionReadiness'; export { SecretDefaultStoragePolicy } from './src/components/SecretDefaultStoragePolicy'; export { SecretConnectionsPage } from './src/pages/SecretConnectionsPage'; export { SecretDetailPanel } from './src/components/SecretDetailPanel'",
     resolveDir: resolve('.')
   },
   bundle: true,
@@ -878,4 +878,17 @@ test('saved connection readiness exposes server and scope blockers without claim
   assert.match(html, /2 \/ 6개 대상에서 허용/)
   assert.match(html, /서버와 워커의 검증 기능 설정을 맞춰야/)
   assert.doesNotMatch(html, /인증 확인을 실행할 수 있어요/)
+})
+
+
+test('default storage policy shows approved rules and keeps read-only users from applying changes', () => {
+  const html = render(api.SecretDefaultStoragePolicy, { connectionId: 7 }, [[['secret-default-storage-policy', 7], {
+    selectedPolicyId: 3, selectedPolicyVersion: 2, settingsVersion: 8, canManage: false,
+    applicableScopeCount: 4, ruleUpdateRequiredScopeCount: 2,
+    policyOptions: [{ policyId: 3, version: 2, label: '보관 허용 · 검사 대상 4개' }],
+  }]])
+  assert.match(html, /보관 허용 · 검사 대상 4개/)
+  assert.match(html, /규칙 보완 2개/)
+  assert.match(html, /disabled=""/)
+  assert.doesNotMatch(html, /모든 대상 정상|전체 안전/)
 })

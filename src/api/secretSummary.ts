@@ -54,6 +54,16 @@ export interface SeverityValidityMatrix {
   staleValidationCaseCount: number | null
 }
 export interface WorkbenchSummary {
+  commonCauseGroups?: {
+    code: string
+    connectionId: number
+    connectionLabel?: string
+    count: number
+    unit: string
+    nextAction: string
+    canExecute: boolean
+    target: { type: string; id: number; connectionId?: number }
+  }[]
   scope: 'workbench'; unit: 'Mixed'; total: null
   origin: SecretReadOrigin
   filters: Record<string, string>

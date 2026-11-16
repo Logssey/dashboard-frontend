@@ -32,6 +32,7 @@ import {
 } from '@/lib/secretConnectionManagement'
 import { scanDate } from '@/lib/secretScan'
 import { SecretConnectionReadiness } from './SecretConnectionReadiness'
+import { SecretDefaultStoragePolicy } from './SecretDefaultStoragePolicy'
 import { SecretDetailPanel } from './SecretDetailPanel'
 import './secret-connection-manager.css'
 
@@ -1080,6 +1081,7 @@ function ConnectionEditor({
         </p>
       )}
       <SecretConnectionReadiness settings={settings} />
+      <SecretDefaultStoragePolicy connectionId={settings.connectionId} />
       {error && (
         <div className="secret-manager-inline-error" role="alert">
           <p>{error}</p>

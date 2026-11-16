@@ -1,4 +1,4 @@
-import type { PermissionAssistance, PermissionConfirmation, PermissionPreview } from '../api/secretPermissionAssistance'
+import type { PermissionAssistance, PermissionConfirmation, PartialPermissionConfirmation, PermissionPreview } from '../api/secretPermissionAssistance'
 import type { RiskSourceRef } from '../api/secretRisk'
 import { allowedRiskSources, riskInputUtc, riskSourcePayload, validRiskApplicability, validRiskEvidenceWindow } from './secretRiskForms'
 import { validEvidenceRef } from './secretEvidence'
@@ -91,11 +91,48 @@ export function observedPermissionOptions(preview: Pick<PermissionPreview, 'capa
   return [...new Set(preview.capabilities)].filter((code) => permissionCapabilities.some((value) => value === code))
 }
 export interface PermissionReviewInput { capability: string; targetScope: string; coverage: Record<string, string>; selectedSourceKeys: string[]; evidenceRef: string; until: string; attested: boolean; attestedAt: string | null; applicableFrom?: string; applicableUntil?: string }
+
+export function partialPermissionConfirmationFacts(preview: PermissionPreview, revision: number, input: PermissionReviewInput, now = Date.now()): Omit<PartialPermissionConfirmation, 'idempotencyKey'> | null {
+  if (!preview.canSavePartial || !currentPermissionPreview(preview, preview.observationId, revision, now)
+    || ['CONFIRMED', 'REJECTED'].includes(preview.decision ?? '') || !input.attested || !input.attestedAt) return null
+  if (input.evidenceRef && !validEvidenceRef(input.evidenceRef)) return null
+  if (input.capability && !observedPermissionOptions(preview).includes(input.capability)) return null
+  if (input.targetScope && !Object.hasOwn(permissionTargetLabels, input.targetScope)) return null
+  if (!Object.keys(permissionCoverageLabels).every((field) => Object.hasOwn(permissionCoverageValues, input.coverage[field]))) return null
+  const sourceRefs = riskSourcePayload(preview.availableSourceRefs, input.selectedSourceKeys)
+  if (!sourceRefs) return null
+  const validUntil = input.until ? riskInputUtc(input.until) : null
+  const applicableFrom = input.applicableFrom ? riskInputUtc(input.applicableFrom) : null
+  const applicableUntil = input.applicableUntil ? riskInputUtc(input.applicableUntil) : null
+  if (input.until && (!validUntil || Date.parse(validUntil) <= now || Date.parse(validUntil) > Date.parse(preview.expiresAt))) return null
+  if ((input.applicableFrom || input.applicableUntil)
+    && !validRiskApplicability(applicableFrom, applicableUntil, preview.sourcePresenceObservedAt, input.attestedAt, validUntil)) return null
+  return {
+    savePartial: true,
+    expectedContextVersion: preview.contextVersion,
+    expectedEvidenceRevision: revision,
+    attestation: true,
+    observedAt: input.attestedAt,
+    ...(validUntil ? { validUntil } : {}),
+    ...(applicableFrom ? { applicableFrom } : {}),
+    ...(applicableUntil ? { applicableUntil } : {}),
+    ...(input.evidenceRef ? { evidenceRef: input.evidenceRef } : {}),
+    facts: {
+      capability: input.capability || 'UNKNOWN',
+      targetScope: input.targetScope || 'UNKNOWN',
+      permissionCoverage: input.coverage.permissionCoverage,
+      targetCoverage: input.coverage.targetCoverage,
+      restrictionCoverage: input.coverage.restrictionCoverage,
+      classificationCoverage: input.coverage.classificationCoverage,
+    },
+    sourceRefs,
+  }
+}
 export function permissionConfirmationFacts(preview: PermissionPreview, revision: number, input: PermissionReviewInput, now = Date.now()): Omit<PermissionConfirmation, 'idempotencyKey'> | null {
   const observedAt = input.attestedAt, validUntil = riskInputUtc(input.until)
   const applicableFrom = riskInputUtc(input.applicableFrom ?? ''), applicableUntil = riskInputUtc(input.applicableUntil ?? '')
   const refs = riskSourcePayload(preview.availableSourceRefs, input.selectedSourceKeys)
-  if (!currentPermissionPreview(preview, preview.observationId, revision, now) || !preview.canConfirm || preview.decision || !input.attested || !validEvidenceRef(input.evidenceRef)
+  if (!currentPermissionPreview(preview, preview.observationId, revision, now) || !preview.canConfirm || ['CONFIRMED', 'REJECTED'].includes(preview.decision ?? '') || !input.attested || !validEvidenceRef(input.evidenceRef)
     || !observedPermissionOptions(preview).includes(input.capability) || !Object.hasOwn(permissionTargetLabels, input.targetScope)
     || !refs || permissionSourceRequirements(refs).length || !validRiskEvidenceWindow('PERMISSION_MAPPING', observedAt, validUntil, now)
     || !observedAt || Date.parse(observedAt) < Date.parse(preview.observedAt)
