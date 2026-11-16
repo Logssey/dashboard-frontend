@@ -95,8 +95,8 @@ function CredentialFields({
         />
       </label>
       <p className="caption">
-        서버의 암호화된 인증 저장소에 보관해요. 등록 후 개인 키는 다시 표시하지
-        않아요.
+        입력한 개인 키를 암호화 보관해요. 인증 상태 확인과 교체·삭제 기능으로
+        관리하세요.
       </p>
     </div>
   )
