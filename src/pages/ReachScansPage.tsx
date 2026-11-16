@@ -395,7 +395,7 @@ export function VulnerabilityScansPage() {
           className={`tab reach-tab ${tab === 'ci' ? 'active' : ''}`.trim()}
           onClick={() => update({ tab: 'ci' }, { replace: true })}
         >
-          CI 검사 <span className="badge reach-flag">계획</span>
+          CI 검사
         </button>
       </div>
 
