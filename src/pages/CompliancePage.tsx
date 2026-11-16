@@ -172,6 +172,7 @@ export function CompliancePage() {
   const latest = overview.data?.latestRun
   const displayed = selectedRun.data
   const isAdmin = me.data?.role === 'ADMIN'
+  const executionEnabled = scopeCatalog.data?.executionEnabled === true
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['compliance'] })
 
   return (
@@ -188,7 +189,9 @@ export function CompliancePage() {
             {isAdmin && <button className="btn outline" onClick={() => fileInput.current?.click()} disabled={importer.isPending}>
               <Icon name="download" />{importer.isPending ? '가져오는 중' : '결과 가져오기'}
             </button>}
-            {isAdmin && <button className="btn primary" onClick={() => { setScanError(null); setScanOpen(true) }}>
+            {isAdmin && <button className="btn primary" disabled={!executionEnabled}
+              title={executionEnabled ? undefined : 'AWS 운영 연결을 완료한 뒤 활성화됩니다.'}
+              onClick={() => { setScanError(null); setScanOpen(true) }}>
               <Icon name="plus" />새 점검
             </button>}
           </>
@@ -233,6 +236,9 @@ export function CompliancePage() {
       {uploadError && <p className="notice error compliance-notice" role="alert">{uploadError}</p>}
       {overview.isError && <p className="notice error compliance-notice">컴플라이언스 현황을 불러오지 못했어요.</p>}
       {jobActionError && <p className="notice error compliance-notice" role="alert">{jobActionError}</p>}
+      {isAdmin && scopeCatalog.data && !executionEnabled && <p className="notice compliance-notice">
+        자동 점검은 AWS 운영 연결을 준비 중이에요. 기존 결과 조회, JSON 가져오기와 보고서 생성은 사용할 수 있어요.
+      </p>}
 
       {!!jobs.data?.items.length && <section className="card list-card compliance-job-card">
         <div className="card-head">
@@ -269,7 +275,9 @@ export function CompliancePage() {
               <div key={framework.id}><strong>{framework.controls}</strong><span>{framework.shortName} 통제</span></div>
             ))}
           </div>
-          {isAdmin && <button className="btn primary" onClick={() => setScanOpen(true)}><Icon name="plus" />첫 점검 시작</button>}
+          {isAdmin && <button className="btn primary" disabled={!executionEnabled}
+            title={executionEnabled ? undefined : 'AWS 운영 연결을 완료한 뒤 활성화됩니다.'}
+            onClick={() => setScanOpen(true)}><Icon name="plus" />첫 점검 시작</button>}
         </section>
       ) : (
         <div className="stack">

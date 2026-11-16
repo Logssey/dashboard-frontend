@@ -89,6 +89,7 @@ export interface ComplianceScanScope {
 
 export interface ComplianceScopeCatalog {
   provider: 'aws'
+  executionEnabled: boolean
   prowlerVersion: string
   commit: string
   services: string[]
