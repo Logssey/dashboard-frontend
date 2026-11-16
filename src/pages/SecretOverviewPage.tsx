@@ -10,7 +10,7 @@ import { SecretRiskDistribution } from '@/components/SecretRiskDistribution'
 import { SecretCommonCauses } from '@/components/SecretCommonCauses'
 import { withSecretOrigin } from '@/lib/secretNavigation'
 import { availableMetric, filterLabel, parseWorkbenchFilters, summaryReason, workbenchQueuePath, workbenchSearch, workbenchWhyLabel } from '@/lib/secretWorkbench'
-import { actionLabels, blockerLabels, priorityLabels } from '@/lib/secretTaskGuidance'
+import { actionLabels, blockerLabels, guidanceTargetPath, priorityLabels } from '@/lib/secretTaskGuidance'
 import { setupReasonLabels } from '@/lib/secretScopeSetup'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
 import { secretSummaryKey, useSecretWorkbench } from '@/lib/useSecretWorkbench'
@@ -58,6 +58,10 @@ function workPath(item: WorkbenchQueueItem, filters: WorkbenchFilters, view: Wor
   const context = new URLSearchParams({ origin: filters.origin, return: 'workbench', returnQuery: back })
   if (item.occurrenceId) context.set('occurrence', String(item.occurrenceId))
   const key = item.secretId ?? item.credentialSetId
+  if (item.taskGuidance?.nextActionCode === 'WAIT_FOR_REVALIDATION' && item.taskGuidance.canExecute) {
+    const runPath = guidanceTargetPath(item.taskGuidance)
+    if (runPath?.startsWith('/secrets/history/')) return `${runPath}?${new URLSearchParams({ return: 'workbench', returnQuery: back, ...(item.caseId ? { returnCaseId: String(item.caseId) } : {}) })}`
+  }
   if (view === 'review' && key && item.occurrenceId) return `/secrets/triage/${key}?${context}`
   if (item.caseId) return `/secrets/cases/${item.caseId}?${context}`
   return key && item.occurrenceId ? `/secrets/triage/${key}?${context}` : null
@@ -117,7 +121,7 @@ function WorkList({ preview, summary, view, filters }: { preview?: WorkPreview; 
         const reasons = guidance?.priorityReasonCodes?.map((code) => priorityLabels[code]).filter(Boolean) ?? []
         const caseLinkRequired = (item.whyHereCode ?? item.whyHere) === 'CASE_LINK_REQUIRED'
         const title = item.maskedLabel ?? (item.caseId ? `대응 #${item.caseId}` : `키 #${item.secretId ?? item.credentialSetId ?? '—'}`)
-        const action = view === 'review' ? caseLinkRequired ? '대응 생성' : '발견 검토' : guidance ? actionLabels[guidance.nextActionCode] ?? '내용 확인' : '내용 확인'
+        const action = guidance?.canExecute === false ? '내용 확인' : view === 'review' ? caseLinkRequired ? '대응 생성' : '발견 검토' : guidance ? actionLabels[guidance.nextActionCode] ?? '내용 확인' : '내용 확인'
         return <tr key={view === 'review' ? item.occurrenceId ?? index : item.caseId ?? item.occurrenceId ?? index}>
           <td>
             {path ? <Link to={path}>{title}</Link> : title}
@@ -129,7 +133,7 @@ function WorkList({ preview, summary, view, filters }: { preview?: WorkPreview; 
             {guidance && !guidance.canExecute && <span className="asset">{blockerLabels[guidance.blockedReasonCode ?? ''] ?? '담당자의 확인이 필요해요.'}</span>}
           </td>
           <td>{item.assigneeDisplayName ?? item.assigneeTeam ?? (item.assigneeUserId ? `담당자 #${item.assigneeUserId}` : '미지정')}<span className="asset">{scanDate(guidance?.evidenceObservedAt ?? item.evidenceObservedAt ?? item.lastSeenAt ?? item.updatedAt)}</span></td>
-          <td>{path ? <Link className="secret-overview-action" to={path}>{action}</Link> : '연결 정보 확인 필요'}</td>
+          <td>{path ? <Link className="secret-overview-action" to={path}>{action}</Link> : '연결 정보 확인 필요'}{guidance?.canExecute && <span className="asset">현재 계정으로 처리 가능</span>}</td>
         </tr>
       })}</tbody>
     </table>
@@ -261,7 +265,7 @@ export function SecretOverviewPage() {
         <div className="secret-overview-layout">
           <section id="secret-overview-work-list" className="card secret-overview-work" aria-labelledby="secret-work-title">
             <div className="secret-overview-section-title">
-              <div><p className="secret-overview-work-label">지금 처리할 업무</p><h2 id="secret-work-title" aria-live="polite">{views[view].title}<span>{listCount}{views[view].unit}</span></h2></div>
+              <div><p className="secret-overview-work-label">팀의 할 일</p><h2 id="secret-work-title" aria-live="polite">{views[view].title}<span>{listCount}{views[view].unit}</span></h2></div>
               {canOpenList && <Link to={workbenchQueuePath(filters, views[view].bucket, data.snapshotId, views[view].stages)}>전체 목록</Link>}
             </div>
             {view === 'review' && filters.assignee && <p className="secret-overview-filter-note">확인 필요는 담당자 조건과 관계없이 열람 가능한 발견 위치를 집계해요.</p>}

@@ -87,7 +87,10 @@ export function SecretConnectionsPage() {
   const [results, setResults] = useState<Record<number, SecretConnectionTestResult>>({})
   const [errors, setErrors] = useState<Record<number, string>>({})
   const [confirmConnection, setConfirmConnection] = useState<ManagedSecretConnection | null>(null)
-  const [manager, setManager] = useState<{ connectionId: number | null } | null>(null)
+  const [manager, setManager] = useState<{ connectionId: number | null } | null>(() => valid && params.get('settings') === 'policy' && requestedConnection ? { connectionId: requestedConnection } : null)
+  useEffect(() => {
+    if (valid && params.get('settings') === 'policy' && requestedConnection) setManager({ connectionId: requestedConnection })
+  }, [valid, requestedConnection, params.get('settings')])
   const [showOperations, setShowOperations] = useState(false)
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1000px)').matches)
   const progressPanel = useRef<HTMLElement>(null)
@@ -250,7 +253,7 @@ export function SecretConnectionsPage() {
     <SecretDetailPanel open={validationConnectionId != null} title="키 검증 설정" closeLabel="키 검증 설정 닫기" className="secret-connection-validation-dialog" onClose={closeValidationSettings}>
       {validationConnectionId != null && <SecretConnectionValidationSettings key={validationConnectionId} connectionId={validationConnectionId} />}
     </SecretDetailPanel>
-    {manager && <SecretConnectionManager connectionId={manager.connectionId} onClose={() => setManager(null)} onChanged={() => { void client.invalidateQueries({ queryKey: ['secret-connections-manage'] }); completed() }} onReady={showManagedConnection} />}
+    {manager && <SecretConnectionManager connectionId={manager.connectionId} onClose={() => { setManager(null); if (params.get('settings') === 'policy') { const next = new URLSearchParams(params); next.delete('settings'); setParams(next, { replace: true }) } }} onChanged={() => { void client.invalidateQueries({ queryKey: ['secret-connections-manage'] }); completed() }} onReady={showManagedConnection} />}
     <details className="secret-connection-operations" onToggle={(event) => setShowOperations(event.currentTarget.open)}><summary>워커 운영 상태</summary>{showOperations && <SecretOperationsHealth />}</details>
   </>
 }

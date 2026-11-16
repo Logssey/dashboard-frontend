@@ -83,3 +83,14 @@ test('explanation uses authenticated bodyless commands and no caller-provided in
     assert.throws(() => api.fetchSecretExplanation('SCAN', 0), /INVALID_EXPLANATION_TARGET/)
   } finally { globalThis.fetch = originalFetch; globalThis.document = originalDocument }
 })
+
+
+test('the visible explanation keeps one summary and moves repeated facts into its disclosure', () => {
+  const html = render({ ...data, readiness: { ...data.readiness, status: 'UNAVAILABLE', reasonCode: 'BASIC_CONTEXT', aiAvailable: false } })
+  const main = html.split('<details>')[0]
+  assert.match(main, /수집은 완료됐고/)
+  assert.doesNotMatch(main, /파일 수집 완료|Claude로 설명 정리/)
+  assert.match(html, /파일 수집 완료/)
+  assert.match(html, /기본 안내로 확인할 수 있어요/)
+  assert.doesNotMatch(html, /role="alert"/)
+})

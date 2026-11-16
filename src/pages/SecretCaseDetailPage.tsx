@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import type { SecretBatchRevalidation } from '@/api/secretCaseRevalidations'
-import { revalidationBlockLabel } from '@/lib/secretResponse'
+import { responseRefreshInterval, revalidationBlockLabel } from '@/lib/secretResponse'
 import { ApiError } from '@/api/client'
 import { fetchSecretCase, fetchSecretCaseActivities, type SecretCaseDetail } from '@/api/secretCases'
 import { SecretRemediationSummary } from '@/components/SecretRemediationSummary'
@@ -104,9 +104,9 @@ function CaseWorkspace({ detail, onReload, disabled, onStale, refreshVersion, co
       {detail.restrictedCoverage && <p className="caption">현재 사용자가 열람할 수 있는 위치를 표시해요.</p>}
       {!detail.isCurrent && <p className="caption">종료된 대응의 기록을 보고 있어요.</p>}
     </section>
+    <SecretExplanation topic="CASE" id={detail.caseId} contextVersion={detail.version} />
     {(detail.capabilities.canAssign || detail.capabilities.canAssignSelf) && <SecretCaseAssignment key={`coord:${detail.version}:${refreshVersion}`} {...common} />}
     <SecretRemediationSummary data={detail.remediationSummary} onSelect={showLocations} />
-    <SecretExplanation topic="CASE" id={detail.caseId} contextVersion={detail.version} />
     {receipt && <section className="secret-response-receipt" role="status">
       <strong>{receiptLabels[receipt.kind] ?? '작업 결과를 저장했어요.'}</strong>
       {receipt.kind === 'REVALIDATION_REQUESTED' && receipt.runId && receipt.canViewRun && <Link className="btn outline" to={scanDetailPath(receipt.runId)}>SCAN-{receipt.runId} 실행 상태</Link>}
@@ -159,7 +159,9 @@ export function SecretCaseDetailPage() {
   const [params] = useSearchParams(), heading = useRef<HTMLHeadingElement>(null)
   const [stale, setStale] = useState(false), [refreshVersion, setRefreshVersion] = useState(0), [refreshing, setRefreshing] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const detail = useQuery({ queryKey: ['secret-case', caseId], queryFn: () => fetchSecretCase(caseId!), enabled: caseId !== null, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false })
+  const detail = useQuery({ queryKey: ['secret-case', caseId], queryFn: () => fetchSecretCase(caseId!), enabled: caseId !== null, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
+    refetchInterval: (query) => responseRefreshInterval(query.state.data, dirty, !!query.state.error),
+  })
   const refresh = useSecretReadRefresh()
   useEffect(() => { heading.current?.focus(); window.scrollTo({ top: 0 }); setStale(false); setDirty(false) }, [caseId])
   useEffect(() => {

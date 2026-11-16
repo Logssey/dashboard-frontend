@@ -24,6 +24,13 @@ export interface PermissionAssistance {
   requestReadiness?: { nextAction: string; checks: { code: string; status: 'READY' | 'BLOCKED' | 'WAITING' | 'UNSUPPORTED'; action: string | null }[] }
 }
 export interface PermissionPreview extends PermissionObservation {
+  latestDraft?: {
+    evidenceId: number; evidenceRevision: number; observationId: number; savedAt: string
+    observedAt: string; validUntil: string; evidenceRef: string
+    facts: PermissionCoverage & { capability: string; targetScope: string }
+    sourceRefs: RiskSourceRef[]; applicableFrom: string | null; applicableUntil: string | null
+    canRestore: boolean; reasonCode: string | null
+  }
   canSavePartial?: boolean
   partialDefaults?: { observedAt: string; validUntil: string; evidenceRef?: string }
   contextVersion: string; evidenceRevision: number; availableSourceRefs: RiskSourceRef[]; canConfirm: boolean; canReject?: boolean; blockedReasonCodes: string[]

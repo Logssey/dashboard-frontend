@@ -73,6 +73,7 @@ test('a remediator records actual work without a duplicate review or empty start
 test('unassigned location opens its actual assignment while coordinator management stays collapsed', () => {
   const seeds = [[['secret-case-assignees', 7, 11], { items: [] }], [['secret-case-assignees', 7, undefined], { items: [] }]]
   const location = render(modules.workflow.SecretCaseAssignment, { detail, occurrence: { ...occurrence, assignedTeam: null, assignedUserId: null } }, seeds)
+  assert.match(location, /id="case-location-assignment"/)
   assert.match(location, /<details[^>]* open=""><summary>이 위치의 담당자/)
   const coordinator = render(modules.workflow.SecretCaseAssignment, { detail }, seeds)
   assert.doesNotMatch(coordinator, /<details[^>]* open=/)
@@ -84,6 +85,7 @@ test('case workspace keeps progress visible and puts selected location work befo
   client.setQueryData(['secret-case-assignees', 7, undefined], { items: [] })
   const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/secrets/cases/7?tab=work'] }, createElement(Routes, null, createElement(Route, { path: '/secrets/cases/:caseId', element: createElement(modules.workspace.SecretCaseDetailPage) })))))
   assert.ok(html.indexOf('대응 진행 단계') < html.indexOf('대응 상세 구역'))
+  assert.ok(html.indexOf('지금 할 일') < html.indexOf('조치 대상 위치'))
   assert.ok(html.indexOf('대응 상세 구역') < html.indexOf('수행한 조치 기록'))
   assert.ok(html.indexOf('수행한 조치 기록') < html.indexOf('<summary>대응 담당자·관련 근거'))
   assert.match(html, /<details class="card secret-case-context"><summary>/)
@@ -192,4 +194,19 @@ test('reviewing the original action keeps its limited level and unavailable stor
   assert.match(html, /value="APPROVE">제한 확인/)
   assert.match(html, /value="31" disabled=""/)
   assert.match(html, /이미 연결된 기록 #8/)
+})
+
+test('response progress refreshes pending work but pauses for unsaved forms and stops after completion or errors', () => {
+  const pending = { ...detail, occurrences: [{ ...occurrence, recentRevalidation: { jobStatus: 'PENDING' } }] }
+  assert.equal(modules.response.responseRefreshInterval(pending, false), 5000)
+  assert.equal(modules.response.responseRefreshInterval(pending, true), false)
+  assert.equal(modules.response.responseRefreshInterval(pending, false, true), false)
+  assert.equal(modules.response.responseRefreshInterval({ ...pending, isCurrent: false }, false), false)
+  for (const status of ['SUCCEEDED', 'FAILED', 'CANCELLED']) assert.equal(modules.response.responseRefreshInterval({ ...pending, occurrences: [{ ...occurrence, recentRevalidation: { jobStatus: status } }] }, false), false)
+  assert.equal(modules.response.responseRefreshInterval(undefined, false), false)
+})
+
+
+test('changed approval context explains the specific revalidation mismatch', () => {
+  assert.equal(modules.response.revalidationBlockLabel('SOURCE_APPROVAL_CHANGED'), '현재 검사 대상이 발견 당시 위치와 달라요. 대상 설정을 확인하세요.')
 })
