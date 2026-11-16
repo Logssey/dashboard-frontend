@@ -31,6 +31,7 @@ import {
   githubTargetsError
 } from '@/lib/secretConnectionManagement'
 import { scanDate } from '@/lib/secretScan'
+import { SecretConnectionReadiness } from './SecretConnectionReadiness'
 import { SecretDetailPanel } from './SecretDetailPanel'
 import './secret-connection-manager.css'
 
@@ -50,11 +51,23 @@ function CredentialFields({
   onChange
 }: {
   draft: CredentialDraft
-  onChange: (draft: CredentialDraft) => void
+  onChange: (draft: CredentialDraft | ((current: CredentialDraft) => CredentialDraft)) => void
 }) {
   const prefix = useId()
+  const [fileError, setFileError] = useState('')
+  const fileReadId = useRef(0)
+  useEffect(() => { fileReadId.current++ }, [draft.privateKey])
+  useEffect(() => () => { fileReadId.current++ }, [])
   return (
     <div className="secret-manager-credential-fields">
+      <details className="secret-manager-app-help">
+        <summary>GitHub App 정보는 어디서 확인하나요?</summary>
+        <ol>
+          <li>GitHub 조직 설정의 Developer settings → GitHub Apps에서 App ID를 확인하세요.</li>
+          <li>Install App의 설치 설정 주소에 있는 숫자가 Installation ID예요.</li>
+          <li>검사할 저장소와 Contents 읽기 권한을 허용하고, App의 개인 키 PEM 파일을 선택하세요.</li>
+        </ol>
+      </details>
       <label htmlFor={`${prefix}-app`}>
         App ID
         <input
@@ -81,6 +94,25 @@ function CredentialFields({
       </label>
       <label className="secret-manager-pem" htmlFor={`${prefix}-key`}>
         App 개인 키
+        <input type="file" accept=".pem" aria-label="GitHub App 개인 키 파일 선택"
+          onChange={async (event) => {
+            const file = event.currentTarget.files?.[0]
+            const readId = ++fileReadId.current
+            event.currentTarget.value = ''
+            setFileError('')
+            if (!file) return
+            if (file.size > 32_768) { setFileError('32KB 이하의 PEM 파일을 선택하세요.'); return }
+            try {
+              const text = (await file.text()).replace(/^\uFEFF/, '').trim()
+              if (fileReadId.current !== readId) return
+              if (!/^-----BEGIN (RSA )?PRIVATE KEY-----\r?\n[\s\S]+\r?\n-----END \1PRIVATE KEY-----$/.test(text)) {
+                setFileError('GitHub App에서 내려받은 PEM 개인 키 파일을 선택하세요.'); return
+              }
+              onChange((current) => ({ ...current, privateKey: text }))
+            } catch {
+              if (fileReadId.current === readId) setFileError('파일을 읽지 못했어요. 파일을 다시 선택하세요.')
+            }
+          }} />
         <textarea
           id={`${prefix}-key`}
           rows={6}
@@ -88,12 +120,13 @@ function CredentialFields({
           autoCapitalize="none"
           spellCheck={false}
           value={draft.privateKey}
-          placeholder="PEM 파일 전체를 붙여넣으세요."
+          placeholder="PEM 파일을 선택하거나 전체 내용을 붙여넣으세요."
           onChange={(event) =>
             onChange({ ...draft, privateKey: event.target.value })
           }
         />
       </label>
+      {fileError && <p className="caption" role="alert">{fileError}</p>}
       <p className="caption">
         입력한 개인 키를 암호화 보관해요. 인증 상태 확인과 교체·삭제 기능으로
         관리하세요.
@@ -417,6 +450,7 @@ function GitHubTargetsForm({
   const [rows, setRows] = useState(() =>
     settings.githubTargets.map((target, key) => ({ key, target }))
   )
+  const [activate, setActivate] = useState(settings.status === 'ACTIVE' || settings.githubTargets.length === 0)
   const nextKey = useRef(rows.length)
   const repositories = useInfiniteQuery({
     queryKey: [
@@ -467,12 +501,14 @@ function GitHubTargetsForm({
             () =>
               updateSecretTargets(settings.connectionId, {
                 expectedScopeVersion: settings.scopeVersion,
+                expectedSettingsVersion: settings.settingsVersion,
+                ...(settings.capabilities?.activateTargets ? { activate } : {}),
                 githubTargets: targets.map((target) => ({
                   ...target,
                   path: target.path.trim()
                 }))
               }),
-            '검사 대상을 저장했어요. 확인 후 연결을 활성화하세요.'
+            '검사 대상을 저장했어요. 아래에서 실행 준비 상태를 확인하세요.'
           )
       }}
     >
@@ -560,6 +596,11 @@ function GitHubTargetsForm({
       {changed && !targets.length && (
         <p className="notice">검사 대상을 모두 삭제하면 연결이 일시중지돼요.</p>
       )}
+      {settings.capabilities?.activateTargets && targets.length > 0 && <label className="secret-manager-checkbox">
+        <input type="checkbox" checked={activate} disabled={disabled} onChange={(event) => setActivate(event.target.checked)} />
+        <span><strong>저장 후 검사 사용</strong><small>수동 검사와 6시간 주기 검사를 사용할 수 있어요.</small></span>
+      </label>}
+      {settings.scanLimits && <p className="caption">검사 한도 · 텍스트 {settings.scanLimits.maxFiles.toLocaleString()}개 · 파일당 {Math.round(settings.scanLimits.maxFileBytes / 1_048_576)}MB · 총 {Math.round(settings.scanLimits.maxTotalBytes / 1_048_576)}MB. 이미지 등 본문 검사 대상에서 제외한 파일과 읽지 못한 파일을 결과에서 구분해요.</p>}
       <div className="secret-manager-footer">
         <button
           className="btn primary"
@@ -585,6 +626,7 @@ function AwsTargetsForm({
   save: SaveAction
 }) {
   const [targets, setTargets] = useState(settings.awsTargets)
+  const [activate, setActivate] = useState(settings.status === 'ACTIVE' || settings.awsTargets.length === 0)
   const options = awsTargetOptions(
     setup.aws.targetKinds,
     setup.aws.regions,
@@ -606,9 +648,11 @@ function AwsTargetsForm({
             () =>
               updateSecretTargets(settings.connectionId, {
                 expectedScopeVersion: settings.scopeVersion,
-                awsTargets: targets
+                expectedSettingsVersion: settings.settingsVersion,
+                awsTargets: targets,
+                ...(settings.capabilities?.activateTargets ? { activate } : {})
               }),
-            '검사 대상을 저장했어요. 확인 후 연결을 활성화하세요.'
+            '검사 대상을 저장했어요. 아래에서 실행 준비 상태를 확인하세요.'
           )
       }}
     >
@@ -666,6 +710,10 @@ function AwsTargetsForm({
       {changed && !targets.length && (
         <p className="notice">검사 대상을 모두 삭제하면 연결이 일시중지돼요.</p>
       )}
+      {settings.capabilities?.activateTargets && targets.length > 0 && <label className="secret-manager-checkbox">
+        <input type="checkbox" checked={activate} disabled={disabled} onChange={(event) => setActivate(event.target.checked)} />
+        <span><strong>저장 후 검사 사용</strong><small>선택한 메타데이터의 수동·정기 검사를 사용해요.</small></span>
+      </label>}
       <div className="secret-manager-footer">
         <button
           className="btn primary"
@@ -705,6 +753,7 @@ function ConnectionInfoForm({
             () =>
               updateSecretConnection(settings.connectionId, {
                 expectedScopeVersion: settings.scopeVersion,
+                expectedSettingsVersion: settings.settingsVersion,
                 displayName: name.trim(),
                 status: active ? 'ACTIVE' : 'PAUSED'
               }),
@@ -784,6 +833,7 @@ export function SecretConnectionCredentialForm({
     if (disabled || !storageConfigured || error) return
     const payload = {
       expectedScopeVersion: settings.scopeVersion,
+                expectedSettingsVersion: settings.settingsVersion,
       displayName: settings.displayName,
       status: 'PAUSED' as const,
       githubCredential: githubCredential(
@@ -1029,6 +1079,7 @@ function ConnectionEditor({
           {receipt}
         </p>
       )}
+      <SecretConnectionReadiness settings={settings} />
       {error && (
         <div className="secret-manager-inline-error" role="alert">
           <p>{error}</p>
@@ -1136,6 +1187,7 @@ function ConnectionEditor({
                   () =>
                     updateSecretConnection(settings.connectionId, {
                       expectedScopeVersion: settings.scopeVersion,
+                expectedSettingsVersion: settings.settingsVersion,
                       displayName: settings.displayName,
                       status: 'ACTIVE'
                     }),

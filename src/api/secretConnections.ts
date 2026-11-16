@@ -109,11 +109,19 @@ export interface SecretConnectionSetupOptions {
   aws: { accountId: string; regions: string[]; targetKinds: AwsMetadataKind[] }
 }
 export interface SecretConnectionSettings {
+  capabilities?: { activateTargets?: boolean; retryFailedScopes?: boolean; validationReadiness?: boolean; scanLimits?: boolean }
+  scanLimits?: { maxFiles: number; maxFileBytes: number; maxTotalBytes: number; maxTreeEntries?: number; maxDepth?: number }
+  validationReadiness?: {
+    ready: boolean
+    reasonCodes: string[]
+    validators: { issuer: string; serverEnabled: boolean; connectionAllowed: boolean; scopeCount: number; allowedScopeCount: number }[]
+  }
   connectionId: number
   provider: EditableSecretProvider
   displayName: string
   status: 'ACTIVE' | 'PAUSED' | 'ERROR'
   scopeVersion: number
+  settingsVersion?: number
   credentialConfigured: boolean
   credentialVersion: number | null
   credentialDeletionPending: boolean
@@ -132,12 +140,15 @@ export interface CreateSecretConnectionRequest {
 }
 export interface UpdateSecretConnectionRequest {
   expectedScopeVersion: number
+  expectedSettingsVersion?: number
   displayName: string
   status: SecretConnectionSettings['status']
   githubCredential?: GitHubAppCredential
 }
 export interface UpdateSecretTargetsRequest {
   expectedScopeVersion: number
+  expectedSettingsVersion?: number
+  activate?: boolean
   githubTargets?: GitHubScanTarget[]
   awsTargets?: AwsScanTarget[]
 }
