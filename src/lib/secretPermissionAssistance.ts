@@ -87,6 +87,10 @@ export function permissionSourceRequirements(sources: RiskSourceRef[]): string[]
 export function currentPermissionPreview(preview: PermissionPreview | undefined, observationId: number, revision: number, now = Date.now()): boolean {
   return !!preview && preview.observationId === observationId && preview.evidenceRevision === revision && !!preview.contextVersion && Date.parse(preview.expiresAt) > now
 }
+export function restorablePermissionDraft(preview: PermissionPreview, now = Date.now()) {
+  const draft = preview.latestDraft
+  return draft?.canRestore && draft.observationId === preview.observationId && Date.parse(draft.validUntil) > now ? draft : null
+}
 export function observedPermissionOptions(preview: Pick<PermissionPreview, 'capabilities'>): string[] {
   return [...new Set(preview.capabilities)].filter((code) => permissionCapabilities.some((value) => value === code))
 }

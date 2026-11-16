@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { SecretGitHubTarget } from '@/components/SecretGitHubTarget'
 import { ApiError } from '@/api/client'
 import { fetchSecretScanRun, retryFailedSecretScopes, type ScanStage, type SecretScanRun } from '@/api/secretRuns'
 import { safeMutationMessage } from '@/lib/secretEvidence'
+import { safeWorkbenchReturn } from '@/lib/secretWorkbench'
 import { withSecretOrigin } from '@/lib/secretNavigation'
 import { Icon } from '@/components/Icon'
 import { SecretExplanation } from '@/components/SecretExplanation'
@@ -75,7 +77,7 @@ function RunContent({ run }: { run: SecretScanRun }) {
       </> : <p className="notice">집계 확인 불가 · {scanReason(run.aggregationStatus)}. 전체 범위 {run.scopeCount}개를 성공으로 추정하지 않아요.</p>}
       <details className="secret-run-scope-details" open={!completeCoverage}><summary>검사 범위 자세히</summary><div className="row between"><h3>범위별 결과</h3><label>상태 <select className="select" value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)}><option value="ALL">전체 범위</option>{['PARTIAL', 'FAILED', 'SKIPPED', 'PENDING', 'RUNNING', 'SUCCEEDED', 'UNKNOWN'].map((state) => <option key={state} value={state}>{scanStatus(state)}</option>)}</select></label></div>
       {!scopes.length ? <p className="secret-scan-message">범위별 검사 근거가 없어요. 0개 검사 성공을 의미하지 않아요.</p> : !shown.length ? <p className="secret-scan-message">선택한 상태의 범위가 없어요.</p> : <div className="table-scroll" tabIndex={0} role="region" aria-label="범위별 검사 결과"><table className="secret-scan-scope-table"><thead><tr><th scope="col">승인 범위</th><th scope="col">범위 결과</th><th scope="col">단계</th><th scope="col">수집 항목</th><th scope="col">원인·다음 행동</th></tr></thead><tbody>{shown.map((scope) => <tr key={scope.runScopeId}>
-        <td><strong>{scope.safeDisplayAlias ?? `범위 #${scope.scopeId ?? scope.runScopeId}`}</strong><span className="asset">{scopeTypeLabel(scope.contentType)}{scope.region ? ` · ${scope.region}` : ''}</span>{['NOTION_PAGE_CONTENT', 'NOTION_PAGE_BLOCKS'].includes(scope.contentType) && <span className="asset">현재 페이지 텍스트 · 하위 페이지·외부 본문은 별도 대상</span>}<span className="asset">실행 범위 #{scope.runScopeId} · 승인 버전 {scope.scopeRevision ?? '미기록'}</span></td>
+        <td><strong>{scope.safeDisplayAlias ?? `범위 #${scope.scopeId ?? scope.runScopeId}`}</strong><SecretGitHubTarget target={scope.githubTarget} />{scope.githubTarget === null && scope.contentType === 'GITHUB_REPOSITORY_FILES' && <span className="asset">기록 당시 브랜치 미확인</span>}<span className="asset">{scopeTypeLabel(scope.contentType)}{scope.region ? ` · ${scope.region}` : ''}</span>{['NOTION_PAGE_CONTENT', 'NOTION_PAGE_BLOCKS'].includes(scope.contentType) && <span className="asset">현재 페이지 텍스트 · 하위 페이지·외부 본문은 별도 대상</span>}<span className="asset">실행 범위 #{scope.runScopeId} · 승인 버전 {scope.scopeRevision ?? '미기록'}</span></td>
         <td><span className={`secret-run-badge ${scope.scopeOutcome?.toLowerCase() ?? 'unknown'}`}>{scanStatus(scope.scopeOutcome)}</span><span className="asset">{scanDate(scope.finishedAt ?? scope.collection?.observedAt)}</span></td>
         <td><div className="secret-scan-scope-stages">{(['collection', 'detection', 'validation'] as const).map((key, index) => <div key={key}><span>{['수집', '탐지', '검증'][index]} {scanStatus(scope[key]?.status ?? 'UNKNOWN')}</span>{scope[key]?.reasonCode && <small>{scanReason(scope[key].reasonCode)}</small>}</div>)}</div></td>
         <td>{objectCountLabel(scope)}{scope.excludedObjectCount != null && scope.excludedObjectCount > 0 && <span className="asset">본문 제외 {scope.excludedObjectCount}개</span>}{!!scope.exclusionReasons?.length && <ul className="secret-scan-exclusion-reasons">{scope.exclusionReasons.map((item) => <li key={item.code}>{scanReason(item.code)} · {item.count}개{item.expected ? ' · 예정된 제외' : ' · 미처리'}</li>)}</ul>}</td><td>{scope.gapCode ? <><strong>{scanReason(scope.gapCode)}</strong><details className="secret-scope-error-info"><summary>오류 정보</summary><code>{scope.gapCode}</code><p>실행 SCAN-{run.runId} · 실행 범위 #{scope.runScopeId}</p></details><Link to={withSecretOrigin(`${connectionLink}?scopeId=${scope.scopeId}`, params)}>범위 확인</Link></> : scope.scopeOutcome === 'SUCCEEDED' ? '적용 단계 완료' : '결과 확인 중 또는 근거 미기록'}</td>
@@ -108,9 +110,10 @@ export function SecretRunDetailPage() {
     target?.focus({ preventScroll: true })
     target?.scrollIntoView({ block: 'start' })
   }, [location.hash, detail.isSuccess, runId])
+  const returnPath = params.get('return') === 'workbench' ? safeWorkbenchReturn(params.get('returnQuery'), positiveId(params.get('returnCaseId'))?.toString()) : historyReturnPath(params, runId ?? undefined)
   const error = detail.error
   return <>
-    <Link className="secret-scan-back" to={withSecretOrigin(historyReturnPath(params, runId ?? undefined), params)}>← 이력으로 돌아가기</Link>
+    <Link className="secret-scan-back" to={withSecretOrigin(returnPath, params)}>← 이전 목록으로 돌아가기</Link>
     <section className="page-head"><div><h1 ref={title} tabIndex={-1}>{runId ? `SCAN-${runId}` : '실행 상세'}</h1><p className="subtitle">이 실행의 검사 범위와 확인 결과예요.</p></div>{detail.data && <Link className="btn outline" to={`/secrets/connections?connectionId=${detail.data.connectionId}&runId=${detail.data.runId}`}>단계별 실행 보기</Link>}</section>
     {!runId ? <div className="card secret-scan-message" role="alert">올바른 실행 주소가 아니에요. 실행 ID는 양의 정수여야 해요.</div> : detail.isPending ? <div className="card secret-scan-message" role="status">실행 상세를 불러오는 중이에요.</div> : detail.isError ? <div className="card secret-scan-message" role="alert"><h2>{error instanceof ApiError && error.status === 403 ? '접근 권한이 없어요' : error instanceof ApiError && error.status === 404 ? '실행을 찾을 수 없어요' : '실행 상세를 불러오지 못했어요'}</h2><p>허용된 이력 목록으로 돌아가거나 다시 조회해 주세요.</p>{!(error instanceof ApiError && [403, 404].includes(error.status)) && <button className="btn outline" onClick={() => void detail.refetch()}>다시 조회</button>}</div> : <RunContent key={runId} run={detail.data} />}
   </>

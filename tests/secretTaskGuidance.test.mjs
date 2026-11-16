@@ -58,3 +58,10 @@ test('secret navigation has five task-oriented entries and keeps detail pages in
   assert.equal(api.activeSecretNavigation('/secrets', '/secrets/12'), false)
   assert.equal(api.activeSecretNavigation('/secrets/cases', '/secrets/cases/7'), true)
 })
+
+
+test('pending revalidation opens its authorized run and rediscovery keeps a distinct action', () => {
+  assert.equal(api.guidanceTargetPath({ ...guidance, target: { type: 'RUN', id: 91, caseId: 7 }, nextActionCode: 'WAIT_FOR_REVALIDATION' }), '/secrets/history/91')
+  assert.equal(api.actionLabels.WAIT_FOR_REVALIDATION, '재검사 진행 보기')
+  assert.equal(api.actionLabels.RESUME_REMEDIATION, '추가 조치 시작')
+})

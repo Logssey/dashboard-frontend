@@ -47,6 +47,7 @@ export interface SecretRunListItem {
 }
 
 export interface SecretRunScope {
+  githubTarget?: import('./secretConnections').GitHubScanTarget | null
   runScopeId: number
   scopeId: number
   scopeRevision: number | null

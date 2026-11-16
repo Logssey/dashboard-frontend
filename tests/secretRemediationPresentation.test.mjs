@@ -115,3 +115,42 @@ test('the primary case action follows the explicit location and never falls back
   const invalidSelection = page(404, 2)
   assert.match(invalidSelection, /선택 위치를 다시 확인/); assert.doesNotMatch(invalidSelection, /cases\//)
 })
+
+
+test('the same file on two branches keeps distinct source coordinates and observed original links', () => {
+  const locations = ['main', 'develop'].map((branch, index) => ({ occurrenceId: index + 1, source: 'GITHUB', safeLocationLabel: `위치 #${index + 1}`, exposure: 'UNKNOWN', sourceDetails: { status: 'AVAILABLE', contextStatus: 'OBSERVED', repository: 'Logssey/application', branch, path: 'config/app.env', line: 'L4', sourceUrl: `https://github.com/Logssey/application/blob/${branch}/config/app.env#L4` } }))
+  const html = renderToStaticMarkup(createElement(api.SecretDiscoveryContext, { detail: { issuer: 'GITHUB', maskedLabel: 'GitHub ••••1234', componentState: 'CONFIRMED' }, locations, onSelect() {} }))
+  assert.match(html, /Logssey\/application · main/)
+  assert.match(html, /Logssey\/application · develop/)
+  for (const location of locations) {
+    const coordinates = renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location }))
+    assert.ok(coordinates.includes(`href="${location.sourceDetails.sourceUrl}"`))
+    assert.ok(coordinates.includes(`브랜치 ${location.sourceDetails.branch}`))
+  }
+})
+
+test('unknown old branch context never borrows a current branch or exposes an original link', () => {
+  const location = { occurrenceId: 8, source: 'GITHUB', safeLocationLabel: '이전 발견 위치', sourceDetails: { status: 'UNAVAILABLE', contextStatus: 'UNKNOWN', repository: 'Logssey/application', branch: 'new-branch', path: 'config/app.env', sourceUrl: 'https://github.com/Logssey/application/blob/new-branch/config/app.env' } }
+  const html = renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location }))
+  assert.match(html, /기록 당시의 브랜치를 확인하지 못했어요/)
+  assert.doesNotMatch(html, /new-branch|href=/)
+  const changed = renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location: { ...location, sourceDetails: { ...location.sourceDetails, reasonCode: 'SOURCE_APPROVAL_CHANGED' } } }))
+  assert.match(changed, /이전 원본의 접근 권한을 다시 확인/)
+  assert.doesNotMatch(changed, /new-branch|href=/)
+  const reconstructed = renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location: { ...location, sourceDetails: { ...location.sourceDetails, status: 'AVAILABLE', contextStatus: 'RECONSTRUCTED', branch: 'old-branch' } } }))
+  assert.match(reconstructed, /기록 당시 승인 대상/)
+  assert.match(reconstructed, /브랜치 old-branch/)
+})
+
+
+test('GitHub original links must match the observed repository branch file and line', () => {
+  const source = { status: 'AVAILABLE', contextStatus: 'OBSERVED', repository: 'Logssey/application', branch: 'feat/secret', path: 'config/app.env', line: 'L4-L8', sourceUrl: 'https://github.com/Logssey/application/blob/feat%2Fsecret/config/app.env#L4-L8' }
+  const render = (sourceDetails) => renderToStaticMarkup(createElement(api.SecretSourceCoordinates, { location: { source: 'GITHUB', safeLocationLabel: '위치', sourceDetails } }))
+  assert.match(render(source), /href="https:\/\/github.com\/Logssey\/application\/blob\/feat%2Fsecret\/config\/app.env#L4-L8"/)
+  for (const bad of [
+    { ...source, sourceUrl: 'https://github.com/Logssey/application/blob/main/config/app.env#L4-L8' },
+    { ...source, sourceUrl: source.sourceUrl.replace('application', 'another') },
+    { ...source, sourceUrl: source.sourceUrl.replace('#L4-L8', '#L9') },
+    { ...source, sourceUrl: source.sourceUrl + '?redirect=elsewhere' },
+  ]) assert.doesNotMatch(render(bad), /<a /)
+})

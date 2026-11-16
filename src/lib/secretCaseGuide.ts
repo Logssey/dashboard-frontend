@@ -2,6 +2,7 @@ import type { SecretCaseGuide } from '../api/secretCaseGuide'
 import type { SecretCaseDetail } from '../api/secretCases'
 
 const guideReasons: Record<string, string> = {
+  BASIC_CONTEXT: '기본 안내로 확인할 수 있어요.',
   READY: 'AI 보조 가이드를 요청할 수 있어요. 아래 기본 절차는 바로 사용할 수 있어요.',
   DISABLED: '서버에서 AI 보조 기능이 꺼져 있어요. 기본 가이드를 사용하세요.',
   KEY_MISSING: '서버에 AI 제공자 키가 설정되지 않았어요. 운영 담당자가 설정하면 AI 보조를 요청할 수 있어요.',

@@ -50,6 +50,7 @@ export interface ManagedSecretConnection {
   capabilities: { canTest: boolean; canRun: boolean }
 }
 export interface ManagedScope {
+  githubTarget?: GitHubScanTarget | null
   scopeId: number
   scopeRevision: number | null
   origin: string
@@ -109,6 +110,11 @@ export interface SecretConnectionSetupOptions {
   aws: { accountId: string; regions: string[]; targetKinds: AwsMetadataKind[] }
 }
 export interface SecretConnectionSettings {
+  defaultStoragePolicy?: {
+    selectedPolicyId: number | null; selectedPolicyVersion: number | null
+    status: 'NOT_SELECTED' | 'APPLIED' | 'APPLICATION_REQUIRED' | 'PENDING_REVIEW' | 'RULE_UPDATE_REQUIRED' | 'POLICY_EXPIRED'
+    applicableScopeCount: number; appliedScopeCount: number; pendingReviewScopeCount: number; ruleUpdateRequiredScopeCount: number
+  }
   capabilities?: { activateTargets?: boolean; retryFailedScopes?: boolean; validationReadiness?: boolean; scanLimits?: boolean }
   scanLimits?: { maxFiles: number; maxFileBytes: number; maxTotalBytes: number; maxTreeEntries?: number; maxDepth?: number }
   validationReadiness?: {

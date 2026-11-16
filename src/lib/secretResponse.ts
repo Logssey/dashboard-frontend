@@ -9,6 +9,10 @@ export const caseStageLabels: Record<string, string> = { OPEN: '신규', IN_PROG
 export const caseActionLabels = { ROTATED: '키 교체', REVOKED: '키 폐기', REMOVED_FROM_SOURCE: '노출 위치에서 제거', PERMISSION_REDUCED: '권한 축소' } as const
 export const caseReasonLabels = { INITIAL_ASSIGNMENT: '최초 지정', OWNERSHIP_CHANGE: '담당자 변경', TEAM_TRANSFER: '담당 팀 변경', UNASSIGNED: '지정 해제', OTHER: '운영 사유' } as const
 export const checklistLabels = { IDENTIFY_OWNER: '소유자 확인', ROTATE_OR_REVOKE: '키 교체·폐기 확인', REMOVE_EXPOSURE: '노출 위치 정리', CHECK_ACCESS_LOGS: '접근 기록 확인' } as const
+export function responseRefreshInterval(detail: SecretCaseDetail | undefined, hasDraft: boolean, hasError = false): number | false {
+  if (!detail?.isCurrent || hasDraft || hasError) return false
+  return detail.occurrences.some((location) => ['PENDING', 'LEASED'].includes(location.recentRevalidation?.jobStatus ?? '')) ? 5000 : false
+}
 export function parseCaseFilters(params: URLSearchParams): { filters: CaseFilters; valid: boolean } {
   params = canonicalSecretListParams(params)
   const origin = params.get('origin') ?? 'ALL', scope = params.get('scope') ?? 'currentCases'
@@ -79,6 +83,8 @@ export function locationNextAction(location: SecretCaseOccurrence): string {
 }
 export function responseNextAction(detail: SecretCaseDetail): string {
   if (!detail.isCurrent || detail.stage === 'RESOLVED') return '대응 이력 확인'
+  if (detail.taskGuidance?.nextActionCode === 'WAIT_FOR_REVALIDATION') return '재검사 진행 중'
+  if (detail.taskGuidance?.nextActionCode === 'RESUME_REMEDIATION') return '다시 발견된 위치의 추가 조치'
   if (detail.occurrences.some((o) => !o.assignedTeam && !o.assignedUserId)) return '위치별 담당자 지정'
   if (detail.occurrences.some((o) => o.responseStatus === 'OPEN' || o.responseStatus === 'IN_PROGRESS')) return '위치별 외부 조치'
   return '재검사·해결 근거 확인'
@@ -88,5 +94,5 @@ export function recommendedCaseLocation(detail: SecretCaseDetail): SecretCaseOcc
   return [...detail.occurrences].sort((a, b) => rank(a) - rank(b) || a.occurrenceId - b.occurrenceId)[0]
 }
 export function suggestedCaseTab(detail: SecretCaseDetail): string {
-  return ['REQUEST_REVALIDATION', 'REVIEW_CLOSURE'].includes(detail.taskGuidance?.nextActionCode ?? '') || detail.stage === 'RESOLVED' ? 'verification' : 'work'
+  return ['REQUEST_REVALIDATION', 'WAIT_FOR_REVALIDATION', 'RESUME_REMEDIATION', 'REVIEW_CLOSURE'].includes(detail.taskGuidance?.nextActionCode ?? '') || detail.stage === 'RESOLVED' ? 'verification' : 'work'
 }

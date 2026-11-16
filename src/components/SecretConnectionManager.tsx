@@ -304,13 +304,17 @@ function GitHubTargetRow({
   target,
   repositories,
   onChange,
-  onRemove
+  onRemove,
+  onAddBranch,
+  canAddBranch
 }: {
   connectionId: number
   target: GitHubScanTarget
   repositories: { fullName: string; defaultBranch: string; private: boolean }[]
   onChange: (value: GitHubScanTarget) => void
   onRemove: () => void
+  onAddBranch: () => void
+  canAddBranch: boolean
 }) {
   const branches = useInfiniteQuery({
     queryKey: ['secret-github-branches', connectionId, target.repository],
@@ -323,26 +327,20 @@ function GitHubTargetRow({
     retry: false,
     refetchOnWindowFocus: false
   })
-  const options = [
-    ...new Set(
-      [
-        target.branch,
-        ...(branches.data?.pages.flatMap((page) =>
-          page.items.map((item) => item.name)
-        ) ?? [])
-      ].filter(Boolean)
-    )
-  ]
+  const loadedBranches = branches.data?.pages.flatMap((page) => page.items.map((item) => item.name)) ?? []
+  const options = [...new Set([target.branch, ...loadedBranches].filter(Boolean))]
+  const branchMissing = branches.isSuccess && !branches.isFetching && !branches.hasNextPage && !!target.branch && !loadedBranches.includes(target.branch)
   const hasRepository = repositories.some(
     (item) => item.fullName === target.repository
   )
   return (
     <div className="secret-manager-target">
       <div className="secret-manager-target-heading">
-        <strong>저장소 검사 대상</strong>
-        <button className="btn outline" type="button" onClick={onRemove}>
-          삭제
-        </button>
+        <strong>저장소·브랜치</strong>
+        <div className="row">
+          <button className="btn outline" type="button" disabled={!target.repository || !canAddBranch} onClick={onAddBranch}>다른 브랜치 추가</button>
+          <button className="btn outline" type="button" onClick={onRemove}>삭제</button>
+        </div>
       </div>
       <label>
         저장소
@@ -377,6 +375,7 @@ function GitHubTargetRow({
         브랜치
         <select
           value={target.branch}
+          autoFocus={!target.branch && !!target.repository}
           disabled={!target.repository || branches.isPending}
           onChange={(event) =>
             onChange({ ...target, branch: event.target.value })
@@ -387,11 +386,12 @@ function GitHubTargetRow({
           </option>
           {options.map((name) => (
             <option key={name} value={name}>
-              {name}
+              {name}{name === target.branch && branchMissing ? ' · 현재 조회되지 않음' : ''}
             </option>
           ))}
         </select>
       </label>
+      {branchMissing && <p className="caption">등록된 브랜치를 현재 조회 목록에서 찾지 못했어요. 대상과 App 접근 권한을 확인하세요.</p>}
       {branches.isError && (
         <div className="secret-manager-inline-error" role="alert">
           <p>{connectionManagementError(branches.error)}</p>
@@ -514,7 +514,7 @@ function GitHubTargetsForm({
       }}
     >
       <p className="caption">
-        App에 허용된 저장소에서 브랜치와 폴더를 선택하세요.
+        한 연결에 같은 저장소의 여러 브랜치를 추가할 수 있어요.
       </p>
       {repositories.isPending && (
         <p role="status">저장소를 불러오는 중이에요.</p>
@@ -558,6 +558,16 @@ function GitHubTargetsForm({
             connectionId={settings.connectionId}
             target={row.target}
             repositories={items}
+            canAddBranch={rows.length < 100}
+            onAddBranch={() => {
+              const key = nextKey.current++
+              setRows((current) => {
+                const index = current.findIndex((item) => item.key === row.key)
+                const next = [...current]
+                next.splice(index + 1, 0, { key, target: { ...row.target, branch: '' } })
+                return next
+              })
+            }}
             onRemove={() =>
               setRows((current) =>
                 current.filter((item) => item.key !== row.key)
@@ -1081,7 +1091,7 @@ function ConnectionEditor({
         </p>
       )}
       <SecretConnectionReadiness settings={settings} />
-      <SecretDefaultStoragePolicy connectionId={settings.connectionId} />
+      <SecretDefaultStoragePolicy connectionId={settings.connectionId} summary={settings.defaultStoragePolicy} />
       {error && (
         <div className="secret-manager-inline-error" role="alert">
           <p>{error}</p>
@@ -1267,6 +1277,7 @@ export function SecretConnectionManager({
       'secret-connections-manage',
       'secret-connection-scopes',
       'secret-managed-scopes',
+      'secret-default-storage-policy',
       'secret-connection-validation-policy',
       'secret-github-repositories',
       'secret-github-branches'

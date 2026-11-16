@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import type { SecretBatchRevalidation } from '@/api/secretCaseRevalidations'
-import { revalidationBlockLabel } from '@/lib/secretResponse'
+import { responseRefreshInterval, revalidationBlockLabel } from '@/lib/secretResponse'
 import { ApiError } from '@/api/client'
 import { fetchSecretCase, fetchSecretCaseActivities, type SecretCaseDetail } from '@/api/secretCases'
 import { SecretRemediationSummary } from '@/components/SecretRemediationSummary'
@@ -159,7 +159,9 @@ export function SecretCaseDetailPage() {
   const [params] = useSearchParams(), heading = useRef<HTMLHeadingElement>(null)
   const [stale, setStale] = useState(false), [refreshVersion, setRefreshVersion] = useState(0), [refreshing, setRefreshing] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const detail = useQuery({ queryKey: ['secret-case', caseId], queryFn: () => fetchSecretCase(caseId!), enabled: caseId !== null, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false })
+  const detail = useQuery({ queryKey: ['secret-case', caseId], queryFn: () => fetchSecretCase(caseId!), enabled: caseId !== null, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
+    refetchInterval: (query) => responseRefreshInterval(query.state.data, dirty, !!query.state.error),
+  })
   const refresh = useSecretReadRefresh()
   useEffect(() => { heading.current?.focus(); window.scrollTo({ top: 0 }); setStale(false); setDirty(false) }, [caseId])
   useEffect(() => {

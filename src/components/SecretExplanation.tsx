@@ -50,9 +50,6 @@ function ExplanationContent({ topic, id, contextVersion }: {
       <span>{result.source === 'CLAUDE' ? 'Claude 설명' : '기본 안내'}</span>
     </div>
     <p className="secret-explanation-summary">{result.summary}</p>
-    {result.facts.length > 0 && <ul className="secret-explanation-facts" aria-label="현재 확인된 사실">
-      {result.facts.map((fact) => <li key={fact.code}>{fact.label}</li>)}
-    </ul>}
     {actions.length > 0 && <div className="secret-explanation-actions">
       {actions.map((action, index) => <Link key={action.code} className={`btn ${index === 0 ? 'primary' : 'outline'}`} to={contextualExplanationPath(action.href, location.pathname, location.search)}>{action.label}</Link>)}
     </div>}
@@ -61,6 +58,9 @@ function ExplanationContent({ topic, id, contextVersion }: {
         onClick={() => request.mutate()}>{request.isPending ? '설명 정리 중…' : 'Claude로 설명 정리'}</button>}
       {usedFallback && <p role="status">현재 기본 안내를 표시하고 있어요.</p>}
       <details><summary>설명 근거와 사용 정보</summary>
+        {result.facts.length > 0 && <ul className="secret-explanation-facts" aria-label="현재 확인된 사실">
+          {result.facts.map((fact) => <li key={fact.code}>{fact.label}</li>)}
+        </ul>}
         <dl><div><dt>안내 버전</dt><dd>{result.version}</dd></div>
           {readiness.generatedAt && <div><dt>생성 시각</dt><dd>{scanDate(readiness.generatedAt)}</dd></div>}
           {readiness.model && <div><dt>모델</dt><dd>{readiness.model}</dd></div>}

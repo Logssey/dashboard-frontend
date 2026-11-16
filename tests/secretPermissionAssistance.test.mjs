@@ -177,3 +177,28 @@ test('a saved partial draft remains editable and can be fully confirmed after ev
   assert.match(html, /평가 근거로 확정/)
   assert.doesNotMatch(html, /이미 검토를 기록한 자료/)
 })
+
+
+test('a saved partial observation remains reachable through the normal assistance entry point', () => {
+  const data = { ...context, latestObservation: { ...preview, decision: 'DRAFTED' } }
+  const html = render(api.SecretPermissionAssistance, { occurrenceId: 8, evidenceRevision: 3, onReload() {} }, [[['secret-permission-assistance', 8, 3], data]])
+  assert.match(html, /저장한 부분 자료 이어보기/)
+  assert.doesNotMatch(html, /이 자료는 사용하지 않도록 기록/)
+})
+
+test('only a currently restorable partial draft prefills reviewed facts without a final attestation', () => {
+  const latestDraft = { evidenceId: 31, evidenceRevision: 3, observationId: 10, savedAt: observedAt, observedAt, validUntil: expiresAt, evidenceRef: 'CHANGE:PERMISSION-31', facts: { capability: 'RESOURCE_READ', targetScope: 'ASSET', permissionCoverage: 'COMPLETE', targetCoverage: 'PARTIAL', restrictionCoverage: 'UNKNOWN', classificationCoverage: 'UNKNOWN' }, sourceRefs: [sources[0]], applicableFrom: observedAt, applicableUntil: expiresAt, canRestore: true, reasonCode: null }
+  const value = { ...preview, decision: 'DRAFTED', canSavePartial: true, latestDraft }
+  const html = render(api.PermissionReviewForm, { occurrenceId: 8, preview: value, evidenceRevision: 3, onUpdated() {}, onStale() {} })
+  assert.match(html, /저장한 부분 자료를 불러왔어요/)
+  assert.match(html, /value="ASSET" selected/)
+  assert.match(html, /value="CHANGE:PERMISSION-31"/)
+  assert.match(html, /value="COMPLETE" selected/)
+  assert.doesNotMatch(html, /checked=""[^>]*\/>조회 자료와 연결 근거/)
+  assert.equal(api.restorablePermissionDraft({ ...value, latestDraft: { ...latestDraft, canRestore: false } }), null)
+  assert.equal(api.restorablePermissionDraft({ ...value, latestDraft: { ...latestDraft, observationId: 99 } }), null)
+  assert.equal(api.restorablePermissionDraft(value, Date.parse(expiresAt) + 1), null)
+  const stale = render(api.PermissionReviewForm, { occurrenceId: 8, preview: { ...value, latestDraft: { ...latestDraft, canRestore: false } }, evidenceRevision: 3, onUpdated() {}, onStale() {} })
+  assert.match(stale, /이전 부분 자료를 이력으로 보존/)
+  assert.doesNotMatch(stale, /value="CHANGE:PERMISSION-31"|value="COMPLETE" selected/)
+})

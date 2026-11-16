@@ -193,3 +193,13 @@ test('reviewing the original action keeps its limited level and unavailable stor
   assert.match(html, /value="31" disabled=""/)
   assert.match(html, /이미 연결된 기록 #8/)
 })
+
+test('response progress refreshes pending work but pauses for unsaved forms and stops after completion or errors', () => {
+  const pending = { ...detail, occurrences: [{ ...occurrence, recentRevalidation: { jobStatus: 'PENDING' } }] }
+  assert.equal(modules.response.responseRefreshInterval(pending, false), 5000)
+  assert.equal(modules.response.responseRefreshInterval(pending, true), false)
+  assert.equal(modules.response.responseRefreshInterval(pending, false, true), false)
+  assert.equal(modules.response.responseRefreshInterval({ ...pending, isCurrent: false }, false), false)
+  for (const status of ['SUCCEEDED', 'FAILED', 'CANCELLED']) assert.equal(modules.response.responseRefreshInterval({ ...pending, occurrences: [{ ...occurrence, recentRevalidation: { jobStatus: status } }] }, false), false)
+  assert.equal(modules.response.responseRefreshInterval(undefined, false), false)
+})
