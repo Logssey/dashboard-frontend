@@ -89,6 +89,13 @@ export function githubCredential(
   }
 }
 
+function encodeApprovedRefSegment(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*~]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+  )
+}
+
 export function githubTargetsError(targets: GitHubScanTarget[]): string | null {
   if (targets.length > 100)
     return '검사 대상은 한 연결에 최대 100개까지 등록할 수 있어요.'
@@ -119,6 +126,19 @@ export function githubTargetsError(targets: GitHubScanTarget[]): string | null {
         .some((part) => path && (!part.trim() || part === '.' || part === '..'))
     )
       return '폴더는 250자 이내의 저장소 상대 경로로 입력하세요.'
+    let approvedRef: string
+    try {
+      const branch = encodeApprovedRefSegment(target.branch)
+      const encodedPath = canonicalPath
+        .split('/')
+        .map(encodeApprovedRefSegment)
+        .join('/')
+      approvedRef = `github://${target.repository}/${branch}/${encodedPath}`
+    } catch {
+      return '브랜치·폴더 경로의 문자를 확인하세요.'
+    }
+    if (approvedRef.length > 500)
+      return '저장소·브랜치·폴더 경로가 너무 길어요.'
     const repository = target.repository.toLowerCase()
     const paths = repositoryPaths.get(repository) ?? []
     if (

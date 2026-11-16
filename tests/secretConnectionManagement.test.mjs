@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { build } from 'esbuild'
+import { scanReason } from '../src/lib/secretScan.ts'
 
 const bundle = await build({
   stdin: {
@@ -284,6 +285,53 @@ test('GitHub paths cannot overlap across branches in one connection while disjoi
   assert.equal(
     api.githubTargetsError([target, { ...target, path: 'Fixtures/' }]),
     null
+  )
+})
+
+test('GitHub approved references honor the encoded 500-character storage boundary', () => {
+  const boundary = {
+    repository: `o/${'r'.repeat(37)}`,
+    branch: 'b'.repeat(200),
+    path: 'x'.repeat(249)
+  }
+  assert.equal(api.githubTargetsError([boundary]), null)
+  assert.equal(
+    api.githubTargetsError([
+      { ...boundary, repository: `o/${'r'.repeat(38)}` }
+    ]),
+    '저장소·브랜치·폴더 경로가 너무 길어요.'
+  )
+  const target = { repository: 'o/r', branch: 'main', path: '한'.repeat(249) }
+  assert.equal(
+    api.githubTargetsError([target]),
+    '저장소·브랜치·폴더 경로가 너무 길어요.'
+  )
+  assert.equal(
+    api.githubTargetsError([{ ...target, path: '설정/팀 자료/' }]),
+    null
+  )
+  for (const character of ['!', "'", '(', ')', '~']) {
+    assert.equal(
+      api.githubTargetsError([
+        {
+          repository: 'o/r',
+          branch: 'b'.repeat(200),
+          path: character.repeat(100)
+        }
+      ]),
+      '저장소·브랜치·폴더 경로가 너무 길어요.'
+    )
+  }
+  assert.equal(
+    api.githubTargetsError([{ ...target, path: '\ud800' }]),
+    '브랜치·폴더 경로의 문자를 확인하세요.'
+  )
+})
+
+test('scan cancellation caused by connection edits explains the actual interruption', () => {
+  assert.equal(
+    scanReason('SOURCE_CONFIGURATION_CHANGED'),
+    '연결 설정 변경으로 중단'
   )
 })
 
