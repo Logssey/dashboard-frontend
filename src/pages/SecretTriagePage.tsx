@@ -20,7 +20,10 @@ const decisionEffect: Record<ReviewDecision, string> = { ABNORMAL: '이 위치�
 
 function reviewCasePath(context: ReviewContext, caseId: number, params: URLSearchParams, changed = false) {
   const next = new URLSearchParams({ origin: context.caseLinkData?.caseOrigin ?? context.origin, occurrence: String(context.occurrenceId) })
-  if (params.has('returnQuery')) {
+  if (params.get('return') === 'key') {
+    for (const key of ['return', 'returnSecretId', 'returnQuery']) if (params.has(key)) next.set(key, params.get(key)!)
+    if (changed) { const back = new URLSearchParams(next.get('returnQuery') ?? ''); back.delete('detailVersion'); next.set('returnQuery', back.toString()) }
+  } else if (params.has('returnQuery')) {
     const back = new URLSearchParams(reviewReturnPath(params, context.credentialSetId, context.occurrenceId, context.origin).split('?')[1] ?? '')
     if (changed) back.delete('snapshotId')
     next.set('return', 'workbench'); next.set('returnQuery', back.toString())
@@ -118,7 +121,7 @@ export function SecretTriagePage() {
   const reload = () => { void context.refetch().then(() => setRefreshVersion((version) => version + 1)) }
   useEffect(() => { title.current?.focus(); window.scrollTo({ top: 0 }) }, [secretId, occurrenceId])
   return <>
-    <Link className="secret-scan-back" to={reviewReturnPath(params, secretId, occurrenceId, valid?.origin ?? requestedOrigin)}>← 확인 대기열로 돌아가기</Link>
+    <Link className="secret-scan-back" to={reviewReturnPath(params, secretId, occurrenceId, valid?.origin ?? requestedOrigin)}>← 이전 목록·키로 돌아가기</Link>
     <section className="page-head"><div><h1 ref={title} tabIndex={-1}>{valid?.maskedLabel || '위치 근거 확인'}</h1><p className="subtitle">확인된 사실과 부족한 근거를 구분해 판단하세요.</p></div><button className="btn outline" disabled={!occurrenceId || context.isFetching} onClick={reload}>현재 근거 다시 조회</button></section>
     {receipt?.credentialSetId === secretId && receipt?.occurrenceId === occurrenceId && <section className="card secret-scan-section" role="status"><h2>이 위치의 결정을 저장했어요</h2><p>{receipt.result.correctionId ? '선택한 탐지 근거를 오탐으로 교정했어요. 다른 위치의 판정은 유지돼요.' : receipt.result.exposureStatus === 'NORMAL' ? '이 위치의 승인된 보관 근거를 저장했어요. 키의 유효성과 다른 위치의 조치는 별도예요.' : '현재 근거와 다음 작업을 확인해 주세요.'}</p></section>}
     {!secretId || !occurrenceId ? <div className="card secret-scan-message" role="alert"><h2>확인할 위치를 선택해 주세요</h2><p>키와 발견 위치가 모두 지정돼야 판단 근거를 확인할 수 있어요.</p>{secretId && <Link className="btn outline" to={`/secrets/${secretId}?${new URLSearchParams({ origin: requestedOrigin, ...(params.has('returnQuery') ? { return: 'workbench', returnQuery: params.get('returnQuery')! } : {}) })}`}>키 상세에서 위치 선택</Link>}</div> : context.isPending ? <p className="card secret-scan-message" role="status">위치·범위·정책 근거를 불러오는 중이에요.</p> : context.isError ? <div className="card secret-scan-message" role="alert"><h2>{context.error instanceof ApiError && context.error.status === 403 ? '위치 근거를 볼 권한이 없어요' : context.error instanceof ApiError && context.error.status === 404 ? '위치 근거를 찾을 수 없어요' : '위치 근거를 불러오지 못했어요'}</h2><p>확인 대기열로 돌아가거나 다시 조회해 주세요. 빈 값을 근거로 판정하지 않아요.</p>{!(context.error instanceof ApiError && [403, 404].includes(context.error.status)) && <button className="btn outline" onClick={reload}>다시 조회</button>}</div> : !valid ? <div className="card secret-scan-message" role="alert"><h2>선택한 키·위치·승인 범위가 일치하지 않아요</h2><p>잘못 연결된 주소일 수 있어요. 이 상태에서는 변경할 수 없어요.</p></div> : <><CurrentCaseAction context={valid} />{!hasCurrentCase(valid) && <SecretTaskGuidance guidance={valid.taskGuidance} />}<ReviewEvidence context={valid} /><ReviewForm key={`${valid.occurrenceId}:${valid.versions?.occurrence}:${valid.versions?.scope}:${valid.versions?.policy}:${refreshVersion}`} context={valid} reload={reload} onSaved={(result) => setReceipt({ credentialSetId: valid.credentialSetId, occurrenceId: valid.occurrenceId, result })} />{valid.canRequestAssistance && <SecretHandoffForm key={`request:${valid.occurrenceId}:${valid.versions.occurrence}`} targetType="OCCURRENCE" targetId={valid.occurrenceId} expectedVersion={valid.versions.occurrence} />}</>}

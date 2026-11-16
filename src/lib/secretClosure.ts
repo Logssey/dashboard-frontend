@@ -1,4 +1,22 @@
-import type { ClosureChecks } from '../api/secretClosure'
+import type { ClosureCheck, ClosureChecks } from '../api/secretClosure'
+export function closureBlockerGroups(checks: ClosureCheck[]) {
+  const groups = new Map<string, { code: string; reasonCode: string; occurrenceIds: number[]; checkCount: number }>()
+  for (const check of checks) {
+    if (check.status === 'PASSED') continue
+    const key = check.reasonCode || check.code
+    const group = groups.get(key) ?? { code: check.code, reasonCode: check.reasonCode, occurrenceIds: [], checkCount: 0 }
+    group.checkCount += 1
+    if (check.occurrenceId && !group.occurrenceIds.includes(check.occurrenceId)) group.occurrenceIds.push(check.occurrenceId)
+    groups.set(key, group)
+  }
+  return [...groups.values()]
+}
+export function closureBlockerTarget(code: string): { tab: string; check?: string; label: string } | null {
+  if (['LOCATION_ABSENCE', 'LOCATION_ABSENCE_CHECK', 'REQUIRED_SCOPE', 'COVERAGE', 'COVERAGE_CHECK'].includes(code)) return { tab: 'verification', check: 'locations', label: '위치별 검사 확인' }
+  if (['CREDENTIAL_LIFECYCLE', 'CREDENTIAL_LIFECYCLE_CHECK'].includes(code)) return { tab: 'verification', check: 'lifecycle', label: '폐기·교체 근거 연결' }
+  if (['REQUIRED_LOCATIONS', 'POSITION_REQUIRED'].includes(code)) return { tab: 'locations', label: '조치 위치 확인' }
+  return null
+}
 export const coverageLevelLabels: Record<string, string> = { FULL: '승인 범위 확인', LIMITED: '제한 확인', SIMULATION: '합성 표본 종료' }
 export const closureCheckLabels: Record<string, string> = {
   POSITION_REQUIRED: '필수 대응 위치', POSITION_UNLINKED: '미연결 노출 위치', POSITION_UNASSESSED: '현재 미판정 위치', POSITION_AUTHORIZED: '보관 허용·메타데이터', POSITION_HISTORICAL: '과거 발견 근거', REQUIRED_SCOPE: '필수 위치의 검사 범위', ASSESSMENT_BASIS: '위치 판정의 현재 근거', CROSS_ENVIRONMENT_ALERTS: '자격증명 여부 확인', CASE_ACTIVE: '현재 대응 상태', REQUIRED_LOCATIONS: '필수 위치 근거', COMPLETE_AUTHORIZATION: '전체 범위 보안 권한',

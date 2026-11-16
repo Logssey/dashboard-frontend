@@ -109,7 +109,7 @@ test('the primary case action follows the explicit location and never falls back
     client.clear(); return html.match(/<div class="secret-key-primary-actions">([\s\S]*?)<\/div><div class="secret-key-recent-scan">/)[1]
   }
   const selectedB = page(9, 2)
-  assert.match(selectedB, /cases\/2\?origin=TEST&amp;occurrence=9/); assert.doesNotMatch(selectedB, /cases\/1/)
+  assert.match(selectedB, /cases\/2\?origin=ALL&amp;occurrence=9/); assert.doesNotMatch(selectedB, /cases\/1/)
   const withoutCase = page(9, null)
   assert.match(withoutCase, /선택 위치 확인/); assert.doesNotMatch(withoutCase, /cases\/1|현재 대응·조치/)
   const invalidSelection = page(404, 2)

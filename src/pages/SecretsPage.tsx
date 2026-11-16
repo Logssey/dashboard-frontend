@@ -38,6 +38,11 @@ export function SecretsPage() {
       setParams(next, { replace: true })
     }
   }, [inventory.data?.snapshotId, inventory.isSuccess, inventory.isFetching, filters.snapshotId, filters, params, setParams])
+  useEffect(() => {
+    if (!inventory.isSuccess || inventory.isFetching || !inventory.data.snapshotId) return
+    const lastPage = Math.max(0, Math.ceil(inventory.data.total / filters.size) - 1)
+    if (filters.page > lastPage) setParams(inventorySearch({ ...filters, snapshotId: inventory.data.snapshotId, page: lastPage }), { replace: true })
+  }, [inventory.isSuccess, inventory.isFetching, inventory.data, filters, setParams])
   const focusKey = `secret-inventory-focus:${inventorySearch(filters)}`
   useEffect(() => {
     if (!inventory.isSuccess) return
@@ -55,7 +60,16 @@ export function SecretsPage() {
     },
   })
   if (legacyRun) return <Navigate replace to={withSecretOrigin(scanDetailPath(legacyRun), params)} />
-  const refresh = () => { download.reset(); setRefreshVersion((version) => version + 1); setParams(inventorySearch({ ...filters, snapshotId: '', page: 0 })) }
+  const refresh = () => {
+    download.reset()
+    const next = inventorySearch({ ...filters, snapshotId: '' })
+    let focus = params.get('focus')
+    try { focus ??= sessionStorage.getItem(focusKey) } catch { /* Optional browser context. */ }
+    if (focus && positiveId(focus)) next.set('focus', focus)
+    restored.current = ''
+    setRefreshVersion((version) => version + 1)
+    setParams(next)
+  }
   const remember = (id: number) => { try { sessionStorage.setItem(focusKey, String(id)) } catch { /* Optional browser context. */ } }
   const snapshot = inventory.data?.snapshotId
   const error = inventory.error
