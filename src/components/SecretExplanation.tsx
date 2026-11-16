@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { contextualExplanationPath } from '@/lib/secretDetailNavigation'
 import { ApiError } from '@/api/client'
 import { fetchSecretExplanation, requestSecretExplanation, type SecretExplanationTopic } from '@/api/secretExplanation'
 import { scanDate } from '@/lib/secretScan'
@@ -18,6 +19,7 @@ function approvedDocumentUrl(value: string): boolean {
 function ExplanationContent({ topic, id, contextVersion }: {
   topic: SecretExplanationTopic; id: number; contextVersion?: string | number
 }) {
+  const location = useLocation()
   const baseline = useQuery({
     queryKey: ['secret-explanation', topic, id, contextVersion ?? null],
     queryFn: () => fetchSecretExplanation(topic, id),
@@ -52,7 +54,7 @@ function ExplanationContent({ topic, id, contextVersion }: {
       {result.facts.map((fact) => <li key={fact.code}>{fact.label}</li>)}
     </ul>}
     {actions.length > 0 && <div className="secret-explanation-actions">
-      {actions.map((action, index) => <Link key={action.code} className={`btn ${index === 0 ? 'primary' : 'outline'}`} to={action.href}>{action.label}</Link>)}
+      {actions.map((action, index) => <Link key={action.code} className={`btn ${index === 0 ? 'primary' : 'outline'}`} to={contextualExplanationPath(action.href, location.pathname, location.search)}>{action.label}</Link>)}
     </div>}
     <div className="secret-explanation-assist">
       {available && <button className="btn outline" disabled={request.isPending || baseline.isFetching || waiting}

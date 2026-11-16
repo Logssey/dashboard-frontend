@@ -1,5 +1,6 @@
 import type { CaseFilters, SecretCaseDetail, SecretCaseOccurrence } from '../api/secretCases'
 import { positiveId } from './secretScan'
+import { keyContextReturn } from './secretDetailNavigation'
 import { safeWorkbenchReturn, workbenchOptions } from './secretWorkbench'
 import { riskSeverities, riskValidities } from './secretRiskDistribution'
 import { canonicalSecretListParams, safeSecretSearch, validSecretSearch } from './secretReadSelection'
@@ -47,6 +48,8 @@ export function caseDetailPath(caseId: number, filters?: CaseFilters, occurrence
   return `/secrets/cases/${caseId}${params.size ? `?${params}` : ''}`
 }
 export function caseReturnPath(params: URLSearchParams, caseId: number | null): string {
+  const keyReturn = keyContextReturn(params)
+  if (keyReturn) return keyReturn
   if (params.get('return') === 'workbench') return safeWorkbenchReturn(params.get('returnQuery'), caseId ? String(caseId) : undefined)
   const fallback = new URLSearchParams({ origin: 'ALL' })
   const parsed = parseCaseFilters(params.has('returnQuery') ? new URLSearchParams(params.get('returnQuery')!) : fallback)

@@ -45,6 +45,8 @@ export interface SecretCaseItem {
   restrictedCoverage: boolean
 }
 export interface SecretCaseDetail extends SecretCaseItem {
+  responseProgress?: { unit: 'Occurrence'; visibleLocationCount: number; actionRecordedCount: number; actionsCompletedCount: number; revalidationQueuedCount: number; postActionMissingCount: number; restrictedCoverage: boolean }
+  inheritUnassigned?: boolean
   disposition: string
   isCurrent: boolean
   openingDecisionId: number | string | null
@@ -58,6 +60,9 @@ export interface SecretCaseDetail extends SecretCaseItem {
     canRecordAction: boolean
     canRequestRevalidation: boolean
     canResolve: boolean
+    canAssignSelf?: boolean
+    canAssignUnassigned?: boolean
+    canBatchRevalidate?: boolean
   }
 }
 export interface SecretCaseOccurrence {
@@ -81,6 +86,8 @@ export interface SecretCaseOccurrence {
   actionsCompletedAt: string | null
   canAssign: boolean
   canRecordAction: boolean
+  canRecordInternalAction?: boolean
+  canRecordAndCompleteActions?: boolean
   canCompleteActions: boolean
   canRequestRevalidation: boolean
   canResume: boolean
@@ -121,6 +128,7 @@ export interface SecretCaseActivities {
 export interface CaseCommandResult { targetId: number; version: number; status: string; requiresSnapshotRefresh?: boolean }
 export interface AssignSecretCaseRequest {
   team: string | null; assigneeUserId: number | null; reasonCode: SecretAssignmentReason; expectedVersion: number
+  applyToUnassigned?: boolean
 }
 const base = '/api/v1/secrets'
 export const fetchSecretCases = (filters: CaseFilters) => {
@@ -137,7 +145,8 @@ export const fetchSecretCase = (id: number) => apiRequest<SecretCaseDetail>(`${b
 export const fetchSecretCaseActivities = (id: number, page: number) => apiRequest<SecretCaseActivities>(`${base}/cases/${id}/activities?page=${page}&size=20`)
 export const fetchSecretAssignees = (id: number, occurrenceId?: number) => apiRequest<{ items: SecretAssignee[] }>(`${base}/assignees?caseId=${id}${occurrenceId ? `&occurrenceId=${occurrenceId}` : ''}`)
 export const assignSecretCase = (id: number, request: AssignSecretCaseRequest) => apiRequest<SecretCaseDetail>(`${base}/cases/${id}/assignment`, { method: 'PATCH', body: JSON.stringify(request) })
+export const assignSecretCaseToSelf = (id: number, request: { expectedVersion: number; applyToUnassigned?: boolean }) => apiRequest<SecretCaseDetail>(`${base}/cases/${id}/assignment/self`, { method: 'POST', body: JSON.stringify(request) })
 export const assignSecretLocation = (id: number, occurrenceId: number, request: Omit<AssignSecretCaseRequest, 'expectedVersion'> & { expectedCaseVersion: number; expectedOccurrenceVersion: number }) => apiRequest<SecretCaseDetail>(`${base}/cases/${id}/occurrences/${occurrenceId}/assignment`, { method: 'PATCH', body: JSON.stringify(request) })
 export const updateSecretCaseChecklist = (id: number, itemId: number, request: { completed: boolean; guideVersion: 'S2_V1'; evidenceRef: string | null; expectedCaseVersion: number }) => apiRequest<SecretCaseDetail>(`${base}/cases/${id}/checklist/${itemId}`, { method: 'PATCH', body: JSON.stringify(request) })
-export const recordSecretCaseAction = (id: number, request: { actionType: SecretActionType; occurrenceId: number; performedAt: string; evidenceRef: string; expectedCaseVersion: number; expectedOccurrenceVersion: number; idempotencyKey: string }) => apiRequest<CaseCommandResult>(`${base}/cases/${id}/actions`, { method: 'POST', body: JSON.stringify(request) })
+export const recordSecretCaseAction = (id: number, request: { actionType: SecretActionType; occurrenceId: number; performedAt: string; evidenceRef?: string; completeActions?: boolean; expectedCaseVersion: number; expectedOccurrenceVersion: number; idempotencyKey: string }) => apiRequest<CaseCommandResult>(`${base}/cases/${id}/actions`, { method: 'POST', body: JSON.stringify(request) })
 export const completeSecretLocationActions = (id: number, occurrenceId: number, request: { expectedCaseVersion: number; expectedOccurrenceVersion: number; idempotencyKey: string }) => apiRequest<CaseCommandResult>(`${base}/cases/${id}/occurrences/${occurrenceId}/complete-actions`, { method: 'POST', body: JSON.stringify(request) })

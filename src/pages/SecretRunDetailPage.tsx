@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
 import { fetchSecretScanRun, retryFailedSecretScopes, type ScanStage, type SecretScanRun } from '@/api/secretRuns'
 import { safeMutationMessage } from '@/lib/secretEvidence'
@@ -68,7 +68,7 @@ function RunContent({ run }: { run: SecretScanRun }) {
         {run.capabilities?.canViewFindings && <div className="row"><Link className="btn primary" to={`/secrets/history/${run.runId}/findings`}>이 실행의 탐지 근거</Link><Link className="btn outline" to={`/secrets/findings?origin=ALL&runId=${run.runId}`}>이 실행에서 찾은 키</Link></div>}
       </>}
     </section>
-    <section className="card secret-scan-section" aria-labelledby="coverage-title"><div className="row between"><h2 id="coverage-title">검사 대상별 처리 결과</h2><RetryFailedScopes run={run} /></div>
+    <section className="card secret-scan-section" aria-labelledby="coverage-title"><div className="row between"><h2 id="coverage-title" tabIndex={-1}>검사 대상별 처리 결과</h2><RetryFailedScopes run={run} /></div>
       {aggregate ? <><div className="secret-scan-counts"><div><span>성공 범위</span><strong>{run.successfulScopeCount}<small> / {run.scopeCount}개</small></strong></div><div><span>종료된 범위</span><strong>{run.finishedScopeCount ?? '—'}<small>개</small></strong></div><div><span>확인된 검사 누락</span><strong>{run.gapScopeCount ?? '—'}<small>개</small></strong></div><div><span>아직 성공 미확인</span><strong>{run.unverifiedScopeCount ?? '—'}<small>개</small></strong></div></div>
         <p className="caption">종료에는 성공·부분 실패·실패·건너뜀이 포함돼요. 성공 미확인에는 대기·진행 중인 범위도 포함돼요.</p>
         <ul className="secret-scan-status-counts">{['SUCCEEDED', 'PARTIAL', 'FAILED', 'SKIPPED', 'PENDING', 'RUNNING'].map((state) => <li key={state}><span className={`secret-run-badge ${state.toLowerCase()}`}>{scanStatus(state)}</span> {run.scopeStatusCounts?.[state] ?? '—'}개</li>)}</ul>
@@ -90,6 +90,7 @@ export function SecretRunDetailPage() {
   const { runId: rawId } = useParams()
   const runId = positiveId(rawId)
   const [params] = useSearchParams()
+  const location = useLocation()
   const title = useRef<HTMLHeadingElement>(null)
   const client = useQueryClient()
   const detail = useQuery({ queryKey: ['secret-run', runId], queryFn: () => fetchSecretScanRun(runId!), enabled: runId != null, retry: (count, error) => !(error instanceof ApiError && [403, 404].includes(error.status)) && count < 1,
@@ -101,6 +102,12 @@ export function SecretRunDetailPage() {
       for (const key of ['secret-runs', 'secret-connections-manage', 'secret-connection-scopes', 'secrets', 'secret-navigation-count', 'secret-overview-inventory']) void client.invalidateQueries({ queryKey: [key] })
     }
   }, [detail.data?.runId, detail.data?.status, client])
+  useEffect(() => {
+    if (location.hash !== '#coverage-title' || !detail.isSuccess) return
+    const target = document.getElementById('coverage-title')
+    target?.focus({ preventScroll: true })
+    target?.scrollIntoView({ block: 'start' })
+  }, [location.hash, detail.isSuccess, runId])
   const error = detail.error
   return <>
     <Link className="secret-scan-back" to={withSecretOrigin(historyReturnPath(params, runId ?? undefined), params)}>← 이력으로 돌아가기</Link>
