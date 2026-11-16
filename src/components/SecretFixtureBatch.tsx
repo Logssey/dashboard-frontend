@@ -56,11 +56,12 @@ function FixtureBatchReview({ items, snapshotId, onChanged, onClose }: {
       {unavailable > 0 && <p className="caption">조회하지 못한 키 {unavailable}개. 열람 권한과 현재 상태를 확인하세요.</p>}
       {!choices.length ? <p className="secret-scan-message">현재 승인할 수 있는 정확한 일치 근거가 없어요.</p> : <>
         <div className="row between"><strong>일치 근거 {choices.length}개</strong><button className="btn outline" disabled={save.isPending} onClick={() => {
-          setSelected(selected.length === choices.length ? [] : choices.map((choice) => choice.selectionKey))
+          setSelected(selected.length > 0 ? [] : choices.slice(0, 100).map((choice) => choice.selectionKey))
           setConfirmed(false)
-        }}>{selected.length === choices.length ? '전체 선택 해제' : '일치 근거 전체 선택'}</button></div>
+        }}>{selected.length > 0 ? '선택 해제' : choices.length > 100 ? '일치 근거 100개 선택' : '일치 근거 전체 선택'}</button></div>
+        {choices.length > 100 && <p className="caption">한 번에 최대 100개를 확인할 수 있어요.</p>}
         <ul className="secret-fixture-batch-list">{choices.map((choice) => <li key={choice.selectionKey}>
-          <label><input type="checkbox" checked={selected.includes(choice.selectionKey)} disabled={save.isPending}
+          <label><input type="checkbox" checked={selected.includes(choice.selectionKey)} disabled={save.isPending || selected.length >= 100 && !selected.includes(choice.selectionKey)}
             onChange={(event) => {
               setSelected((current) => event.target.checked ? [...current, choice.selectionKey] : current.filter((key) => key !== choice.selectionKey))
               setConfirmed(false)
