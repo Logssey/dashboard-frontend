@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { build } from 'esbuild'
+import ts from 'typescript'
 import { scanReason } from '../src/lib/secretScan.ts'
 
 const bundle = await build({
@@ -92,6 +93,58 @@ function render(Component, props, entries = []) {
   )
   client.clear()
   return html
+}
+
+function credentialSubmit(source, componentName, bindings) {
+  const file = ts.createSourceFile(
+    'SecretConnectionManager.tsx',
+    source,
+    ts.ScriptTarget.ES2022,
+    true,
+    ts.ScriptKind.TSX
+  )
+  const component = file.statements.find(
+    (statement) =>
+      ts.isFunctionDeclaration(statement) &&
+      statement.name?.text === componentName
+  )
+  assert.ok(component, `${componentName} exists`)
+  let initializer
+  const visit = (node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === 'submit'
+    )
+      initializer = node.initializer
+    ts.forEachChild(node, visit)
+  }
+  visit(component)
+  assert.ok(
+    initializer && ts.isArrowFunction(initializer),
+    `${componentName} has a submit handler`
+  )
+  const javascript = ts.transpileModule(
+    `const submit = ${initializer.getText(file)}`,
+    {
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.ESNext
+      }
+    }
+  ).outputText
+  return new Function(
+    ...Object.keys(bindings),
+    `${javascript}\nreturn submit;`
+  )(...Object.values(bindings))
+}
+
+function deferred() {
+  let resolve
+  const promise = new Promise((complete) => {
+    resolve = complete
+  })
+  return { promise, resolve }
 }
 const entries = (settings) => [
   [['secret-connection-setup-options'], setup],
@@ -636,6 +689,114 @@ test('credential component avoids persistent and mutation caches and clears priv
     children: '저장 중'
   })
   assert.match(html, /disabled=""[^>]*aria-label="위치 근거 닫기"/)
+})
+
+test('create clears the private-key input before fingerprinting and keeps it empty throughout pending or failed requests', async () => {
+  const source = await readFile(
+    resolve('src/components/SecretConnectionManager.tsx'),
+    'utf8'
+  )
+  for (const fail of [false, true]) {
+    let draft = { appId: '101', installationId: '202', privateKey: pem }
+    let sent
+    let created = false
+    let message = ''
+    const pending = deferred()
+    const busy = []
+    const submit = credentialSubmit(source, 'CreateConnectionForm', {
+      disabled: false,
+      name: '개발 저장소',
+      validation: null,
+      provider: 'GITHUB',
+      draft,
+      requestKey: { current: { digest: '', key: '' } },
+      setBusy(value) {
+        busy.push(value)
+      },
+      setError(value) {
+        message = value
+      },
+      setDraft(update) {
+        draft = update(draft)
+      },
+      githubCredential: api.githubCredential,
+      async connectionCreateRequestKey(_reference, payload) {
+        assert.equal(draft.privateKey, '')
+        assert.equal(payload.githubCredential.privateKey, pem)
+        await pending.promise
+        return 'synthetic-request-id'
+      },
+      async createSecretConnection(payload) {
+        assert.equal(draft.privateKey, '')
+        sent = payload
+        if (fail) throw new Error('synthetic failure')
+        return github
+      },
+      onCreated() {
+        created = true
+      },
+      connectionManagementError: api.connectionManagementError
+    })
+    const completion = submit()
+    assert.equal(draft.privateKey, '')
+    assert.equal(sent, undefined)
+    pending.resolve()
+    await completion
+    assert.equal(sent.githubCredential.privateKey, pem)
+    assert.equal(sent.idempotencyKey, 'synthetic-request-id')
+    assert.equal(draft.privateKey, '')
+    assert.equal(created, !fail)
+    assert.deepEqual(busy, [true, false])
+    assert.equal(Boolean(message), fail)
+  }
+})
+
+test('credential replacement clears the input before save or network work starts while preserving its request payload', async () => {
+  const source = await readFile(
+    resolve('src/components/SecretConnectionManager.tsx'),
+    'utf8'
+  )
+  for (const fail of [false, true]) {
+    let draft = { appId: '101', installationId: '202', privateKey: pem }
+    let sent
+    const pending = deferred()
+    const submit = credentialSubmit(source, 'SecretConnectionCredentialForm', {
+      disabled: false,
+      storageConfigured: true,
+      error: null,
+      settings: github,
+      draft,
+      setDraft(update) {
+        draft = update(draft)
+      },
+      githubCredential: api.githubCredential,
+      async save(operation) {
+        assert.equal(draft.privateKey, '')
+        try {
+          await operation()
+          return true
+        } catch {
+          return false
+        }
+      },
+      async updateSecretConnection(connectionId, payload) {
+        assert.equal(draft.privateKey, '')
+        assert.equal(connectionId, github.connectionId)
+        sent = payload
+        await pending.promise
+        if (fail) throw new Error('synthetic failure')
+        return github
+      }
+    })
+    const completion = submit()
+    assert.equal(draft.privateKey, '')
+    assert.equal(sent.githubCredential.privateKey, pem)
+    assert.equal(sent.expectedScopeVersion, github.scopeVersion)
+    assert.equal(sent.status, 'PAUSED')
+    pending.resolve()
+    await completion
+    assert.equal(draft.privateKey, '')
+  }
 })
 
 test('AWS creation uses workload identity and never asks for a private key', () => {
