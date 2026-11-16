@@ -1,0 +1,132 @@
+import { ApiError } from '@/api/client'
+import type {
+  AwsMetadataKind,
+  AwsScanTarget,
+  GitHubAppCredential,
+  GitHubScanTarget
+} from '@/api/secretConnections'
+
+export const awsMetadataLabels: Record<AwsMetadataKind, string> = {
+  IAM_ACCESS_KEY_METADATA: 'IAM 액세스 키',
+  AWS_S3_BUCKET_METADATA: 'S3 버킷',
+  AWS_SECRETS_MANAGER_METADATA: 'Secrets Manager',
+  AWS_SSM_PARAMETER_METADATA: 'SSM Parameter Store'
+}
+
+export function parseGitHubAppId(value: string): number | null {
+  if (!/^\d+$/.test(value.trim())) return null
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+export function githubCredentialError(
+  appId: string,
+  installationId: string,
+  privateKey: string
+): string | null {
+  if (parseGitHubAppId(appId) == null) return 'App ID를 양의 정수로 입력하세요.'
+  if (parseGitHubAppId(installationId) == null)
+    return 'Installation ID를 양의 정수로 입력하세요.'
+  const pem = privateKey.trim()
+  if (
+    !/^-----BEGIN (RSA )?PRIVATE KEY-----\r?\n[\s\S]+\r?\n-----END \1PRIVATE KEY-----$/.test(
+      pem
+    )
+  )
+    return 'PEM 개인 키 전체를 입력하세요.'
+  if (new TextEncoder().encode(pem).length > 32_768)
+    return '개인 키 파일 크기를 확인하세요.'
+  return null
+}
+
+export function githubCredential(
+  appId: string,
+  installationId: string,
+  privateKey: string
+): GitHubAppCredential {
+  return {
+    appId: parseGitHubAppId(appId)!,
+    installationId: parseGitHubAppId(installationId)!,
+    privateKey: privateKey.trim()
+  }
+}
+
+export function githubTargetsError(targets: GitHubScanTarget[]): string | null {
+  if (targets.length > 100)
+    return '검사 대상은 한 연결에 최대 100개까지 등록할 수 있어요.'
+  const seen = new Set<string>()
+  for (const target of targets) {
+    if (
+      !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9_.-]{1,100}$/.test(
+        target.repository
+      ) ||
+      ['.', '..'].includes(target.repository.split('/')[1])
+    )
+      return '저장소를 선택하세요.'
+    if (
+      !target.branch ||
+      target.branch.length > 200 ||
+      /^[\/]|\/$|\.\.|\/\/|@\{|[\x00-\x20\x7f\\?#*\[\]~^:]/.test(target.branch)
+    )
+      return '브랜치를 선택하세요.'
+    const path = target.path.trim()
+    const canonicalPath = path && !path.endsWith('/') ? `${path}/` : path
+    if (
+      canonicalPath.length > 250 ||
+      /^[\/\\]/.test(path) ||
+      /[\\\x00-\x1f\x7f?#%*:]/.test(target.path) ||
+      path
+        .replace(/\/$/, '')
+        .split('/')
+        .some((part) => path && (!part.trim() || part === '.' || part === '..'))
+    )
+      return '폴더는 250자 이내의 저장소 상대 경로로 입력하세요.'
+    const key = JSON.stringify([
+      target.repository,
+      target.branch,
+      path.replace(/\/+$/, '')
+    ])
+    if (seen.has(key)) return '같은 검사 대상이 중복되어 있어요.'
+    seen.add(key)
+  }
+  return null
+}
+
+export function awsTargetOptions(
+  kinds: AwsMetadataKind[],
+  regions: string[],
+  current: AwsScanTarget[] = []
+): AwsScanTarget[] {
+  const options = kinds.flatMap((kind) => {
+    const global =
+      kind === 'IAM_ACCESS_KEY_METADATA' || kind === 'AWS_S3_BUCKET_METADATA'
+    return (
+      global ? ['global'] : regions.filter((region) => region !== 'global')
+    ).map((region) => ({ kind, region }))
+  })
+  return [
+    ...new Map(
+      [...options, ...current].map((target) => [
+        JSON.stringify([target.kind, target.region]),
+        target
+      ])
+    ).values()
+  ]
+}
+
+export function connectionManagementError(error: unknown): string {
+  if (!(error instanceof ApiError))
+    return '요청 결과를 확인하지 못했어요. 연결 상태를 확인하고 다시 시도하세요.'
+  if (error.status === 401) return '로그인 후 다시 시도하세요.'
+  if (error.status === 403) return '이 연결을 설정할 운영 권한이 없어요.'
+  if (error.status === 404)
+    return '연결을 찾을 수 없어요. 목록을 새로고침하세요.'
+  if (error.status === 409)
+    return '연결 설정이 변경되었거나 실행 조건이 달라졌어요. 최신 설정을 다시 조회하세요.'
+  if (error.status === 400 || error.status === 422)
+    return '입력값과 검사 대상 형식을 확인하세요.'
+  if (error.status === 429) return '요청이 많아요. 잠시 후 다시 시도하세요.'
+  if (error.status === 503)
+    return '인증 저장소나 연결 서비스를 사용할 수 없어요. 서버 설정을 확인하세요.'
+  return '설정을 저장하지 못했어요. 잠시 후 다시 시도하세요.'
+}
