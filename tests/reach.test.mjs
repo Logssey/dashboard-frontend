@@ -112,6 +112,9 @@ test('summary view shows fractions and reasons and never calls results safe', ()
   assert.match(html, /모두 도달 불가/)
   assert.doesNotMatch(html, /안전|해결됨/)
   assert.doesNotMatch(html, /%/)
+  assert.doesNotMatch(html, /아직 연결되지 않았어요/)
+  const summary = reach.sampleReachSummary()
+  assert.match(html, new RegExp(`실행 중</span><strong>${summary.byDeployment.RUNNING}건`))
 })
 
 test('copy rows show the pending proposal next to the reason', () => {

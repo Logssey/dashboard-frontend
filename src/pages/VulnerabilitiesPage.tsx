@@ -135,6 +135,7 @@ export function VulnerabilitySummaryPage() {
     if (link.status?.length) params.set('status', link.status.join(','))
     if (link.severity?.length) params.set('severity', link.severity.join(','))
     if (link.reviewState?.length) params.set('review', link.reviewState.join(','))
+    if (link.deployment?.length) params.set('deployment', link.deployment.join(','))
     const query = params.toString()
     navigate(query ? `${VULNERABILITY_FINDINGS_PATH}?${query}` : VULNERABILITY_FINDINGS_PATH)
   }
@@ -153,7 +154,7 @@ export function VulnerabilitySummaryPage() {
           </button>
         </p>
       )}
-      {summaryData && <ReachSummaryView summary={summaryData} onOpen={openFindings} />}
+      {summaryData && <ReachSummaryView summary={summaryData} onOpen={openFindings} onNavigate={navigate} />}
     </>
   )
 }

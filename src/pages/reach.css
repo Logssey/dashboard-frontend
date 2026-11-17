@@ -51,8 +51,9 @@
 .reach-flow-box strong { font-size: 18px; }
 .reach-flow-arrow { align-self: center; color: var(--text-muted); }
 .reach-flow-branch { margin-top: 10px; max-width: 360px; border-style: dashed; background: none; }
-.reach-unconnected { background: var(--surface-subtle); }
-.reach-unconnected h2 { margin-bottom: 8px; }
+.reach-summary-grid .card h2 { margin-bottom: 8px; }
+.reach-summary-grid .card > .caption { margin: 10px 0; }
+.reach-summary-deployment .reach-flow-box { flex-basis: 140px; }
 
 /* Finding 목록 (SCR-02) */
 .reach-chips { display: flex; gap: 10px; flex-wrap: wrap; }
