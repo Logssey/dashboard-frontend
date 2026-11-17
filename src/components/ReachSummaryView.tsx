@@ -229,7 +229,23 @@ export function ReachSummaryView({ summary, onOpen, onNavigate }: {
         <section className="card">
           <h2>스캔 정보</h2>
           {summary.scope.scanId != null ? (
-            <p className="caption">이 요약은 스캔 #{summary.scope.scanId}(앱·대상 종류마다 PR이 아닌 최신 성공 스캔) 기준이에요. 집계 {formatKst(summary.generatedAt)}</p>
+            <p className="caption">이 요약은 스캔 #{summary.scope.scanId} 기준이에요. 집계 {formatKst(summary.generatedAt)}</p>
+          ) : summary.basis?.scans.length ? (
+            <ul className="reach-basis-scans">
+              {summary.basis.scans.map((scan) => (
+                <li key={scan.scanId}>
+                  <strong>{scan.app}</strong> {scan.targetType === 'IMAGE' ? '이미지' : '레포'}{' '}
+                  {onNavigate ? (
+                    <button type="button" className="btn soft small" onClick={() => onNavigate(`${VULNERABILITY_SCANS_PATH}?scan=${scan.scanId}`)}>
+                      스캔 #{scan.scanId}
+                    </button>
+                  ) : (
+                    `스캔 #${scan.scanId}`
+                  )}
+                  <span className="caption"> · {scan.running ? '운영에서 실행 중' : scan.targetType === 'IMAGE' ? '최신 빌드(실행 중 아님·모름)' : '최신 커밋'}</span>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="caption">앱·대상 종류마다 PR이 아닌 최신 성공 스캔을 모아 집계했어요. 집계 {formatKst(summary.generatedAt)}</p>
           )}

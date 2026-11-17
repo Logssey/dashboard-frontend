@@ -289,6 +289,10 @@ test('finding list can be limited to one scan', () => {
   assert.equal(query.get('scanId'), '7')
   const none = new URLSearchParams(reach.reachFindingQuery({ status: [], severity: [], reviewState: [], deployment: [], cveContains: '' }, null))
   assert.equal(none.get('scanId'), null)
+  const latest = new URLSearchParams(reach.reachFindingQuery({ status: [], severity: [], reviewState: [], deployment: [], cveContains: '', basis: 'LATEST' }, null))
+  assert.equal(latest.get('basis'), 'LATEST')
+  assert.equal(new URLSearchParams(reach.reachFindingQuery({ status: [], severity: [], reviewState: [], deployment: [], cveContains: '', scanId: 7, basis: 'LATEST' }, null)).get('basis'), null)
+  assert.equal(none.get('basis'), null)
 })
 
 test('review history lists newest first and names server resets', () => {
@@ -312,14 +316,30 @@ test('sidebar lists 워크로드 and 스캔 under 취약점 관리', () => {
   assert.match(html, /<span>워크로드<\/span>/) // 상단 바 제목
 })
 
+test('running basis names unscanned running images and the fallback', () => {
+  const base = { ...reach.sampleReachSummary(), scope: { targetId: null, scanId: null } }
+  const running = client()
+  running.setQueryData(['reach-summary', 'RUNNING'], { data: { ...base, basis: { requested: 'RUNNING', applied: 'RUNNING', scans: [],
+    unscannedRunning: [{ app: 'CHAT', namespace: 'reused', name: 'reused-chat', container: 'reused-chat',
+      imageRepository: 'logssey/reused-chat', imageDigest: 'sha256:' + 'd'.repeat(64) }] } }, sample: false })
+  const html = renderAt(running, reach.VulnerabilitySummaryPage, '/vulnerabilities')
+  assert.match(html, /실행 중인데 스캔되지 않은 이미지가 1개/)
+  assert.match(html, /CHAT<\/strong> reused\/reused-chat/)
+  assert.match(html, /운영에서 실행 중인 이미지의 스캔/)
+
+  const fallback = client()
+  fallback.setQueryData(['reach-summary', 'RUNNING'], { data: { ...base, basis: { requested: 'RUNNING', applied: 'LATEST', scans: [], unscannedRunning: [] } }, sample: false })
+  assert.match(renderAt(fallback, reach.VulnerabilitySummaryPage, '/vulnerabilities'), /실행 중인 이미지를 아직 몰라서/)
+})
+
 test('summary without a single baseline scan says how the scope is chosen instead of #—', () => {
   const queryClient = client()
-  queryClient.setQueryData(['reach-summary'], { data: { ...reach.sampleReachSummary(), scope: { targetId: null, scanId: null } }, sample: false })
+  queryClient.setQueryData(['reach-summary', 'RUNNING'], { data: { ...reach.sampleReachSummary(), scope: { targetId: null, scanId: null } }, sample: false })
   const html = renderAt(queryClient, reach.VulnerabilitySummaryPage, '/vulnerabilities')
   assert.match(html, /기준: 앱마다 최신 완료 스캔\(PR 검사 제외\)/)
   assert.doesNotMatch(html, /#—/)
 
   const one = client()
-  one.setQueryData(['reach-summary'], { data: { ...reach.sampleReachSummary(), scope: { targetId: 1, scanId: 7 } }, sample: false })
+  one.setQueryData(['reach-summary', 'RUNNING'], { data: { ...reach.sampleReachSummary(), scope: { targetId: 1, scanId: 7 } }, sample: false })
   assert.match(renderAt(one, reach.VulnerabilitySummaryPage, '/vulnerabilities'), /기준 스캔 #7/)
 })

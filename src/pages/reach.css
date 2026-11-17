@@ -54,6 +54,10 @@
 .reach-summary-grid .card h2 { margin-bottom: 8px; }
 .reach-summary-grid .card > .caption { margin: 10px 0; }
 .reach-summary-deployment .reach-flow-box { flex-basis: 140px; }
+.reach-scope-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.reach-basis-toggle { display: flex; gap: 6px; }
+.reach-unscanned ul { margin: 6px 0 10px 18px; }
+.reach-basis-scans { margin: 6px 0 12px 18px; display: grid; gap: 4px; }
 
 /* Finding 목록 (SCR-02) */
 .reach-chips { display: flex; gap: 10px; flex-wrap: wrap; }
