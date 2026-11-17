@@ -9,13 +9,14 @@ interface Props {
   catalog?: ComplianceScopeCatalog
   busy: boolean
   error: string | null
+  defaultRegions?: string[]
   onClose: () => void
   onSubmit: (environment: 'prod' | 'dev', scope: ComplianceScanScope) => void
 }
 
 const suggestedRegions = ['ap-northeast-2', 'us-east-1', 'us-west-2', 'ap-northeast-1']
 
-export function ComplianceScanDialog({ open, catalog, busy, error, onClose, onSubmit }: Props) {
+export function ComplianceScanDialog({ open, catalog, busy, error, defaultRegions, onClose, onSubmit }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [environment, setEnvironment] = useState<'prod' | 'dev'>('prod')
   const [mode, setMode] = useState<ScopeMode>('all')
@@ -33,10 +34,10 @@ export function ComplianceScanDialog({ open, catalog, busy, error, onClose, onSu
     if (!open) return
     setEnvironment('prod')
     setMode('all')
-    setRegions(['ap-northeast-2'])
+    setRegions(defaultRegions?.length ? defaultRegions : ['ap-northeast-2'])
     setSelected([])
     setSearch('')
-  }, [open])
+  }, [defaultRegions, open])
 
   const options = useMemo(() => {
     const query = search.trim().toLowerCase()
