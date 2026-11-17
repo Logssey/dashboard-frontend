@@ -280,6 +280,7 @@ test('new scan input follows API-01 rules before sending', () => {
 test('scan request errors read as next steps', () => {
   assert.match(reach.scanRequestErrorText(503, 'UNAVAILABLE', 'x'), /잠시 뒤 다시/)
   assert.match(reach.scanRequestErrorText(422, 'UNPROCESSABLE', 'x'), /앱을 직접 골라/)
+  assert.match(reach.scanRequestErrorText(422, 'UNPROCESSABLE', 'RUNNER_NOT_INSTALLED: 이 레포에는 Reach 실행기가 없습니다.'), /Reach 실행기가 아직 없어요/)
   assert.match(reach.scanRequestErrorText(400, 'INVALID_INPUT', '잘못된 값'), /잘못된 값/)
 })
 
