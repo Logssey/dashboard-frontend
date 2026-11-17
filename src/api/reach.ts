@@ -151,8 +151,29 @@ export interface ReachReviewHistoryEntry {
 }
 
 /** API-08 요약 (3-9) */
+/** 기본 범위의 기준 (API-04·08 basis). RUNNING은 앱마다 실행 중 이미지의 스캔을 먼저 쓴다 */
+export type ReachBasis = 'RUNNING' | 'LATEST'
+
+/** API-08 basis. 기본 범위(target·scanId 없음)일 때만 온다 */
+export interface ReachSummaryBasis {
+  requested: ReachBasis
+  /** RUNNING을 요청해도 L1이 꺼졌거나 신선한 조회가 없으면 LATEST */
+  applied: ReachBasis
+  scans: Array<{ app: string; targetType: 'REPO' | 'IMAGE'; targetId: number; scanId: number; imageDigest: string | null; running: boolean }>
+  /** 실행 중인데 스캔이 없는 워크로드. 그 앱은 최신 스캔으로 대신 집계됐다 */
+  unscannedRunning: Array<{
+    app: string | null
+    namespace: string
+    name: string
+    container: string
+    imageRepository: string
+    imageDigest: string
+  }>
+}
+
 export interface ReachSummary {
   scope: { targetId: number | null; scanId: number | null }
+  basis?: ReachSummaryBasis | null
   totals: { findings: number }
   byStatus: Record<ReachStatus, number>
   /** API 명세는 네 사유를 0까지 준다. ANALYSIS_TIMEOUT은 없을 수 있다 */
@@ -176,6 +197,8 @@ export interface ReachFindingFilter {
   cveContains: string
   /** 특정 스캔의 결과만 볼 때 (SCR-05 [결과 보기]). 없으면 기본 범위 */
   scanId?: number | null
+  /** 기본 범위의 기준. 없으면 RUNNING(서버 기본) */
+  basis?: ReachBasis
 }
 
 /** sample이 true면 백엔드 대신 Reach API 명세서의 예시 값이다 */
@@ -218,6 +241,7 @@ export function reachFindingQuery(filter: ReachFindingFilter, cursor: string | n
   if (filter.deployment.length) params.set('deployment', filter.deployment.join(','))
   if (filter.cveContains.trim()) params.set('cveContains', filter.cveContains.trim())
   if (filter.scanId) params.set('scanId', String(filter.scanId))
+  else if (filter.basis === 'LATEST') params.set('basis', 'LATEST')
   params.set('size', String(REACH_PAGE_SIZE))
   params.set('include', 'total')
   if (cursor) params.set('cursor', cursor)
@@ -237,8 +261,11 @@ export const fetchReachApps = () =>
   orSample(async () => (await apiRequest<{ items: ReachAppItem[] }>('/api/v1/reach/apps')).items, sampleReachApps)
 
 /** API-08 */
-export const fetchReachSummary = () =>
-  orSample(() => apiRequest<ReachSummary>('/api/v1/reach/summary?include=matrix'), sampleReachSummary)
+export const fetchReachSummary = (basis: ReachBasis = 'RUNNING') =>
+  orSample(
+    () => apiRequest<ReachSummary>(`/api/v1/reach/summary?include=matrix${basis === 'LATEST' ? '&basis=LATEST' : ''}`),
+    sampleReachSummary,
+  )
 
 /** API-04 */
 export const fetchReachFindings = (filter: ReachFindingFilter, cursor: string | null) =>
