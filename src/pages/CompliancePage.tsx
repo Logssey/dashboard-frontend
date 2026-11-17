@@ -16,12 +16,14 @@ import {
   type FrameworkSummary,
   fetchComplianceJobs,
   fetchComplianceScopeCatalog,
+  fetchComplianceTargets,
 } from '@/api/compliance'
 import { ApiError } from '@/api/client'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
 import { ComplianceScanDialog } from '@/components/ComplianceScanDialog'
+import { ComplianceTargetPanel } from '@/components/ComplianceTargetPanel'
 import { PageHeader } from '@/components/PageHeader'
 import { useMe } from '@/layout/useMe'
 import './compliance.css'
@@ -97,30 +99,47 @@ export function CompliancePage() {
   const [scanError, setScanError] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [jobActionError, setJobActionError] = useState<string | null>(null)
+  const [selectedTargetKey, setSelectedTargetKey] = useState('reused')
   const fileInput = useRef<HTMLInputElement>(null)
-  const completedJobRef = useRef<number | null>(null)
+  const terminalJobRef = useRef<number | null>(null)
   const queryClient = useQueryClient()
   const me = useMe()
 
+  const targets = useQuery({
+    queryKey: ['compliance', 'targets'],
+    queryFn: fetchComplianceTargets,
+    refetchInterval: (query) => query.state.data?.items.some((target) => target.connectionStatus === 'VERIFYING') ? 5000 : false,
+  })
+  const selectedTarget = targets.data?.items.find((target) => target.targetKey === selectedTargetKey)
+  const activeTargetKey = selectedTarget?.targetKey ?? selectedTargetKey
+
+  useEffect(() => {
+    const items = targets.data?.items
+    if (!items?.length || items.some((target) => target.targetKey === selectedTargetKey)) return
+    setSelectedTargetKey(items[0].targetKey)
+  }, [selectedTargetKey, targets.data])
+
+  useEffect(() => setSelectedRunId(null), [activeTargetKey])
+
   const overview = useQuery({
-    queryKey: ['compliance', 'overview', environment],
-    queryFn: () => fetchComplianceOverview(environment),
+    queryKey: ['compliance', 'overview', activeTargetKey, environment],
+    queryFn: () => fetchComplianceOverview(activeTargetKey, environment),
   })
   const runs = useQuery({
-    queryKey: ['compliance', 'runs', environment],
-    queryFn: () => fetchComplianceRuns(environment),
+    queryKey: ['compliance', 'runs', activeTargetKey, environment],
+    queryFn: () => fetchComplianceRuns(activeTargetKey, environment),
   })
   const catalog = useQuery({ queryKey: ['compliance', 'catalog'], queryFn: fetchComplianceCatalog, staleTime: Infinity })
   const scopeCatalog = useQuery({ queryKey: ['compliance', 'scope-catalog'], queryFn: fetchComplianceScopeCatalog, staleTime: Infinity })
-  const jobs = useQuery({ queryKey: ['compliance', 'jobs'], queryFn: fetchComplianceJobs, refetchInterval: 5000 })
+  const jobs = useQuery({ queryKey: ['compliance', 'jobs', activeTargetKey], queryFn: () => fetchComplianceJobs(activeTargetKey), refetchInterval: 5000 })
   const selectedRun = useQuery({
-    queryKey: ['compliance', 'run', selectedRunId],
-    queryFn: () => fetchComplianceRun(selectedRunId as number),
+    queryKey: ['compliance', 'run', activeTargetKey, selectedRunId],
+    queryFn: () => fetchComplianceRun(activeTargetKey, selectedRunId as number),
     enabled: selectedRunId !== null,
   })
 
   const importer = useMutation({
-    mutationFn: (file: File) => importProwlerResults(file, importEnvironment),
+    mutationFn: (file: File) => importProwlerResults(activeTargetKey, file, importEnvironment),
     onSuccess: async ({ runId }) => {
       setUploadError(null)
       setSelectedRunId(runId)
@@ -131,7 +150,7 @@ export function CompliancePage() {
 
   const scanner = useMutation({
     mutationFn: ({ selectedEnvironment, scope }: { selectedEnvironment: 'prod' | 'dev'; scope: { regions: string[]; services: string[]; checks: string[] } }) =>
-      createComplianceJob(selectedEnvironment, scope),
+      createComplianceJob(activeTargetKey, selectedEnvironment, scope),
     onSuccess: async () => {
       setScanError(null)
       setScanOpen(false)
@@ -141,7 +160,7 @@ export function CompliancePage() {
   })
 
   const canceller = useMutation({
-    mutationFn: cancelComplianceJob,
+    mutationFn: (jobId: number) => cancelComplianceJob(activeTargetKey, jobId),
     onSuccess: async () => {
       setJobActionError(null)
       await queryClient.invalidateQueries({ queryKey: ['compliance', 'jobs'] })
@@ -150,11 +169,17 @@ export function CompliancePage() {
   })
 
   useEffect(() => {
-    const completed = jobs.data?.items.find((job) => job.status === 'SUCCEEDED')
-    if (!completed || completed.jobId === completedJobRef.current) return
-    completedJobRef.current = completed.jobId
-    void queryClient.invalidateQueries({ queryKey: ['compliance', 'overview'] })
-    void queryClient.invalidateQueries({ queryKey: ['compliance', 'runs'] })
+    const terminal = jobs.data?.items.find((job) => ['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(job.status))
+    if (!terminal || terminal.jobId === terminalJobRef.current) return
+    terminalJobRef.current = terminal.jobId
+    if (terminal.jobKind === 'CONNECTION_TEST') {
+      void queryClient.invalidateQueries({ queryKey: ['compliance', 'targets'] })
+      return
+    }
+    if (terminal.status === 'SUCCEEDED') {
+      void queryClient.invalidateQueries({ queryKey: ['compliance', 'overview'] })
+      void queryClient.invalidateQueries({ queryKey: ['compliance', 'runs'] })
+    }
   }, [jobs.data, queryClient])
 
   const onFile = (event: ChangeEvent<HTMLInputElement>) => {
@@ -173,6 +198,9 @@ export function CompliancePage() {
   const displayed = selectedRun.data
   const isAdmin = me.data?.role === 'ADMIN'
   const executionEnabled = scopeCatalog.data?.executionEnabled === true
+  const canScan = executionEnabled
+    && selectedTarget?.enabled === true
+    && selectedTarget.connectionStatus === 'VERIFIED'
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['compliance'] })
 
   return (
@@ -183,14 +211,14 @@ export function CompliancePage() {
         actions={
           <>
             <button className="btn outline" onClick={refresh}><Icon name="activity" />새로고침</button>
-            {latest && <a className="btn soft" href={complianceReportUrl(latest.runId, reportFramework)} target="_blank" rel="noreferrer">
+            {latest && <a className="btn soft" href={complianceReportUrl(activeTargetKey, latest.runId, reportFramework)} target="_blank" rel="noreferrer">
               <Icon name="download" />감사 보고서
             </a>}
             {isAdmin && <button className="btn outline" onClick={() => fileInput.current?.click()} disabled={importer.isPending}>
               <Icon name="download" />{importer.isPending ? '가져오는 중' : '결과 가져오기'}
             </button>}
-            {isAdmin && <button className="btn primary" disabled={!executionEnabled}
-              title={executionEnabled ? undefined : 'AWS 운영 연결을 완료한 뒤 활성화됩니다.'}
+            {isAdmin && <button className="btn primary" disabled={!canScan}
+              title={canScan ? undefined : '연결 확인과 대상 활성화를 완료한 뒤 사용할 수 있어요.'}
               onClick={() => { setScanError(null); setScanOpen(true) }}>
               <Icon name="plus" />새 점검
             </button>}
@@ -200,6 +228,7 @@ export function CompliancePage() {
 
       <input ref={fileInput} className="compliance-file" type="file" accept="application/json,.json" onChange={onFile} />
       <ComplianceScanDialog open={scanOpen} catalog={scopeCatalog.data} busy={scanner.isPending} error={scanError}
+        defaultRegions={selectedTarget?.defaultRegions}
         onClose={() => { if (!scanner.isPending) setScanOpen(false) }}
         onSubmit={(selectedEnvironment, scope) => scanner.mutate({ selectedEnvironment, scope })} />
 
@@ -209,6 +238,15 @@ export function CompliancePage() {
           <span>이 화면은 인증 합격 여부가 아니라 자동 수집 가능한 기술 근거를 보여줘요.</span>
         </div>
         <div className="row">
+          <label className="compliance-import-environment">
+            <span>점검 대상</span>
+            <select className="select" value={activeTargetKey}
+              onChange={(event) => setSelectedTargetKey(event.target.value)}>
+              {targets.data?.items.length
+                ? targets.data.items.map((target) => <option key={target.targetKey} value={target.targetKey}>{target.displayName}</option>)
+                : <option value="reused">등록된 대상 없음</option>}
+            </select>
+          </label>
           {latest && <label className="compliance-import-environment">
             <span>보고서</span>
             <select className="select" value={reportFramework} onChange={(event) => setReportFramework(event.target.value as ComplianceReportFramework)}>
@@ -240,6 +278,11 @@ export function CompliancePage() {
         자동 점검은 AWS 운영 연결을 준비 중이에요. 기존 결과 조회, JSON 가져오기와 보고서 생성은 사용할 수 있어요.
       </p>}
 
+      <ComplianceTargetPanel isAdmin={isAdmin} targets={targets.data?.items ?? []}
+        selected={selectedTarget} selectedKey={activeTargetKey}
+        connectionTestsEnabled={scopeCatalog.data?.connectionTestsEnabled === true}
+        onSelect={setSelectedTargetKey} />
+
       {!!jobs.data?.items.length && <section className="card list-card compliance-job-card">
         <div className="card-head">
           <div><h2>자동 점검</h2><p className="section-intro">요청한 범위와 현재 실행 상태를 확인하세요.</p></div>
@@ -248,9 +291,9 @@ export function CompliancePage() {
         <div className="table-scroll"><table>
           <thead><tr><th>작업</th><th>환경</th><th>범위</th><th>상태</th><th>요청 시각</th><th>결과</th></tr></thead>
           <tbody>{jobs.data.items.map((job) => <tr key={job.jobId}>
-            <td><strong>#{job.jobId}</strong><span className="asset">AWS · Prowler</span></td>
+            <td><strong>#{job.jobId}</strong><span className="asset">{job.jobKind === 'CONNECTION_TEST' ? 'AWS 연결 확인' : 'AWS · Prowler'}</span></td>
             <td><Badge label={job.environment === 'prod' ? '운영' : '개발'} tone="primary" /></td>
-            <td>{scopeLabel(job.scope)}<span className="asset">{job.scope.regions.join(', ') || '전체 리전'}</span></td>
+            <td>{job.jobKind === 'CONNECTION_TEST' ? '역할·계정 확인' : scopeLabel(job.scope)}<span className="asset">{job.jobKind === 'CONNECTION_TEST' ? job.targetName : (job.scope.regions.join(', ') || '전체 리전')}</span></td>
             <td><Badge label={jobStatus[job.status].label} tone={jobStatus[job.status].tone} />{job.status === 'LEASED' && <span className="asset">시도 {job.attemptCount}/{job.maxAttempts}</span>}</td>
             <td>{timeFormat.format(new Date(job.createdAt))}</td>
             <td>{job.runId ? <button className="finding-link" onClick={() => setSelectedRunId(job.runId)}>결과 보기</button>
@@ -267,16 +310,18 @@ export function CompliancePage() {
           <div className="compliance-empty-icon"><Icon name="shield" /></div>
           <div>
             <p className="compliance-eyebrow">첫 점검 준비 완료</p>
-            <h2>Prowler JSON-OCSF 결과를 가져오면 바로 시작돼요.</h2>
-            <p>원본 파일은 저장하지 않고, 화면과 규제 평가에 필요한 정규화된 근거와 파일 해시만 보관합니다.</p>
+            <h2>{canScan ? '첫 AWS 점검을 시작할 수 있어요.' : 'AWS 점검 대상을 먼저 연결해 주세요.'}</h2>
+            <p>{canScan
+              ? '전용 읽기 역할로 Prowler를 실행하고 세 규제 기준을 한 번에 평가합니다.'
+              : '연결 확인이 끝나기 전에는 AWS 호출이 발생하지 않으며, 기존 Prowler JSON 결과는 별도로 가져올 수 있습니다.'}</p>
           </div>
           <div className="compliance-catalog-summary">
             {catalog.data?.frameworks.map((framework) => (
               <div key={framework.id}><strong>{framework.controls}</strong><span>{framework.shortName} 통제</span></div>
             ))}
           </div>
-          {isAdmin && <button className="btn primary" disabled={!executionEnabled}
-            title={executionEnabled ? undefined : 'AWS 운영 연결을 완료한 뒤 활성화됩니다.'}
+          {isAdmin && <button className="btn primary" disabled={!canScan}
+            title={canScan ? undefined : '연결 확인과 대상 활성화를 완료한 뒤 사용할 수 있어요.'}
             onClick={() => setScanOpen(true)}><Icon name="plus" />첫 점검 시작</button>}
         </section>
       ) : (
