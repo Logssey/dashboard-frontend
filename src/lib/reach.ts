@@ -365,6 +365,9 @@ export function scanRequestErrorText(status: number, code: string | null, messag
   if (status === 400) return `입력 값을 확인하세요. (${message})`
   if (status === 403) return '스캔을 요청할 권한이 없어요.'
   if (status === 409) return '같은 요청이 처리 중이거나, 같은 요청 키로 다른 내용을 보냈어요. 잠시 뒤 다시 시도하세요.'
+  if (status === 422 && message.startsWith('RUNNER_NOT_INSTALLED')) {
+    return '이 앱의 레포에는 Reach 실행기가 아직 없어요(GitHub App 설치와 Reach 워크플로가 필요해요).'
+  }
   if (status === 422) return '어느 서비스(앱)의 대상인지 정하지 못했어요. 앱을 직접 골라 주세요.'
   if (status === 503) return '스캔 실행기(GitHub 워크플로)를 지금 부를 수 없어요. 잠시 뒤 다시 시도하세요.'
   return code ? `${message} (${code})` : message

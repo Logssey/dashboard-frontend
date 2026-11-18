@@ -144,6 +144,8 @@ export interface KeyLocation {
   safeLocationLabel: string
   presence: 'PRESENT' | 'MISSING' | 'UNKNOWN'
   exposure: 'ABNORMAL' | 'NORMAL' | 'UNKNOWN'
+  /** Notion: web publication observed at the last complete scan. Not used for severity. */
+  exposureRange?: 'BROAD' | 'BOUNDED' | 'UNKNOWN' | null
   validity: { result: string; reasonCode: string | null; observedAt: string | null; providerCheckedAt?: string | null; postActionAfterAt?: string | null; lastObservation?: { result: string; reasonCode: string | null; observedAt: string | null; providerCheckedAt: string | null } | null }
   storagePolicy: { result: string; reasonCode: string | null }
   coverage: ScopeCoverage
