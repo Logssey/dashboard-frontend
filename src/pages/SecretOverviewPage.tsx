@@ -205,14 +205,22 @@ function CollectionHealth({ summary, filters }: { summary: WorkbenchSummary; fil
   </section>
 }
 
+function overviewErrorMessage(error: unknown) {
+  if (error instanceof ApiError && error.status === 403) return '시크릿을 조회할 권한이 없어요'
+  if (error instanceof ApiError && [404, 409].includes(error.status)) return '조회 기준을 다시 확인해 주세요'
+  return '현황을 불러오지 못했어요'
+}
+
 export function SecretOverviewPage() {
   const [params, setParams] = useSecretListParams(true)
   const client = useQueryClient()
   const { filters, valid } = parseWorkbenchFilters(params)
+  const selectionKey = workbenchSearch(filters).toString()
   const rawView = params.get('view')
   const requestedView = rawView && Object.hasOwn(views, rawView) ? rawView as WorkView : null
   const [refreshing, setRefreshing] = useState(false)
-  const [refreshError, setRefreshError] = useState(false)
+  const [refreshError, setRefreshError] = useState<{ selectionKey: string; message: string } | null>(null)
+  const refreshMessage = refreshError?.selectionKey === selectionKey ? refreshError.message : null
   const legacyRun = params.get('run')
   const invalidated = isSecretSnapshotInvalidated(filters.snapshotId)
   const query = useSecretWorkbench(filters, valid && !legacyRun)
@@ -230,15 +238,15 @@ export function SecretOverviewPage() {
 
   const refresh = async () => {
     setRefreshing(true)
-    setRefreshError(false)
+    setRefreshError(null)
     const clean = { ...filters, snapshotId: '' }
     try {
       const data = await client.fetchQuery({ queryKey: secretSummaryKey(clean), queryFn: () => fetchSecretSummary(clean), staleTime: 0 })
       const next = { ...clean, snapshotId: data.snapshotId }
       client.setQueryData(secretSummaryKey(next), data)
       setParams(overviewSearch(next, view), { replace: true })
-    } catch {
-      setRefreshError(true)
+    } catch (error) {
+      setRefreshError({ selectionKey, message: overviewErrorMessage(error) })
     } finally {
       setRefreshing(false)
     }
@@ -253,11 +261,11 @@ export function SecretOverviewPage() {
 
   return <>
     <PageHeader title="시크릿 현황" description="발견한 키를 확인하고 조치 결과까지 추적하세요." actions={<><button className="btn outline" disabled={refreshing || !valid} onClick={() => void refresh()}>{refreshing ? '갱신 중…' : '새로고침'}</button><Link className="btn outline" to={inventoryPath(filters)}>키·발견 위치</Link><Link className="btn primary" to={withSecretOrigin('/secrets/history?request=scan', filters.origin)}>스캔 요청</Link></>} />
-    {refreshError && <p className="notice error" role="alert">새 현황을 불러오지 못했어요. 기준시각을 확인하고 다시 조회하세요.</p>}
+    {refreshMessage && !query.isError && <p className="notice error" role="alert">{refreshMessage}</p>}
     {!valid ? <p className="notice error" role="alert">현황 조회 조건을 확인해 주세요. <Link to="/secrets">조건 초기화</Link></p>
       : invalidated ? <section className="card secret-overview-empty"><h2>조회 기준이 변경됐어요</h2><button className="btn primary" onClick={() => void refresh()}>최신 현황 조회</button></section>
       : query.isPending ? <p className="card secret-scan-message" role="status">현황을 불러오는 중이에요.</p>
-      : query.isError ? <section className="card secret-overview-empty" role="alert"><h2>{query.error instanceof ApiError && [404, 409].includes(query.error.status) ? '조회 기준을 다시 확인해 주세요' : '현황을 불러오지 못했어요'}</h2><button className="btn outline" onClick={() => void refresh()}>다시 조회</button></section>
+      : query.isError ? <section className="card secret-overview-empty" role="alert"><h2>{refreshMessage ?? overviewErrorMessage(query.error)}</h2><button className="btn outline" onClick={() => void refresh()}>다시 조회</button></section>
       : hasData && data ? <>
         <div className="secret-overview-asof"><span>기준 {scanDate(data.asOf)}</span><span>{data.restrictedCoverage ? '열람 가능한 범위' : '승인된 범위'}</span></div>
         <OverviewCards summary={data} view={view} onSelect={(next) => setParams(overviewSearch(filters, next))} />
