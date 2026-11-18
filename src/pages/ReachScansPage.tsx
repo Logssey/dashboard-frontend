@@ -19,6 +19,8 @@ import {
   labelOf,
   reachScanStatusLabel,
   reachScanStatusOrder,
+  reachL3Label,
+  reachL3Order,
   reachStageLabel,
   reachStageStatusLabel,
   reachStatusLabel,
@@ -236,6 +238,29 @@ export function ReachScanDetail({ scan, onRerun }: { scan: ReachScan; onRerun: (
             : '스캔이 진행 중이에요.'}{' '}
           10초마다 상태를 다시 받아요.
         </p>
+      )}
+
+      {scan.l3 && (
+        <section className="reach-section">
+          <h3>실제 실행 (L3)</h3>
+          {scan.l3.runStatus === 'FAILED' ? (
+            <p className="notice">
+              이 스캔에서 앱을 띄워 보는 단계가 실패했어요. 스캔 결과에는 영향이 없어요.
+              {scan.l3.error && <span className="asset">{scan.l3.error}</span>}
+            </p>
+          ) : (
+            <p>
+              {reachL3Order.map((level) => (
+                <span key={level} className="reach-l3-count">
+                  <span className="caption">{reachL3Label[level]}</span> <strong>{scan.l3?.counts?.[level] ?? 0}</strong>
+                </span>
+              ))}
+              <span className="asset">
+                시나리오 {scan.l3.scenario} · {formatKst(scan.l3.observedAt)}
+              </span>
+            </p>
+          )}
+        </section>
       )}
 
       {scan.failure && (

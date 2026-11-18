@@ -1,7 +1,8 @@
 import type { ReachFindingListItem } from '@/api/reach'
 import { nearestFixedVersion, packageGroup } from '@/lib/reach'
+import { l3DiffersFromL2 } from '@/lib/reachL3'
 import { labelOf, reachNotAnalyzedReasonLabel, reachResetReasonLabel, reachStatusLabel } from '@/lib/reachLabels'
-import { ReachDeploymentBadge, ReachMethodTag, ReachReviewBadge, ReachSeverityChip, ReachStatusBadge } from './ReachBadges'
+import { ReachDeploymentBadge, ReachL3Badge, ReachMethodTag, ReachReviewBadge, ReachSeverityChip, ReachStatusBadge } from './ReachBadges'
 
 /** 근거 요약 칸: 분석 대상 아님은 사유를 쓰고, 판정 제안이 있으면 "제안(확정 대기)"와 함께 쓴다 (SCR-02 열 정의) */
 export function reachEvidenceText(item: ReachFindingListItem): string {
@@ -28,6 +29,7 @@ export function ReachFindingTable({ items, onSelect }: { items: ReachFindingList
             <th scope="col">방식</th>
             <th scope="col">검토</th>
             <th scope="col">배포</th>
+            <th scope="col" title="L3: 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드가 실행됐는지. 판정을 바꾸지 않는 근거예요">실행</th>
             <th scope="col">근거 요약</th>
           </tr>
         </thead>
@@ -74,6 +76,10 @@ export function ReachFindingTable({ items, onSelect }: { items: ReachFindingList
                 </td>
                 <td>
                   <ReachDeploymentBadge deployment={item.deployment} />
+                </td>
+                <td>
+                  <ReachL3Badge l3={item.l3} />
+                  {l3DiffersFromL2(item.verdict.status, item.l3) && <span className="badge reach-flag differs">≠ 판정</span>}
                 </td>
                 <td>
                   <div className="reach-evidence-cell">{reachEvidenceText(item)}</div>

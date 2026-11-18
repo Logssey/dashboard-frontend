@@ -82,7 +82,7 @@
 .reach-title-row { gap: 10px; flex-wrap: wrap; }
 .reach-band { border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
 .reach-band.alert { box-shadow: inset 4px 0 0 #B42318; }
-.reach-band-cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0; }
+.reach-band-cells { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 0; }
 .reach-band-cells dt { color: var(--text-muted); font-size: 12px; margin-bottom: 6px; }
 .reach-band-cells dd { margin: 0; }
 .reach-conclusion { font-size: 14px; font-weight: 600; margin: 0; }
@@ -263,3 +263,25 @@
 .reach-ci-plan { min-width: 600px; }
 .reach-ci-plan td { vertical-align: top; }
 .reach-ci-plan td:first-child, .reach-ci-plan td:nth-child(2) { white-space: nowrap; }
+
+/* L3 실제 실행 (FR-14). 판정 배지(채운 알약)와 헷갈리지 않게 테두리만 있는 네모 */
+.reach-l3 { border-radius: 6px; padding: 2px 8px; background: #FFFFFF; border: 1px solid #98A2B3; color: #344054; white-space: nowrap; }
+.reach-l3.region { border-color: #B42318; color: #B42318; background: #FEF3F2; font-weight: 600; }
+.reach-l3.function { border-color: #B54708; color: #B54708; background: #FFFAEB; }
+.reach-l3.none { border-style: dashed; color: #475467; }
+.reach-l3.not-recorded { border-style: dotted; color: #667085; }
+.reach-l3-summary { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.reach-l3-summary.region { box-shadow: inset 4px 0 0 #B42318; }
+.reach-l3-summary.function { box-shadow: inset 4px 0 0 #B54708; }
+.reach-l3-headline { margin: 0; }
+.reach-l3-requests, .reach-l3-steps, .reach-l3-paths, .reach-l3-path-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.reach-l3-requests code, .reach-l3-steps code, .reach-l3-paths code { font-size: 12px; overflow-wrap: anywhere; }
+.reach-l3-steps li, .reach-l3-path-steps li { display: flex; gap: 8px; align-items: baseline; }
+.reach-l3-mark { font-size: 10px; color: #98A2B3; }
+.reach-l3-steps li.ran .reach-l3-mark, .reach-l3-path-steps li.ran .reach-l3-mark { color: #B42318; }
+.reach-l3-steps li.missed code, .reach-l3-path-steps li.missed code { color: var(--text-muted); }
+.reach-l3-paths > li { border-top: 1px solid var(--border); padding-top: 8px; display: grid; gap: 6px; }
+.reach-l3-path-steps { padding-left: 14px; gap: 2px; }
+.reach-l3-count { margin-right: 14px; }
+.reach-config { margin: 0 6px 4px 0; background: var(--surface-subtle); color: var(--text-body); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+.reach-config.off { color: var(--text-muted); text-decoration: line-through; }

@@ -12,6 +12,8 @@ import { formatKst } from '@/lib/reach'
 import {
   reachDeploymentLabel,
   reachDeploymentOrder,
+  reachL3Label,
+  reachL3Order,
   reachReviewLabel,
   reachReviewOrder,
   reachSeverityOrder,
@@ -24,7 +26,7 @@ import './reach.css'
 // 취약점 관리(Reach). 사이드바 하위 메뉴로 요약(/vulnerabilities)과 Finding 목록(/vulnerabilities/findings)을 나눈다.
 // 목록의 필터와 열린 Finding은 주소 쿼리에 둔다 (SCR-02-03 "고른 값은 주소 쿼리에 남는다")
 
-const FILTER_KEYS = ['status', 'severity', 'review', 'deployment', 'cve', 'scan'] as const
+const FILTER_KEYS = ['status', 'severity', 'review', 'deployment', 'l3', 'cve', 'scan'] as const
 const SUMMARY_QUERY_KEY = ['reach-summary']
 
 type UrlChanges = Record<string, string | null>
@@ -53,7 +55,8 @@ function readFilter(params: URLSearchParams): ReachFindingFilter {
     reviewState: parseList(params.get('review'), reachReviewOrder),
     deployment: parseList(params.get('deployment'), reachDeploymentOrder),
     cveContains: params.get('cve') ?? '',
-    // 스캔을 고른 때만 넣는다. 늘 넣으면 기존 목록의 캐시 키가 바뀐다
+    // 고른 때만 넣는다. 늘 넣으면 기존 목록의 캐시 키가 바뀐다
+    ...(parseList(params.get('l3'), reachL3Order).length ? { l3: parseList(params.get('l3'), reachL3Order) } : {}),
     ...(scan ? { scanId: scan } : {}),
     ...(basis === 'LATEST' ? { basis } : {}),
   }
@@ -62,7 +65,7 @@ function readFilter(params: URLSearchParams): ReachFindingFilter {
 function hasFilter(filter: ReachFindingFilter): boolean {
   return Boolean(
     filter.status.length || filter.severity.length || filter.reviewState.length || filter.deployment.length || filter.cveContains.trim() ||
-      filter.scanId,
+      filter.l3?.length || filter.scanId,
   )
 }
 
@@ -331,6 +334,7 @@ export function VulnerabilityFindingsPage() {
               <FilterSelect label="심각도" values={filter.severity} options={reachSeverityOrder} optionLabel={(v) => v} onChange={setOne('severity')} />
               <FilterSelect label="검토 상태" values={filter.reviewState} options={reachReviewOrder} optionLabel={(v) => reachReviewLabel[v]} onChange={setOne('review')} />
               <FilterSelect label="배포 상태" values={filter.deployment} options={reachDeploymentOrder} optionLabel={(v) => reachDeploymentLabel[v]} onChange={setOne('deployment')} />
+              <FilterSelect label="실행(L3)" values={filter.l3 ?? []} options={reachL3Order} optionLabel={(v) => reachL3Label[v]} onChange={setOne('l3')} />
               <input
                 className="input reach-cve-input"
                 type="search"
