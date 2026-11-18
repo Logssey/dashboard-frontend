@@ -13,6 +13,7 @@ import { SecretConnectionsPage } from '@/pages/SecretConnectionsPage'
 import { SecretConnectionScopesPage } from '@/pages/SecretConnectionScopesPage'
 import { SecretHistoryPage } from '@/pages/SecretHistoryPage'
 import { SecretRunDetailPage } from '@/pages/SecretRunDetailPage'
+import { SecretKeyPatternsPage } from '@/pages/SecretKeyPatternsPage'
 import { SecretPageBoundary } from '@/components/SecretPageBoundary'
 import { IacPage } from '@/iac/IacPage'
 import { VulnerabilityFindingsPage, VulnerabilitySummaryPage } from '@/pages/VulnerabilitiesPage'
@@ -62,6 +63,7 @@ export function App() {
           <Route path="/secrets/connections/policies/:policyId/versions/:version" element={<SecretPageBoundary returnTo="/secrets/connections/policies"><SecretPolicyDetailPage /></SecretPageBoundary>} />
           <Route path="/secrets/connections/:connectionId/scopes/:scopeId" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretScopeClassificationPage /></SecretPageBoundary>} />
           <Route path="/secrets/connections/:connectionId/scopes" element={<SecretPageBoundary returnTo="/secrets/connections"><SecretConnectionScopesPage /></SecretPageBoundary>} />
+          <Route path="/secrets/key-patterns" element={<SecretKeyPatternsPage />} />
           <Route path="/secrets/history" element={<SecretHistoryPage />} />
           <Route path="/secrets/history/:runId" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunDetailPage /></SecretPageBoundary>} />
           <Route path="/secrets/history/:runId/findings" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunFindingsPage /></SecretPageBoundary>} />
