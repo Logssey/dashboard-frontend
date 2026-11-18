@@ -10,6 +10,7 @@ import {
   type ReachVulnFunction,
 } from '@/api/reach'
 import { findingVulnFunctions, formatKst, nearestFixedVersion, safeExternalUrl } from '@/lib/reach'
+import { l3DiffersFromL2 } from '@/lib/reachL3'
 import {
   labelOf,
   reachHistoryKindLabel,
@@ -22,7 +23,8 @@ import {
 } from '@/lib/reachLabels'
 import { EmptyState } from './EmptyState'
 import { Icon } from './Icon'
-import { ReachDeploymentBadge, ReachMethodTag, ReachReviewBadge, ReachSeverityChip, ReachStatusBadge } from './ReachBadges'
+import { ReachDeploymentBadge, ReachL3Badge, ReachMethodTag, ReachReviewBadge, ReachSeverityChip, ReachStatusBadge } from './ReachBadges'
+import { ReachL3Section } from './ReachL3Section'
 import { ReachReviewForm } from './ReachReviewForm'
 
 function yesNo(value: boolean | undefined): string {
@@ -341,6 +343,13 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
               <ReachDeploymentBadge deployment={detail.deployment} />
             </dd>
           </div>
+          <div>
+            <dt>실행(L3)</dt>
+            <dd>
+              <ReachL3Badge l3={detail.l3} />
+              {l3DiffersFromL2(verdict.status, detail.l3) && <span className="badge reach-flag differs">≠ 판정</span>}
+            </dd>
+          </div>
         </dl>
         <p className="reach-conclusion">
           {verdict.status === 'NOT_ANALYZED' && verdict.notAnalyzedReason
@@ -360,6 +369,8 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
       </section>
 
       <EvidenceSection detail={detail} />
+
+      <ReachL3Section l3={detail.l3} />
 
       <VulnFunctionSection detail={detail} vulnFunctionData={vulnFunctionData} onOpenVulnFunctions={onOpenVulnFunctions} />
 

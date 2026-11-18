@@ -25,6 +25,71 @@ export type ReachNotAnalyzedReason =
   | 'ANALYSIS_TIMEOUT'
 export type ReachResetReason = 'VERDICT_CHANGED' | 'EVIDENCE_CHANGED'
 
+/**
+ * L3 능동 관측이 닿은 곳 (PRD FR-14). 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드 쪽으로 어디까지 실행됐나.
+ * 판정(L2) 옆에 놓는 근거이고 판정을 바꾸지 않는다.
+ * REGION 취약 구간 실행 / FUNCTION 취약 함수까지 / NONE 모두 확인했고 실행 없음 / NOT_RECORDED 확인하지 못한 것이 있음
+ */
+export type ReachL3Level = 'REGION' | 'FUNCTION' | 'NONE' | 'NOT_RECORDED'
+
+/** 목록(API-04)의 L3. regionsChecked는 FUNCTION일 때 구간을 봤는지, startupOnly는 앱이 뜨는 동안에만 실행됐는지 */
+export interface ReachL3Summary {
+  reached: ReachL3Level
+  regionsChecked: boolean
+  startupOnly: boolean
+}
+
+/** 실행 기록을 끊은 구간 id: "startup"(앱이 준비될 때까지) 또는 시나리오 단계("001", "002", …) */
+export type ReachL3Segment = string
+
+export interface ReachL3Function {
+  /** 클래스#메서드(desc) */
+  function: string
+  during: ReachL3Segment[]
+}
+
+export interface ReachL3Region {
+  class: string
+  method: string
+  /** 줄 범위. 없으면 메서드 전체(wholeMethod) */
+  lines?: Array<[number, number]>
+  wholeMethod?: boolean
+  executedLines?: number[]
+  executed: boolean
+  during: ReachL3Segment[]
+  /** 확인하지 못한 이유: OTHER_VERSION, OUT_OF_SCOPE, NO_CLASS_FILE, NO_METHOD, NO_LINE_NUMBERS */
+  unchecked?: string
+}
+
+/** L2가 찾은 호출 경로를 진입점부터 끊기지 않고 탄 단계 수. steps는 진입점이 실행됐을 때만 온다 */
+export interface ReachL3Path {
+  target: string
+  reachedStep: number
+  of: number
+  steps?: Array<{ method: string; executed: boolean | null }>
+}
+
+/** 그 관측의 근거 항목 (FR-14). configKeys에는 이름과 켜짐 여부만 있고 값은 없다 */
+export interface ReachL3Run {
+  scanId: number
+  scenario: string
+  observationMethod: 'COVERAGE' | 'MAPS' | 'UPROBE' | string
+  observedAt: string
+  build?: { imageDigest?: string; jarSha256?: string } | null
+  configKeys?: Array<{ name: string; enabled: boolean }> | null
+  invocations?: Array<{ segment: ReachL3Segment; name: string; request: string; count?: number; ok?: number; failed?: number; skipped?: number }> | null
+}
+
+/** 상세(API-05)의 L3 */
+export interface ReachL3Detail extends ReachL3Summary {
+  during?: ReachL3Segment[] | null
+  functions?: ReachL3Function[] | null
+  regions?: ReachL3Region[] | null
+  paths?: ReachL3Path[] | null
+  note?: string | null
+  run: ReachL3Run
+}
+
 export interface ReachProposal {
   status: Exclude<ReachStatus, 'NOT_ANALYZED'>
   summary: string
@@ -41,6 +106,8 @@ export interface ReachFindingListItem {
   deployment: ReachDeployment
   verdict: { status: ReachStatus; method?: ReachMethod; summary: string; notAnalyzedReason?: ReachNotAnalyzedReason }
   review: { reviewState: ReachReviewState; disagreesWithTool: boolean; proposal?: ReachProposal; resetReason?: ReachResetReason }
+  /** 이 이미지를 띄워 본 결과가 없으면 null */
+  l3?: ReachL3Summary | null
   firstSeenAt: string
 }
 
@@ -93,6 +160,8 @@ export interface ReachFindingDetail {
     references?: string[]
   }
   deployment: ReachDeployment
+  /** L3 능동 관측. 이 이미지를 띄워 본 결과가 없으면 null */
+  l3?: ReachL3Detail | null
   sources?: Array<'TRIVY' | 'GRYPE'>
   verdict: {
     status: ReachStatus
@@ -195,6 +264,8 @@ export interface ReachFindingFilter {
   reviewState: ReachReviewState[]
   deployment: ReachDeployment[]
   cveContains: string
+  /** L3 도달 수준. 고르면 L3 결과가 없는 Finding은 빠진다 */
+  l3?: ReachL3Level[]
   /** 특정 스캔의 결과만 볼 때 (SCR-05 [결과 보기]). 없으면 기본 범위 */
   scanId?: number | null
   /** 기본 범위의 기준. 없으면 RUNNING(서버 기본) */
@@ -240,6 +311,7 @@ export function reachFindingQuery(filter: ReachFindingFilter, cursor: string | n
   if (filter.reviewState.length) params.set('reviewState', filter.reviewState.join(','))
   if (filter.deployment.length) params.set('deployment', filter.deployment.join(','))
   if (filter.cveContains.trim()) params.set('cveContains', filter.cveContains.trim())
+  if (filter.l3?.length) params.set('l3', filter.l3.join(','))
   if (filter.scanId) params.set('scanId', String(filter.scanId))
   else if (filter.basis === 'LATEST') params.set('basis', 'LATEST')
   params.set('size', String(REACH_PAGE_SIZE))
@@ -400,6 +472,14 @@ export interface ReachScan {
     byReviewState?: Record<ReachReviewState, number>
   } | null
   failure?: { code: string; stage?: string | null; message?: string | null } | null
+  /** 이 스캔이 앱을 띄워 봤을 때만 (L3). FAILED여도 스캔은 실패가 아니다 */
+  l3?: {
+    runStatus: 'SUCCEEDED' | 'FAILED'
+    error?: string | null
+    scenario?: string | null
+    observedAt?: string | null
+    counts?: Partial<Record<ReachL3Level, number>> | null
+  } | null
   createdAt: string
   startedAt?: string | null
   finishedAt?: string | null
