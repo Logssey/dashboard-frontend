@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   createComplianceTarget,
   updateComplianceTarget,
   verifyComplianceTarget,
   type ComplianceTarget,
+  type ComplianceRequirement,
+  type ComplianceServiceUsage,
 } from '@/api/compliance'
 import { ApiError } from '@/api/client'
 import { Badge } from '@/components/Badge'
@@ -25,6 +27,30 @@ const connectionLabel = {
   FAILED: ['연결 실패', 'critical'],
 } as const
 
+const serviceOptions = [
+  ['bedrock', 'Amazon Bedrock'],
+  ['sagemaker', 'Amazon SageMaker'],
+  ['drs', 'Elastic Disaster Recovery'],
+  ['ssmincidents', 'Incident Manager'],
+  ['backup', 'AWS Backup'],
+  ['macie', 'Amazon Macie'],
+] as const
+
+const requirementOptions = [
+  ['MULTI_REGION', '멀티 리전 복구'],
+  ['PREMIUM_SUPPORT', 'Premium Support'],
+  ['CLOUDFRONT_GEO_RESTRICTION', 'CloudFront 지역 제한'],
+  ['CLOUDFRONT_FIELD_LEVEL_ENCRYPTION', 'CloudFront 필드 암호화'],
+  ['PQC_TLS', 'PQC TLS'],
+  ['CLOUDFRONT_DEFAULT_ROOT_OBJECT', 'CloudFront 기본 루트 객체'],
+  ['S3_CROSS_REGION_REPLICATION', 'S3 교차 리전 복제'],
+  ['S3_EVENT_NOTIFICATIONS', 'S3 이벤트 알림'],
+  ['S3_CUSTOMER_MANAGED_KMS', 'S3 고객 관리형 KMS'],
+  ['S3_LIFECYCLE', 'S3 Lifecycle'],
+  ['S3_MFA_DELETE', 'S3 MFA Delete'],
+  ['S3_OBJECT_LOCK', 'S3 Object Lock'],
+] as const
+
 export function ComplianceTargetPanel({ isAdmin, targets, selected, selectedKey, connectionTestsEnabled, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const [targetKey, setTargetKey] = useState('')
@@ -32,8 +58,15 @@ export function ComplianceTargetPanel({ isAdmin, targets, selected, selectedKey,
   const [accountId, setAccountId] = useState('')
   const [roleArn, setRoleArn] = useState('')
   const [regions, setRegions] = useState('ap-northeast-2')
+  const [serviceUsage, setServiceUsage] = useState<Record<string, ComplianceServiceUsage>>({})
+  const [requirements, setRequirements] = useState<Record<string, ComplianceRequirement>>({})
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    setServiceUsage(selected?.assessmentProfile?.serviceUsage ?? {})
+    setRequirements(selected?.assessmentProfile?.requirements ?? {})
+  }, [selected])
 
   const created = useMutation({
     mutationFn: () => createComplianceTarget({
@@ -70,6 +103,17 @@ export function ComplianceTargetPanel({ isAdmin, targets, selected, selectedKey,
     onError: (reason) => setError(reason instanceof ApiError ? reason.message : '점검 대상 상태를 바꾸지 못했어요.'),
   })
 
+  const saveProfile = useMutation({
+    mutationFn: () => selected ? updateComplianceTarget(selected, {
+      assessmentProfile: { schemaVersion: 1, serviceUsage, requirements },
+    }) : Promise.reject(),
+    onSuccess: async () => {
+      setError(null)
+      await queryClient.invalidateQueries({ queryKey: ['compliance', 'targets'] })
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : '판정 프로필을 저장하지 못했어요.'),
+  })
+
   const submit = (event: FormEvent) => {
     event.preventDefault()
     setError(null)
@@ -97,6 +141,31 @@ export function ComplianceTargetPanel({ isAdmin, targets, selected, selectedKey,
         <dl><div><dt>Role ARN</dt><dd><code>{selected.roleArn}</code></dd></div>
           <div><dt>External ID</dt><dd><code>{selected.externalId}</code></dd></div></dl>
         <p>External ID는 Logssey가 생성한 읽기 전용 값이며 수정할 수 없어요. 대상 역할의 신뢰 정책에 그대로 사용하세요.</p>
+      </details>
+      <details className="compliance-target-profile">
+        <summary>컴플라이언스 판정 프로필</summary>
+        <p>자산으로 확인되는 서비스는 자동 추론합니다. 미사용이나 정책 요구 여부를 명시하면 다음 점검부터 판정에 반영해요.</p>
+        <h3>서비스 사용 여부</h3>
+        <div className="compliance-profile-grid">{serviceOptions.map(([key, label]) => <label key={key}>
+          <span>{label}</span><select className="select" disabled={!isAdmin}
+            value={serviceUsage[key] ?? 'UNKNOWN'} onChange={(event) => setServiceUsage((current) => ({
+              ...current, [key]: event.target.value as ComplianceServiceUsage,
+            }))}>
+            <option value="UNKNOWN">자동 추론·미확정</option><option value="USED">사용함</option><option value="NOT_USED">사용하지 않음</option>
+          </select>
+        </label>)}</div>
+        <h3>정책 요구 여부</h3>
+        <div className="compliance-profile-grid">{requirementOptions.map(([key, label]) => <label key={key}>
+          <span>{label}</span><select className="select" disabled={!isAdmin}
+            value={requirements[key] ?? 'UNKNOWN'} onChange={(event) => setRequirements((current) => ({
+              ...current, [key]: event.target.value as ComplianceRequirement,
+            }))}>
+            <option value="UNKNOWN">미정</option><option value="REQUIRED">필수</option><option value="NOT_REQUIRED">요구하지 않음</option>
+          </select>
+        </label>)}</div>
+        {isAdmin && <div className="compliance-profile-actions"><span>판정 프로필 변경은 AWS 연결 상태를 바꾸지 않으며 새 Run부터 적용돼요.</span>
+          <button className="btn soft" disabled={saveProfile.isPending}
+            onClick={() => { setError(null); saveProfile.mutate() }}>{saveProfile.isPending ? '저장 중…' : '판정 프로필 저장'}</button></div>}
       </details>
       {isAdmin && <div className="compliance-target-actions">
         <button className="btn outline" disabled={!connectionTestsEnabled || verify.isPending || selected.connectionStatus === 'VERIFYING'}

@@ -65,6 +65,17 @@ const scopeLabel = (scope: { regions: string[]; services: string[]; checks: stri
   return '전체 Check'
 }
 
+const assessmentProfileSummary = (profile: {
+  serviceUsage: Record<string, string>
+  requirements: Record<string, string>
+}) => {
+  const used = Object.values(profile.serviceUsage).filter((status) => status === 'USED').length
+  const notUsed = Object.values(profile.serviceUsage).filter((status) => status === 'NOT_USED').length
+  const required = Object.values(profile.requirements).filter((status) => status === 'REQUIRED').length
+  const notRequired = Object.values(profile.requirements).filter((status) => status === 'NOT_REQUIRED').length
+  return `사용 ${used} · 미사용 ${notUsed} · 정책 요구 ${required} · 비요구 ${notRequired}`
+}
+
 function FrameworkCard({ framework }: { framework: FrameworkSummary }) {
   const assessed = framework.totalControls - framework.notAssessed
   const coverage = framework.totalControls ? Math.round((assessed / framework.totalControls) * 100) : 0
@@ -95,6 +106,7 @@ export function CompliancePage() {
   const [importEnvironment, setImportEnvironment] = useState<'prod' | 'dev'>('prod')
   const [reportFramework, setReportFramework] = useState<ComplianceReportFramework>('all')
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
+  const [selectedResultId, setSelectedResultId] = useState<number | null>(null)
   const [scanOpen, setScanOpen] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -120,6 +132,7 @@ export function CompliancePage() {
   }, [selectedTargetKey, targets.data])
 
   useEffect(() => setSelectedRunId(null), [activeTargetKey])
+  useEffect(() => setSelectedResultId(null), [selectedRunId])
 
   const overview = useQuery({
     queryKey: ['compliance', 'overview', activeTargetKey, environment],
@@ -196,6 +209,7 @@ export function CompliancePage() {
 
   const latest = overview.data?.latestRun
   const displayed = selectedRun.data
+  const selectedResult = displayed?.results.find((result) => result.resultId === selectedResultId)
   const isAdmin = me.data?.role === 'ADMIN'
   const executionEnabled = scopeCatalog.data?.executionEnabled === true
   const canScan = executionEnabled
@@ -366,14 +380,39 @@ export function CompliancePage() {
               <div><h2>#{selectedRunId} 기술 점검 결과</h2><p className="section-intro">실패와 수집 오류를 먼저 보여줘요.</p></div>
               <button className="icon-btn" aria-label="상세 닫기" onClick={() => setSelectedRunId(null)}><Icon name="close" /></button>
             </div>
+            {displayed?.assessmentContext && <div className="compliance-assessment-context">
+              <div><span>Run 판정 정책</span><strong>{displayed.assessmentContext.policyVersion === 'legacy'
+                ? '레거시 판정 · 프로필 미적용'
+                : `정책 ${displayed.assessmentContext.policyVersion}`}</strong></div>
+              <div><span>자산으로 확인한 서비스</span><strong>{displayed.assessmentContext.inferredServices.length
+                ? displayed.assessmentContext.inferredServices.map((service) => service.toUpperCase()).join(', ')
+                : '식별 없음'}</strong></div>
+              <div><span>저장된 적용성 프로필</span><strong>{assessmentProfileSummary(displayed.assessmentContext.profile)}</strong></div>
+            </div>}
             {selectedRun.isLoading ? <p className="compliance-loading">결과를 불러오는 중이에요.</p> : displayed?.results.length ? <>
-              <div className="table-scroll"><table><thead><tr><th>Check</th><th>판정</th><th>Provider</th><th>자산</th><th>Region</th></tr></thead>
+              <div className="table-scroll"><table><thead><tr><th>Check</th><th>판정</th><th>Provider</th><th>자산</th><th>Region</th><th>가이드</th></tr></thead>
                 <tbody>{displayed.results.map((result) => <tr key={result.resultId}>
                   <td><strong>{result.title}</strong><span className="asset">{result.checkId}</span></td>
                   <td><Badge label={resultLabel[result.result]} tone={resultTone[result.result]} /></td>
                   <td>{result.provider.toUpperCase()}</td><td>{result.asset}</td><td>{result.region}</td>
+                  <td><button className="finding-link" onClick={() => setSelectedResultId(
+                    selectedResultId === result.resultId ? null : result.resultId
+                  )}>{selectedResultId === result.resultId ? '닫기' : '보기'}</button></td>
                 </tr>)}</tbody>
               </table></div>
+              {selectedResult?.guide && <article className="compliance-guide" aria-live="polite">
+                <div className="compliance-guide-head">
+                  <div><span>개선 가이드 · Prowler {selectedResult.guide.sourceVersion}</span><h3>{selectedResult.title}</h3></div>
+                  <a href={selectedResult.guide.sourceUrl} target="_blank" rel="noreferrer">원문 보기</a>
+                </div>
+                <div className="compliance-guide-grid">
+                  <section><span>목표 상태</span><p>{selectedResult.guide.expectedState}</p></section>
+                  <section><span>적용 조건</span><p>{selectedResult.guide.applicability}</p></section>
+                  <section><span>변경 영향</span><p>{selectedResult.guide.changeImpact}</p></section>
+                  <section><span>검증 방법</span><p>{selectedResult.guide.verification}</p></section>
+                  <section className="wide"><span>롤백</span><p>{selectedResult.guide.rollback}</p></section>
+                </div>
+              </article>}
               {displayed.resultsTruncated && <p className="table-foot">우선순위가 높은 결과 300건만 표시하고 있어요.</p>}
             </> : <EmptyState title="표시할 결과가 없어요" description="이 실행의 정규화 결과를 찾지 못했어요." />}
           </section>}

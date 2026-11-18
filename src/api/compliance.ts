@@ -57,6 +57,16 @@ export interface ComplianceResultItem {
   region: string
   severity: string
   assetType: string
+  guide?: {
+    disposition: string
+    expectedState: string
+    applicability: string
+    changeImpact: string
+    verification: string
+    rollback: string
+    sourceUrl: string
+    sourceVersion: string
+  }
 }
 
 export interface ComplianceRunDetail {
@@ -64,6 +74,11 @@ export interface ComplianceRunDetail {
   frameworks: FrameworkSummary[]
   results: ComplianceResultItem[]
   resultsTruncated: boolean
+  assessmentContext: {
+    profile: ComplianceAssessmentProfile
+    policyVersion: string
+    inferredServices: string[]
+  }
 }
 
 export interface ComplianceCatalog {
@@ -119,6 +134,14 @@ export interface ComplianceScanJob {
 }
 
 export type ComplianceConnectionStatus = 'NOT_TESTED' | 'VERIFYING' | 'VERIFIED' | 'FAILED'
+export type ComplianceServiceUsage = 'USED' | 'NOT_USED' | 'UNKNOWN'
+export type ComplianceRequirement = 'REQUIRED' | 'NOT_REQUIRED' | 'UNKNOWN'
+
+export interface ComplianceAssessmentProfile {
+  schemaVersion: 1
+  serviceUsage: Record<string, ComplianceServiceUsage>
+  requirements: Record<string, ComplianceRequirement>
+}
 
 export interface ComplianceTarget {
   targetKey: string
@@ -129,6 +152,7 @@ export interface ComplianceTarget {
   externalId: string
   defaultRegions: string[]
   enabled: boolean
+  assessmentProfile: ComplianceAssessmentProfile
   connectionStatus: ComplianceConnectionStatus
   connectionErrorCode: string | null
   connectionCheckedAt: string | null
@@ -149,7 +173,7 @@ export const createComplianceTarget = (request: {
 })
 
 export const updateComplianceTarget = (target: ComplianceTarget, changes: Partial<Pick<ComplianceTarget,
-  'displayName' | 'awsAccountId' | 'roleArn' | 'defaultRegions' | 'enabled'>>) =>
+  'displayName' | 'awsAccountId' | 'roleArn' | 'defaultRegions' | 'enabled' | 'assessmentProfile'>>) =>
   apiRequest<ComplianceTarget>(`/api/v1/compliance/targets/${encodeURIComponent(target.targetKey)}`, {
     method: 'PATCH',
     body: JSON.stringify({
@@ -159,6 +183,7 @@ export const updateComplianceTarget = (target: ComplianceTarget, changes: Partia
       roleArn: changes.roleArn ?? target.roleArn,
       defaultRegions: changes.defaultRegions ?? target.defaultRegions,
       enabled: changes.enabled ?? target.enabled,
+      assessmentProfile: changes.assessmentProfile ?? target.assessmentProfile,
     }),
   })
 
