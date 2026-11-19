@@ -92,7 +92,7 @@ export function pullRequestBadge(pr: { status: IacRunStatus; verdict: IacVerdict
  */
 export function pullRequestChanges(pr: IacPullRequestSummary): string[] {
   const parts: string[] = []
-  if (pr.status === 'GATE_FAILED') parts.push('② 차단, 경로 계산 안 함')
+  if (pr.status === 'GATE_FAILED') parts.push('plan 전 검사 차단, 경로 계산 안 함')
   if (pr.pathsAdded > 0) parts.push(`경로 +${pr.pathsAdded}`)
   if (pr.pathsRemoved > 0) {
     const routes = pr.removedRoutes > 0 && pr.removedRoutes < pr.pathsRemoved ? ` (${pr.removedRoutes}갈래)` : ''
@@ -102,7 +102,7 @@ export function pullRequestChanges(pr: IacPullRequestSummary): string[] {
   return parts
 }
 
-/** 규칙 제목. ② 는 infrastructure policy/rules.json 의 title 과 같게 둔다 (PR 코멘트와 같은 말) */
+/** 규칙 제목. plan 전 검사 규칙은 infrastructure policy/rules.json 의 title 과 같게 둔다 (PR 코멘트와 같은 말) */
 export const ruleTitle: Record<string, string> = {
   'gate.exec_data_source': 'plan 중 실행되는 data 소스',
   'gate.provisioner': 'local-exec·remote-exec provisioner',
@@ -169,7 +169,7 @@ export function pullRequestUrl(number: number): string | null {
 
 export const shortSha = (sha: string) => sha.slice(0, 7)
 
-/** 드리프트 정도 (rule-spec ③). 노이즈로 분류된 것은 API 가 내려주지 않는다 */
+/** 드리프트 정도 (rule-spec State·드리프트). 노이즈로 분류된 것은 API 가 내려주지 않는다 */
 export const driftLevel: Record<string, { label: string; tone: string }> = {
   'drift.high': { label: '드리프트 높음', tone: 'critical' },
   'drift.medium': { label: '드리프트 중간', tone: 'medium' },

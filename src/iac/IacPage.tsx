@@ -105,7 +105,7 @@ export function IacPage() {
               <span className="caption">tfstate 에 평문으로 남은 값</span>
             </a>
             <a className="card iac-metric" href="#iac-gates-title" onClick={(e) => goToSection(e, 'iac-gates-title')}>
-              <span className="caption">② 위반 (main 기준)</span>
+              <span className="caption">plan 전 검사 위반 (main 기준)</span>
               <strong>{metricValue(summary.data?.metrics.gateViolations)}<small>건</small></strong>
               <span className="caption">plan 전 검사에서 걸린 규칙</span>
             </a>
@@ -145,7 +145,7 @@ export function IacPage() {
           )}
         </section>
 
-        {/* D ① PR 경로 미리보기 */}
+        {/* D PR 경로 미리보기 */}
         <section className="card list-card" aria-labelledby="iac-prs-title">
           <div className="card-head">
             <h2 id="iac-prs-title">PR 검사 결과</h2>
@@ -162,10 +162,10 @@ export function IacPage() {
           )}
         </section>
 
-        {/* E ② plan 전 검사 */}
+        {/* E plan 전 검사 */}
         <GateSection />
 
-        {/* F ③ State·드리프트 */}
+        {/* F State·드리프트 */}
         <StateSection />
 
         {/* G 할 수 있는 조치 */}

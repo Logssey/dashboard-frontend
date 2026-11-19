@@ -13,7 +13,7 @@ type Feedback = { kind: 'success' | 'error'; message: string }
 /** 아직 계산하지 않는 값은 0 이 아니라 — 로 둔다 */
 const countText = (value: number | null) => (value === null ? '—' : `${value}개`)
 
-/** ③ State·드리프트 (S-01 F). 드리프트는 속성 이름만 보여주고 값은 다루지 않는다 */
+/** State·드리프트 (S-01 F). 드리프트는 속성 이름만 보여주고 값은 다루지 않는다 */
 export function StateSection() {
   const queryClient = useQueryClient()
   const me = useMe()
@@ -45,7 +45,7 @@ export function StateSection() {
   return (
     <section className="card list-card" aria-labelledby="iac-state-title">
       <div className="card-head">
-        <h2 id="iac-state-title" tabIndex={-1}>③ State·드리프트</h2>
+        <h2 id="iac-state-title" tabIndex={-1}>State·드리프트</h2>
         <span className="caption">State 점검 {formatDateTime(state.data?.checkedAt ?? null)}</span>
       </div>
 
