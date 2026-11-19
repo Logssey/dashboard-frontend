@@ -13,6 +13,9 @@ import { useSecretListParams } from '@/lib/useSecretListParams'
 import { PageHeader } from '@/components/PageHeader'
 import { componentStateLabel, credentialTypeLabel, issuerLabel, secretValidationLabel } from '@/lib/labels'
 import { buildMaskedSecretsCsv, loadAllSecretItems } from '@/lib/secretCsv'
+import { fetchSecretExport } from '@/api/secretExport'
+import { SecretExportMenu } from '@/components/SecretExportMenu'
+import { secretExportErrorMessage, secretExportFilename, type SecretExportFormat } from '@/lib/secretExport'
 import { inventoryOptions, inventorySearch, inventorySubtypeLabel, keyDetailPath, nextLabel, parseInventoryFilters, whyLabel } from '@/lib/secretInventory'
 import { positiveId, scanDate, scanDetailPath } from '@/lib/secretScan'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
@@ -53,10 +56,14 @@ export function SecretsPage() {
     if (link) { link.focus({ preventScroll: true }); link.scrollIntoView({ block: 'center' }); restored.current = `${focusKey}:${focus}`; try { sessionStorage.removeItem(focusKey) } catch { /* Storage may be unavailable. */ } }
   }, [inventory.isSuccess, inventory.data, params, focusKey])
   const download = useMutation({
-    mutationFn: async (selection: { filters: InventoryFilter; asOf: string }) => buildMaskedSecretsCsv(await loadAllSecretItems(fetchSecrets, selection.filters), { asOf: selection.asOf, origin: selection.filters.origin, runId: selection.filters.runId }),
-    onSuccess: (csv) => {
-      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-      const link = document.createElement('a'); link.href = url; link.download = `logssey-secrets-masked-${new Date().toISOString().slice(0, 10)}.csv`; document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    mutationFn: async (selection: { format: SecretExportFormat; filters: InventoryFilter; asOf: string }) => {
+      if (selection.format !== 'csv') return fetchSecretExport(selection.format, selection.filters)
+      const csv = buildMaskedSecretsCsv(await loadAllSecretItems(fetchSecrets, selection.filters), { asOf: selection.asOf, origin: selection.filters.origin, runId: selection.filters.runId })
+      return { blob: new Blob([csv], { type: 'text/csv;charset=utf-8' }), filename: secretExportFilename('csv', null) }
+    },
+    onSuccess: ({ blob, filename }) => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a'); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
     },
   })
   if (legacyRun) return <Navigate replace to={withSecretOrigin(scanDetailPath(legacyRun), params)} />
@@ -76,7 +83,9 @@ export function SecretsPage() {
   const refreshRequired = error instanceof ApiError && [404, 409].includes(error.status) && Boolean(filters.snapshotId)
   return <>
     <PageHeader title="키·노출 위치" description="고유 키별로 발견 위치와 확인할 이유를 살펴보세요." actions={<>
-      <button className="btn secret-export-button" disabled={download.isPending || locallyInvalidated || !inventory.isSuccess || !snapshot || !inventory.data?.asOf || !filters.snapshotId || inventory.data.total === 0} onClick={() => snapshot && inventory.data?.asOf && download.mutate({ filters: { ...filters, snapshotId: snapshot }, asOf: inventory.data.asOf })}><Icon name="download" />{download.isPending ? 'CSV 준비 중…' : '마스킹 CSV 내보내기'}</button>
+      <SecretExportMenu disabled={locallyInvalidated || !inventory.isSuccess || !snapshot || !inventory.data?.asOf || !filters.snapshotId || inventory.data.total === 0}
+        pending={download.isPending ? download.variables?.format ?? null : null}
+        onSelect={(format) => snapshot && inventory.data?.asOf && download.mutate({ format, filters: { ...filters, snapshotId: snapshot }, asOf: inventory.data.asOf })} />
       <Link className="btn primary" to={withSecretOrigin("/secrets/history?request=scan", filters.origin)}><Icon name="search" /> 스캔 요청</Link>
       {inventory.isSuccess && !locallyInvalidated && <SecretFixtureBatch items={inventory.data.items} snapshotId={snapshot ?? undefined} onChanged={refresh} />}
     </>} />
@@ -90,7 +99,7 @@ export function SecretsPage() {
       onReset={() => { download.reset(); setParams(new URLSearchParams()) }} />
     {filters.runId && <p className="notice">SCAN-{filters.runId}에서 발견한 키를 조회하고 있어요. 원래 탐지 근거와 현재 키 상태는 다를 수 있어요. <Link to={withSecretOrigin(scanDetailPath(filters.runId), filters.origin)}>실행 상세</Link> <button className="btn outline" onClick={() => setParams(inventorySearch({ ...filters, runId: null, snapshotId: '', page: 0 }))}>실행 조건 해제</button></p>}
     {!!errors.length && <p className="notice error" role="alert">조회 조건이 올바르지 않아요. <button className="btn outline" onClick={() => setParams(new URLSearchParams())}>필터 초기화</button></p>}
-    {download.isError && <p className="notice error" role="alert">{download.error.message === 'SECRET_EXPORT_TOO_LARGE' ? '한 번에 10,000개까지 내보낼 수 있어요. 조건을 좁혀 주세요.' : download.error instanceof ApiError && [404, 409].includes(download.error.status) ? '조회 기준이 만료되거나 권한이 바뀌었어요. 새로고침 후 다시 내보내 주세요.' : 'CSV를 완성하지 못했어요. 목록을 새로고침한 뒤 다시 시도해 주세요.'}</p>}
+    {download.isError && <p className="notice error" role="alert">{secretExportErrorMessage(download.error)}</p>}
     {inventory.data?.restrictedCoverage && inventory.isSuccess && <p className="notice secret-inventory-origin">열람 가능한 위치 기준이에요. 전체 범위에 대한 결론은 내릴 수 없어요.</p>}
     <section className="card list-card secret-inventory-list" aria-labelledby="inventory-title" aria-busy={inventory.isFetching}>
       <div className="card-head"><div><h2 id="inventory-title">{inventoryOptions.contentKind[filters.contentKind as keyof typeof inventoryOptions.contentKind]}</h2><p className="caption">단위: 고유 키{inventory.data?.asOf && inventory.isSuccess ? ` · 기준 ${scanDate(inventory.data.asOf)}` : ''}</p></div></div>
