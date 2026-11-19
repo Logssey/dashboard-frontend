@@ -8,6 +8,8 @@ import { availableMetric, parseWorkbenchFilters } from '@/lib/secretWorkbench'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
 import { sanitizedSecretSearchParams, secretSearchErrorMessage } from '@/lib/secretReadSelection'
 import { Icon, type IconName } from '@/components/Icon'
+import { HelpChat } from '@/components/HelpChat'
+import { clearHelpMessages } from '@/lib/helpChat'
 import { infrastructurePaths, LOGIN_PATH, OVERVIEW_PATH, pageTitle, sectionPages } from '@/lib/routes'
 import { isVulnerabilityPath, vulnerabilityPages } from '@/lib/reachRoutes'
 import { ME_QUERY_KEY, useMe } from './useMe'
@@ -54,6 +56,7 @@ export function AppLayout() {
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSettled: () => {
+      clearHelpMessages()
       queryClient.setQueryData(ME_QUERY_KEY, null)
       queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== ME_QUERY_KEY[0] })
       navigate(LOGIN_PATH, { replace: true })
@@ -168,6 +171,7 @@ export function AppLayout() {
             <span>{title}</span>
           </div>
           <div className="row topbar-user">
+            {me && <HelpChat page={title} />}
             {me && (
               <>
                 <span className="avatar desktop-only">{initials(me.displayName)}</span>

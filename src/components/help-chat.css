@@ -1,0 +1,29 @@
+/* 사용법 도우미 서랍. 기존 .drawer 모양을 쓰고 대화 영역만 더한다 */
+.help-trigger { font-size: 17px; font-weight: 700; color: var(--text-muted); border: 1px solid var(--border); width: 34px; height: 34px; border-radius: 999px; }
+.help-trigger:hover { color: var(--primary-text); border-color: var(--primary); background: var(--primary-soft); }
+
+.help-drawer[open] { display: flex; flex-direction: column; width: 440px; }
+.help-notice { margin: 0; padding: 12px 28px; font-size: 12px; color: var(--text-muted); background: var(--surface-subtle); border-bottom: 1px solid var(--divider); }
+
+.help-messages { flex: 1; overflow-y: auto; padding: 20px 28px; display: flex; flex-direction: column; gap: 12px; }
+.help-suggestions { display: grid; gap: 8px; justify-items: start; }
+.help-suggestions .btn { text-align: left; white-space: normal; }
+
+.help-message { max-width: 88%; padding: 10px 14px; border-radius: var(--radius-md); font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.help-message p { margin: 0; }
+.help-message.user { align-self: flex-end; background: var(--primary-soft); color: var(--text); }
+.help-message.assistant { align-self: flex-start; background: var(--canvas); color: var(--text-body); }
+.help-message.ungrounded { background: var(--high-soft); color: var(--high); }
+.help-message.error { background: var(--critical-soft); color: var(--critical); }
+.help-message.pending { color: var(--text-muted); }
+.help-sources { margin: 8px 0 0; padding: 8px 0 0; list-style: none; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+
+.help-form { padding: 16px 28px 20px; border-top: 1px solid var(--divider); display: grid; gap: 8px; }
+.help-form textarea { width: 100%; resize: vertical; min-height: 56px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; font-size: 14px; }
+.help-form textarea:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+.help-form .notice { padding: 10px 12px; }
+
+@media (max-width: 720px) {
+  .help-drawer[open] { width: 100%; }
+  .help-messages, .help-form, .help-notice { padding-left: 16px; padding-right: 16px; }
+}
