@@ -59,6 +59,8 @@ export type IacRunStatus = 'QUEUED' | 'GATE_FAILED' | 'PLANNING' | 'ANALYZING' |
 /** S-01 D. PR 별 최신 판정 */
 export interface IacPullRequestSummary {
   number: number
+  /** iac-report 가 보낸 PR 제목 (PR 작성자가 쓴 글, 텍스트로만 표시) */
+  title: string | null
   runId: number
   headSha: string
   status: IacRunStatus
