@@ -200,7 +200,7 @@ export function CompliancePage() {
     event.target.value = ''
     if (!file) return
     if (file.size > 8 * 1024 * 1024) {
-      setUploadError('Prowler JSON 파일은 최대 8MB까지 가져올 수 있어요.')
+      setUploadError('점검 결과 JSON 파일은 최대 8MB까지 가져올 수 있어요.')
       return
     }
     setUploadError(null)
@@ -305,7 +305,7 @@ export function CompliancePage() {
         <div className="table-scroll"><table>
           <thead><tr><th>작업</th><th>환경</th><th>범위</th><th>상태</th><th>요청 시각</th><th>결과</th></tr></thead>
           <tbody>{jobs.data.items.map((job) => <tr key={job.jobId}>
-            <td><strong>#{job.jobId}</strong><span className="asset">{job.jobKind === 'CONNECTION_TEST' ? 'AWS 연결 확인' : 'AWS · Prowler'}</span></td>
+            <td><strong>#{job.jobId}</strong><span className="asset">{job.jobKind === 'CONNECTION_TEST' ? 'AWS 연결 확인' : 'AWS 기술 점검'}</span></td>
             <td><Badge label={job.environment === 'prod' ? '운영' : '개발'} tone="primary" /></td>
             <td>{job.jobKind === 'CONNECTION_TEST' ? '역할·계정 확인' : scopeLabel(job.scope)}<span className="asset">{job.jobKind === 'CONNECTION_TEST' ? job.targetName : (job.scope.regions.join(', ') || '전체 리전')}</span></td>
             <td><Badge label={jobStatus[job.status].label} tone={jobStatus[job.status].tone} />{job.status === 'LEASED' && <span className="asset">시도 {job.attemptCount}/{job.maxAttempts}</span>}</td>
@@ -326,8 +326,8 @@ export function CompliancePage() {
             <p className="compliance-eyebrow">첫 점검 준비 완료</p>
             <h2>{canScan ? '첫 AWS 점검을 시작할 수 있어요.' : 'AWS 점검 대상을 먼저 연결해 주세요.'}</h2>
             <p>{canScan
-              ? '전용 읽기 역할로 Prowler를 실행하고 세 규제 기준을 한 번에 평가합니다.'
-              : '연결 확인이 끝나기 전에는 AWS 호출이 발생하지 않으며, 기존 Prowler JSON 결과는 별도로 가져올 수 있습니다.'}</p>
+              ? '전용 읽기 역할로 AWS 설정을 수집하고 세 규제 기준을 한 번에 평가합니다.'
+              : '연결 확인이 끝나기 전에는 AWS 호출이 발생하지 않으며, 기존 점검 결과 JSON은 별도로 가져올 수 있습니다.'}</p>
           </div>
           <div className="compliance-catalog-summary">
             {catalog.data?.frameworks.map((framework) => (
@@ -345,7 +345,7 @@ export function CompliancePage() {
               <p className="muted">최근 점검 결과</p>
               <div className="compliance-primary-number">{latest?.counts.fail ?? '—'}<span>개 실패</span></div>
               <p>{latest ? `${latest.counts.total.toLocaleString()}개 결과 중 즉시 확인할 기술 항목` : '결과를 불러오는 중이에요.'}</p>
-              {latest && <div className="compliance-run-meta"><Badge label={latest.environment === 'prod' ? '운영' : '개발'} tone="primary" /><span>{timeFormat.format(new Date(latest.finishedAt))}</span><span>Prowler {latest.scannerVersion}</span></div>}
+              {latest && <div className="compliance-run-meta"><Badge label={latest.environment === 'prod' ? '운영' : '개발'} tone="primary" /><span>{timeFormat.format(new Date(latest.finishedAt))}</span><span>AWS 기술 점검</span></div>}
             </article>
             <article className="card compliance-result-breakdown">
               <div><span className="compliance-dot fail" /><p>실패</p><strong>{latest?.counts.fail ?? '—'}</strong></div>
@@ -367,12 +367,12 @@ export function CompliancePage() {
             {runs.data?.items.length ? <div className="table-scroll"><table>
               <thead><tr><th>점검</th><th>환경</th><th>결과</th><th>실패</th><th>확인 필요</th><th>완료 시각</th></tr></thead>
               <tbody>{runs.data.items.map((run) => <tr key={run.runId} className={selectedRunId === run.runId ? 'compliance-selected-row' : ''}>
-                <td><button className="finding-link" onClick={() => setSelectedRunId(run.runId)}>#{run.runId} · {run.product} {run.scannerVersion}</button></td>
+                <td><button className="finding-link" onClick={() => setSelectedRunId(run.runId)}>#{run.runId} · AWS 기술 점검</button></td>
                 <td><Badge label={run.environment === 'prod' ? '운영' : '개발'} tone="primary" /></td>
                 <td>{run.counts.total.toLocaleString()}건</td><td className="compliance-fail-count">{run.counts.fail}</td><td>{run.counts.needsReview}</td>
                 <td>{timeFormat.format(new Date(run.finishedAt))}</td>
               </tr>)}</tbody>
-            </table></div> : <EmptyState title="점검 이력이 없어요" description="Prowler 결과를 가져오면 이곳에 실행 이력이 쌓여요." />}
+            </table></div> : <EmptyState title="점검 이력이 없어요" description="자동 점검을 실행하거나 점검 결과를 가져오면 이곳에 이력이 쌓여요." />}
           </section>
 
           {selectedRunId !== null && <section className="card list-card compliance-results">
@@ -402,7 +402,7 @@ export function CompliancePage() {
               </table></div>
               {selectedResult?.guide && <article className="compliance-guide" aria-live="polite">
                 <div className="compliance-guide-head">
-                  <div><span>개선 가이드 · Prowler {selectedResult.guide.sourceVersion}</span><h3>{selectedResult.title}</h3></div>
+                  <div><span>개선 가이드 · 점검 기준</span><h3>{selectedResult.title}</h3></div>
                   <a href={selectedResult.guide.sourceUrl} target="_blank" rel="noreferrer">원문 보기</a>
                 </div>
                 <div className="compliance-guide-grid">

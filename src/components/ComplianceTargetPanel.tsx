@@ -188,7 +188,7 @@ export function ComplianceTargetPanel({ isAdmin, targets, selected, selectedKey,
         onChange={(event) => setDisplayName(event.target.value)} /></label>
       <label>AWS 계정 ID<input className="input" value={accountId} placeholder="123456789012" inputMode="numeric" pattern="[0-9]{12}" required
         onChange={(event) => setAccountId(event.target.value.replace(/\D/g, '').slice(0, 12))} /></label>
-      <label className="wide">점검 Role ARN<input className="input" value={roleArn} placeholder="arn:aws:iam::123456789012:role/LogsseyProwlerScan" required
+      <label className="wide">점검 Role ARN<input className="input" value={roleArn} placeholder="arn:aws:iam::123456789012:role/LogsseyComplianceAudit" required
         onChange={(event) => setRoleArn(event.target.value)} /></label>
       <label className="wide">기본 리전<input className="input" value={regions} placeholder="ap-northeast-2, us-east-1"
         onChange={(event) => setRegions(event.target.value)} /></label>
