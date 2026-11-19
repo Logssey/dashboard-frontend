@@ -78,6 +78,8 @@ export interface ReachL3Run {
   build?: { imageDigest?: string; jarSha256?: string } | null
   configKeys?: Array<{ name: string; enabled: boolean }> | null
   invocations?: Array<{ segment: ReachL3Segment; name: string; request: string; count?: number; ok?: number; failed?: number; skipped?: number }> | null
+  /** true면 앱을 다시 띄운 것이 아니라 보관한 실행 기록을 scanId 스캔에서 다시 대조한 결과다. observedAt은 처음 관측한 때 */
+  rematch?: boolean
 }
 
 /** 상세(API-05)의 L3 */
