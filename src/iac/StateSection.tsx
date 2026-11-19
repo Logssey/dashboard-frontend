@@ -4,7 +4,7 @@ import { ApiError } from '@/api/client'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
 import { useMe } from '@/layout/useMe'
-import { fetchIacDrifts, fetchIacStateSummary, updateIacFinding } from './api'
+import { fetchIacDrifts, fetchIacJobs, fetchIacStateSummary, updateIacFinding } from './api'
 import { driftLevel, formatDateTime, severityLabel, severityTone } from './labels'
 import type { IacDrift } from './types'
 
@@ -19,6 +19,9 @@ export function StateSection() {
   const me = useMe()
   const state = useQuery({ queryKey: ['iac', 'state'], queryFn: fetchIacStateSummary })
   const drifts = useQuery({ queryKey: ['iac', 'drifts', 'OPEN'], queryFn: fetchIacDrifts })
+  // 드리프트 점검(main 매일 점검)을 한 번도 하지 않았으면 "없음"과 구분한다. 검사 주기 표와 같은 요청을 나눠 쓴다
+  const jobs = useQuery({ queryKey: ['iac', 'jobs'], queryFn: fetchIacJobs })
+  const driftChecked = jobs.data?.find((job) => job.job === 'CHECK_DRIFT')?.lastFinishedAt != null
   const [feedback, setFeedback] = useState<Feedback | null>(null)
 
   const assign = useMutation({
@@ -93,6 +96,8 @@ export function StateSection() {
         <div className="iac-card-body"><div className="skeleton" /></div>
       ) : drifts.isError ? (
         <p className="notice error iac-card-body">드리프트 목록을 불러오지 못했어요.</p>
+      ) : drifts.data.length === 0 && jobs.isSuccess && !driftChecked ? (
+        <EmptyState title="드리프트 점검 기록 없음" description="main 매일 점검(iac-drift)이 한 번 돌면 코드 밖에서 바뀐 리소스가 여기에 보여요." />
       ) : drifts.data.length === 0 ? (
         <EmptyState title="열린 드리프트 없음" description="코드 밖에서 바뀐 리소스가 없어요. 태그·노이즈 속성 변경은 빼고 셉니다." />
       ) : (
