@@ -137,6 +137,13 @@ test('the detail shows the request, the functions, the executed lines and the ru
   assert.match(html, /MAIL_ENABLED \(꺼짐\)/)
 })
 
+test('a result matched again from a kept record says the app was not run again', () => {
+  const again = renderToStaticMarkup(createElement(l3.ReachL3Section, { l3: { ...region, run: { ...run, scanId: 12, rematch: true } } }))
+  assert.match(again, /앱을 다시 띄운 것이 아니에요/)
+  assert.match(again, /스캔 #12에서 지금의 판정 데이터로 다시 대조/)
+  assert.doesNotMatch(renderToStaticMarkup(createElement(l3.ReachL3Section, { l3: region })), /다시 띄운 것이 아니에요/)
+})
+
 test('a function-level result, an unchecked region and an L2 path are spelled out', () => {
   const functionOnly = {
     reached: 'FUNCTION',

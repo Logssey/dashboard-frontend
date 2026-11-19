@@ -134,6 +134,11 @@ export function ReachL3Section({ l3 }: { l3: ReachL3Detail | null | undefined })
           <dt>관측</dt>
           <dd>
             {formatKst(run.observedAt)} · 스캔 #{run.scanId} · 시나리오 {run.scenario}
+            {run.rematch && (
+              <div className="caption">
+                앱을 다시 띄운 것이 아니에요. 위 시각에 남긴 실행 기록을 스캔 #{run.scanId}에서 지금의 판정 데이터로 다시 대조한 결과예요.
+              </div>
+            )}
           </dd>
         </div>
         {run.build?.imageDigest && (
