@@ -48,6 +48,7 @@
 .compliance-framework-stats b { margin-right: 2px; color: var(--text-body); font-size: 11px; }
 .compliance-selected-row { background: var(--primary-soft); }
 .compliance-fail-count { color: var(--critical); font-weight: 700; }
+.compliance-results { scroll-margin-top: 24px; }
 .compliance-results .card-head { margin-bottom: 20px; }
 .compliance-assessment-context { display: grid; grid-template-columns: .8fr 1fr 1.4fr; gap: 1px; margin: 0 24px 20px; overflow: hidden; border: 1px solid var(--divider); border-radius: 14px; background: var(--divider); }
 .compliance-assessment-context > div { min-width: 0; padding: 15px 17px; background: var(--canvas); }
