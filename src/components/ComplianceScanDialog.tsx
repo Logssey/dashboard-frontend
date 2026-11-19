@@ -72,7 +72,7 @@ export function ComplianceScanDialog({ open, catalog, busy, error, defaultRegion
       onClose={() => { if (open && !busy) onClose() }}>
       <form onSubmit={submit} className="compliance-scan-form">
         <header className="compliance-scan-head">
-          <div><span>PROWLER {catalog?.prowlerVersion ?? '5.46.0'}</span><h2 id="compliance-scan-title">AWS 컴플라이언스 점검</h2></div>
+          <div><span>AWS READ-ONLY</span><h2 id="compliance-scan-title">AWS 컴플라이언스 점검</h2></div>
           <button type="button" className="icon-btn" aria-label="점검 설정 닫기" disabled={busy} onClick={onClose}><Icon name="close" /></button>
         </header>
 
@@ -116,7 +116,7 @@ export function ComplianceScanDialog({ open, catalog, busy, error, defaultRegion
           </section>
 
           <section className="compliance-form-section">
-            <div className="compliance-form-title"><b>3</b><div><h3>AWS 리전</h3><p>선택한 리전과 Prowler의 글로벌 리소스 처리 기준으로 실행해요.</p></div></div>
+            <div className="compliance-form-title"><b>3</b><div><h3>AWS 리전</h3><p>선택한 리전과 글로벌 리소스를 함께 점검해요.</p></div></div>
             <div className="compliance-region-list">
               {suggestedRegions.map((region) => <label key={region}><input type="checkbox" checked={regions.includes(region)}
                 onChange={(event) => setRegions((current) => event.target.checked ? [...current, region] : current.filter((item) => item !== region))} />{region}</label>)}
