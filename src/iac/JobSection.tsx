@@ -15,7 +15,7 @@ export function JobSection() {
     <section className="card list-card" aria-labelledby="iac-jobs-title">
       <div className="card-head">
         <h2 id="iac-jobs-title">검사 주기와 상태</h2>
-        <span className="caption">주기는 gitops CronJob·CI 워크플로에서 바꿔요</span>
+        <span className="caption">주기는 대시보드 호스트 타이머·CI 워크플로에서 바꿔요</span>
       </div>
       {jobs.isPending ? (
         <div className="iac-card-body"><div className="skeleton" /></div>

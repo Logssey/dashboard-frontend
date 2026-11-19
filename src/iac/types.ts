@@ -174,7 +174,7 @@ export interface IacRemediation {
   templateKey: string
 }
 
-/** S-01 H. 주기는 gitops CronJob·CI 가 정하고 여기서는 보여주기만 한다 */
+/** S-01 H. 주기는 대시보드 호스트 타이머·CI 가 정하고 여기서는 보여주기만 한다 */
 export interface IacJobStatus {
   job: string
   schedule: string
