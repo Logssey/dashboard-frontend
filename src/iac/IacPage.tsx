@@ -260,6 +260,7 @@ function PullRequestTable({ items, onSelect }: { items: IacPullRequestSummary[];
                 </td>
                 <td>
                   <strong>#{pr.number}</strong> <span className="caption"><code>{shortSha(pr.headSha)}</code></span>
+                  {pr.title && <span className="iac-pr-title" title={pr.title}>{pr.title}</span>}
                 </td>
                 <td>{changes.length > 0 ? changes.join(' · ') : <span className="muted">변화 없음</span>}</td>
                 <td>{pr.reason ? ruleTitle[pr.reason] ?? pr.reason : <span className="muted">—</span>}</td>

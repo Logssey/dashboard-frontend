@@ -34,5 +34,6 @@
 .iac-status-actions { display: flex; gap: var(--space-2); margin-left: auto; }
 .facts.iac-facts-wide { grid-template-columns: minmax(140px, max-content) 1fr; column-gap: var(--space-6); }
 .iac-nowrap { white-space: nowrap; }
+.iac-pr-title { display: block; max-width: 28rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .iac-removed { margin-top: var(--space-4); }
 .iac-removed summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-body); }
