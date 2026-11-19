@@ -107,12 +107,14 @@ export function CompliancePage() {
   const [reportFramework, setReportFramework] = useState<ComplianceReportFramework>('all')
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
   const [selectedResultId, setSelectedResultId] = useState<number | null>(null)
+  const [runNavigationRequest, setRunNavigationRequest] = useState(0)
   const [scanOpen, setScanOpen] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [jobActionError, setJobActionError] = useState<string | null>(null)
   const [selectedTargetKey, setSelectedTargetKey] = useState('reused')
   const fileInput = useRef<HTMLInputElement>(null)
+  const resultSection = useRef<HTMLElement>(null)
   const terminalJobRef = useRef<number | null>(null)
   const queryClient = useQueryClient()
   const me = useMe()
@@ -134,6 +136,20 @@ export function CompliancePage() {
   useEffect(() => setSelectedRunId(null), [activeTargetKey])
   useEffect(() => setSelectedResultId(null), [selectedRunId])
 
+  useEffect(() => {
+    if (selectedRunId === null || runNavigationRequest === 0) return
+    const frame = requestAnimationFrame(() => {
+      const section = resultSection.current
+      if (!section) return
+      section.focus({ preventScroll: true })
+      section.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [runNavigationRequest, selectedRunId])
+
   const overview = useQuery({
     queryKey: ['compliance', 'overview', activeTargetKey, environment],
     queryFn: () => fetchComplianceOverview(activeTargetKey, environment),
@@ -151,11 +167,17 @@ export function CompliancePage() {
     enabled: selectedRunId !== null,
   })
 
+  const openRun = (runId: number | null) => {
+    if (runId === null) return
+    setSelectedRunId(runId)
+    setRunNavigationRequest((request) => request + 1)
+  }
+
   const importer = useMutation({
     mutationFn: (file: File) => importProwlerResults(activeTargetKey, file, importEnvironment),
     onSuccess: async ({ runId }) => {
       setUploadError(null)
-      setSelectedRunId(runId)
+      openRun(runId)
       await queryClient.invalidateQueries({ queryKey: ['compliance'] })
     },
     onError: (error) => setUploadError(error instanceof ApiError ? error.message : '파일을 가져오지 못했어요.'),
@@ -310,7 +332,8 @@ export function CompliancePage() {
             <td>{job.jobKind === 'CONNECTION_TEST' ? '역할·계정 확인' : scopeLabel(job.scope)}<span className="asset">{job.jobKind === 'CONNECTION_TEST' ? job.targetName : (job.scope.regions.join(', ') || '전체 리전')}</span></td>
             <td><Badge label={jobStatus[job.status].label} tone={jobStatus[job.status].tone} />{job.status === 'LEASED' && <span className="asset">시도 {job.attemptCount}/{job.maxAttempts}</span>}</td>
             <td>{timeFormat.format(new Date(job.createdAt))}</td>
-            <td>{job.runId ? <button className="finding-link" onClick={() => setSelectedRunId(job.runId)}>결과 보기</button>
+            <td>{job.runId ? <button className="finding-link" aria-controls="compliance-run-detail"
+              aria-expanded={selectedRunId === job.runId} onClick={() => openRun(job.runId)}>결과 보기</button>
               : isAdmin && (job.status === 'QUEUED' || job.status === 'LEASED')
                 ? <button className="finding-link compliance-cancel-link" disabled={canceller.isPending}
                     onClick={() => { setJobActionError(null); canceller.mutate(job.jobId) }}>취소</button>
@@ -319,8 +342,9 @@ export function CompliancePage() {
         </table></div>
       </section>}
 
-      {!latest && !overview.isLoading ? (
-        <section className="card compliance-empty-state">
+      <div className="stack">
+        {!latest && !overview.isLoading ? (
+          <section className="card compliance-empty-state">
           <div className="compliance-empty-icon"><Icon name="shield" /></div>
           <div>
             <p className="compliance-eyebrow">첫 점검 준비 완료</p>
@@ -337,9 +361,9 @@ export function CompliancePage() {
           {isAdmin && <button className="btn primary" disabled={!canScan}
             title={canScan ? undefined : '연결 확인과 대상 활성화를 완료한 뒤 사용할 수 있어요.'}
             onClick={() => setScanOpen(true)}><Icon name="plus" />첫 점검 시작</button>}
-        </section>
-      ) : (
-        <div className="stack">
+          </section>
+        ) : (
+          <>
           <section className="compliance-summary-grid">
             <article className="card compliance-primary-metric">
               <p className="muted">최근 점검 결과</p>
@@ -367,7 +391,8 @@ export function CompliancePage() {
             {runs.data?.items.length ? <div className="table-scroll"><table>
               <thead><tr><th>점검</th><th>환경</th><th>결과</th><th>실패</th><th>확인 필요</th><th>완료 시각</th></tr></thead>
               <tbody>{runs.data.items.map((run) => <tr key={run.runId} className={selectedRunId === run.runId ? 'compliance-selected-row' : ''}>
-                <td><button className="finding-link" onClick={() => setSelectedRunId(run.runId)}>#{run.runId} · AWS 기술 점검</button></td>
+                <td><button className="finding-link" aria-controls="compliance-run-detail"
+                  aria-expanded={selectedRunId === run.runId} onClick={() => openRun(run.runId)}>#{run.runId} · AWS 기술 점검</button></td>
                 <td><Badge label={run.environment === 'prod' ? '운영' : '개발'} tone="primary" /></td>
                 <td>{run.counts.total.toLocaleString()}건</td><td className="compliance-fail-count">{run.counts.fail}</td><td>{run.counts.needsReview}</td>
                 <td>{timeFormat.format(new Date(run.finishedAt))}</td>
@@ -375,7 +400,11 @@ export function CompliancePage() {
             </table></div> : <EmptyState title="점검 이력이 없어요" description="자동 점검을 실행하거나 점검 결과를 가져오면 이곳에 이력이 쌓여요." />}
           </section>
 
-          {selectedRunId !== null && <section className="card list-card compliance-results">
+          </>
+        )}
+
+        {selectedRunId !== null && <section id="compliance-run-detail" ref={resultSection} tabIndex={-1}
+          aria-busy={selectedRun.isLoading} className="card list-card compliance-results">
             <div className="card-head">
               <div><h2>#{selectedRunId} 기술 점검 결과</h2><p className="section-intro">실패와 수집 오류를 먼저 보여줘요.</p></div>
               <button className="icon-btn" aria-label="상세 닫기" onClick={() => setSelectedRunId(null)}><Icon name="close" /></button>
@@ -389,7 +418,8 @@ export function CompliancePage() {
                 : '식별 없음'}</strong></div>
               <div><span>저장된 적용성 프로필</span><strong>{assessmentProfileSummary(displayed.assessmentContext.profile)}</strong></div>
             </div>}
-            {selectedRun.isLoading ? <p className="compliance-loading">결과를 불러오는 중이에요.</p> : displayed?.results.length ? <>
+            {selectedRun.isError ? <p className="notice error compliance-notice" role="alert">점검 결과를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
+              : selectedRun.isLoading ? <p className="compliance-loading">결과를 불러오는 중이에요.</p> : displayed?.results.length ? <>
               <div className="table-scroll"><table><thead><tr><th>Check</th><th>판정</th><th>Provider</th><th>자산</th><th>Region</th><th>가이드</th></tr></thead>
                 <tbody>{displayed.results.map((result) => <tr key={result.resultId}>
                   <td><strong>{result.title}</strong><span className="asset">{result.checkId}</span></td>
@@ -415,9 +445,8 @@ export function CompliancePage() {
               </article>}
               {displayed.resultsTruncated && <p className="table-foot">우선순위가 높은 결과 300건만 표시하고 있어요.</p>}
             </> : <EmptyState title="표시할 결과가 없어요" description="이 실행의 정규화 결과를 찾지 못했어요." />}
-          </section>}
-        </div>
-      )}
+        </section>}
+      </div>
     </>
   )
 }
