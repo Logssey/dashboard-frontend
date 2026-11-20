@@ -81,6 +81,16 @@ test('every page gets at least one suggested question', () => {
   }
 })
 
+test('answer sources start folded behind a "근거 N개 보기" toggle', async () => {
+  assert.equal(help.sourcesToggleLabel(3), '근거 3개 보기')
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  const block = source.slice(source.indexOf('<details className="help-sources"'), source.indexOf('</details>'))
+  assert.ok(block.length > 0, 'sources are wrapped in <details>')
+  assert.ok(!/<details[^>]*\bopen\b/.test(block), 'sources are folded by default')
+  assert.ok(block.includes('sourcesToggleLabel(message.sources.length)'))
+  assert.ok(!source.includes('dangerouslySetInnerHTML'))
+})
+
 async function filesUnder(dir) {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true })
   return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath ?? entry.path, entry.name))

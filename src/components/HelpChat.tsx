@@ -9,6 +9,7 @@ import {
   loadHelpMessages,
   looksLikeSecret,
   saveHelpMessages,
+  sourcesToggleLabel,
   suggestedQuestions,
   type HelpMessage,
 } from '@/lib/helpChat'
@@ -142,14 +143,17 @@ export function HelpChat({ page }: { page: string }) {
                 >
                   <p>{message.text}</p>
                   {message.sources && message.sources.length > 0 && (
-                    <ul className="help-sources" aria-label="근거 문서">
-                      {message.sources.map((source) => (
-                        <li key={`${source.doc}#${source.section}`}>
-                          근거: {source.title}
-                          {source.section && source.section !== source.title ? ` › ${source.section}` : ''}
-                        </li>
-                      ))}
-                    </ul>
+                    <details className="help-sources">
+                      <summary>{sourcesToggleLabel(message.sources.length)}</summary>
+                      <ul aria-label="근거 문서">
+                        {message.sources.map((source) => (
+                          <li key={`${source.doc}#${source.section}`}>
+                            근거: {source.title}
+                            {source.section && source.section !== source.title ? ` › ${source.section}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
                   )}
                 </div>
               ))}
