@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { ApiError } from '@/api/client'
-import { askHelp, fetchHelpStatus } from '@/api/help'
+import { askHelp, fetchHelpStatus, type HelpCard, type HelpMode } from '@/api/help'
 import {
   buildHistory,
+  CHECKLIST_DEFAULT_QUESTION,
+  helpScreenRoute,
+  usableCards,
   HELP_QUESTION_MAX,
   helpErrorMessages,
   loadHelpMessages,
@@ -45,12 +49,18 @@ export function HelpChat({ page }: { page: string }) {
   }, [messages])
 
   const ask = useMutation({
-    mutationFn: ({ question, history }: { question: string; history: ReturnType<typeof buildHistory> }) =>
-      askHelp(question, page, history),
+    mutationFn: ({ question, history, mode }: { question: string; history: ReturnType<typeof buildHistory>; mode?: HelpMode }) =>
+      askHelp(question, page, history, mode),
     onSuccess: (response) =>
       setMessages((current) => [
         ...current,
-        { role: 'assistant', text: response.answer, grounded: response.grounded, sources: response.sources },
+        {
+          role: 'assistant',
+          text: response.answer,
+          grounded: response.grounded,
+          sources: response.sources,
+          cards: usableCards(response.cards),
+        },
       ]),
     onError: (error) => {
       const code = error instanceof ApiError ? error.code : null
@@ -61,7 +71,7 @@ export function HelpChat({ page }: { page: string }) {
     },
   })
 
-  const send = (text: string) => {
+  const send = (text: string, mode?: HelpMode) => {
     const question = text.trim()
     if (!question || ask.isPending) return
     if (question.length > HELP_QUESTION_MAX) {
@@ -77,7 +87,14 @@ export function HelpChat({ page }: { page: string }) {
     const history = buildHistory(messages)
     setMessages((current) => [...current, { role: 'user', text: question }])
     setDraft('')
-    ask.mutate({ question, history })
+    ask.mutate({ question, history, mode })
+  }
+
+  // "화면 열기": 카드의 화면 키를 고정 표에서 찾은 내부 경로로만 이동한다. 서랍은 열어 둔다.
+  const navigate = useNavigate()
+  const openScreen = (card: HelpCard) => {
+    const route = helpScreenRoute(card.screen)
+    if (route) navigate(route.path)
   }
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDialogElement>) => {
@@ -141,7 +158,29 @@ export function HelpChat({ page }: { page: string }) {
                   key={index}
                   className={`help-message ${message.role} ${message.error ? 'error' : ''} ${message.grounded === false ? 'ungrounded' : ''}`.trim()}
                 >
-                  <p>{message.text}</p>
+                  {message.cards && usableCards(message.cards) ? (
+                    <ol className="help-cards" aria-label="사고 대응 체크리스트">
+                      {message.cards.map((card, cardIndex) => {
+                        const route = helpScreenRoute(card.screen)
+                        return (
+                          <li key={cardIndex} className="help-card">
+                            <strong className="help-card-title">{card.titles.join(' · ')}</strong>
+                            <p>{card.focus}</p>
+                            <div className="row between help-card-foot">
+                              <span className="caption">{route ? route.title : 'Logssey 밖에서 확인'}</span>
+                              {route && (
+                                <button type="button" className="btn outline small" onClick={() => openScreen(card)}>
+                                  {route.title} 열기
+                                </button>
+                              )}
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ol>
+                  ) : (
+                    <p>{message.text}</p>
+                  )}
                   {message.sources && message.sources.length > 0 && (
                     <details className="help-sources">
                       <summary>{sourcesToggleLabel(message.sources.length)}</summary>
@@ -199,9 +238,20 @@ export function HelpChat({ page }: { page: string }) {
                 <span className="caption">
                   {draft.length}/{HELP_QUESTION_MAX}
                 </span>
-                <button type="submit" className="btn primary small" disabled={!ready || ask.isPending || !draft.trim()}>
-                  보내기
-                </button>
+                <div className="row help-form-actions">
+                  <button
+                    type="button"
+                    className="btn outline small"
+                    disabled={!ready || ask.isPending}
+                    title="입력한 질문(비어 있으면 기본 질문)을 사고 대응 체크리스트 카드로 받아요"
+                    onClick={() => send(draft.trim() || CHECKLIST_DEFAULT_QUESTION, 'checklist')}
+                  >
+                    사고 대응 체크리스트
+                  </button>
+                  <button type="submit" className="btn primary small" disabled={!ready || ask.isPending || !draft.trim()}>
+                    보내기
+                  </button>
+                </div>
               </div>
             </form>
           </>

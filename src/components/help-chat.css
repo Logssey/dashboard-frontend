@@ -17,6 +17,12 @@
 .help-message.error { background: var(--critical-soft); color: var(--critical); }
 .help-message.pending { color: var(--text-muted); }
 .help-sources { margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+.help-cards { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; white-space: normal; }
+.help-card { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface, #fff); }
+.help-card-title { display: block; font-size: 13px; color: var(--text); }
+.help-card p { margin: 4px 0 6px; font-size: 13px; }
+.help-card-foot { gap: 8px; align-items: center; }
+.help-form-actions { gap: 6px; }
 .help-sources summary { cursor: pointer; width: fit-content; }
 .help-sources summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
 .help-sources ul { margin: 6px 0 0; padding: 0; list-style: none; }
