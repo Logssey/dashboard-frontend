@@ -1,4 +1,4 @@
-import type { HelpSource, HelpTurn } from '@/api/help'
+import type { HelpCard, HelpSource, HelpTurn } from '@/api/help'
 
 export const HELP_QUESTION_MAX = 500
 const HISTORY_MESSAGES = 6
@@ -9,7 +9,51 @@ export interface HelpMessage {
   text: string
   grounded?: boolean
   sources?: HelpSource[]
+  cards?: HelpCard[]
   error?: boolean
+}
+
+/** 체크리스트 버튼을 눌렀는데 입력칸이 비어 있을 때 보내는 질문 */
+export const CHECKLIST_DEFAULT_QUESTION = '침해사고가 났을 때 무엇부터 확인해야 해요?'
+
+/**
+ * 카드의 화면 키 → 내부 경로 (설계 문서 12.2). "화면 열기"는 이 표에 있는 경로로만 간다.
+ * 응답 문자열을 경로로 쓰지 않는다. 키 목록은 백엔드 HelpChecklist.SCREENS와 같다(양쪽 테스트로 확인).
+ * OUTSIDE(Logssey 밖)는 경로가 없어 버튼을 그리지 않는다.
+ */
+export const HELP_SCREEN_ROUTES: Readonly<Record<string, { path: string; title: string } | null>> = Object.freeze({
+  VULN_SUMMARY: { path: '/vulnerabilities', title: '취약점 관리' },
+  VULN_FINDINGS: { path: '/vulnerabilities/findings', title: 'Finding 목록' },
+  VULN_WORKLOADS: { path: '/vulnerabilities/workloads', title: '워크로드' },
+  VULN_SCANS: { path: '/vulnerabilities/scans', title: '스캔' },
+  RUNTIME: { path: '/runtime', title: '런타임 보안' },
+  IAC: { path: '/iac', title: 'IaC 보안' },
+  SECRET_FINDINGS: { path: '/secrets/findings', title: '키·노출 위치' },
+  SECRET_CASES: { path: '/secrets/cases', title: '대응 관리' },
+  COMPLIANCE: { path: '/configuration', title: '컴플라이언스' },
+  OUTSIDE: null,
+})
+
+/** 표에 있는 키만 경로를 돌려준다. 모르는 키·OUTSIDE·이상한 값은 undefined (버튼 없음) */
+export function helpScreenRoute(screen: unknown): { path: string; title: string } | undefined {
+  if (typeof screen !== 'string' || !Object.prototype.hasOwnProperty.call(HELP_SCREEN_ROUTES, screen)) return undefined
+  return HELP_SCREEN_ROUTES[screen] ?? undefined
+}
+
+/** 서버나 sessionStorage에서 온 카드 목록이 그릴 수 있는 모양인지 본다. 아니면 일반 텍스트로 보여 준다 */
+export function usableCards(cards: unknown): HelpCard[] | undefined {
+  if (!Array.isArray(cards) || cards.length === 0 || cards.length > 10) return undefined
+  const ok = cards.every(
+    (card) =>
+      card !== null &&
+      typeof card === 'object' &&
+      Array.isArray(card.titles) &&
+      card.titles.length > 0 &&
+      card.titles.every((title: unknown) => typeof title === 'string') &&
+      typeof card.screen === 'string' &&
+      typeof card.focus === 'string',
+  )
+  return ok ? (cards as HelpCard[]) : undefined
 }
 
 // 서버(HelpQuestionGuard)와 같은 규칙의 간단판. 브라우저에서 먼저 막아 값이 아예 나가지 않게 한다.

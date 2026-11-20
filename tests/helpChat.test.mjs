@@ -8,7 +8,10 @@ import { after, test } from 'node:test'
 import { build } from 'esbuild'
 
 const bundled = await build({
-  stdin: { contents: "export * from './src/api/help'; export * from './src/lib/helpChat';", resolveDir: resolve('.') },
+  stdin: {
+    contents: "export * from './src/api/help'; export * from './src/lib/helpChat'; export { sectionPages } from './src/lib/routes';",
+    resolveDir: resolve('.'),
+  },
   bundle: true,
   write: false,
   format: 'esm',
@@ -89,6 +92,66 @@ test('answer sources start folded behind a "근거 N개 보기" toggle', async (
   assert.ok(!/<details[^>]*\bopen\b/.test(block), 'sources are folded by default')
   assert.ok(block.includes('sourcesToggleLabel(message.sources.length)'))
   assert.ok(!source.includes('dangerouslySetInnerHTML'))
+})
+
+test('checklist mode is sent only when asked for', async () => {
+  const originalFetch = globalThis.fetch
+  const originalDocument = globalThis.document
+  const bodies = []
+  globalThis.document = { cookie: 'XSRF-TOKEN=test-csrf' }
+  globalThis.fetch = async (_path, options) => {
+    bodies.push(JSON.parse(options.body))
+    return new Response(JSON.stringify({ answer: '답', grounded: true, sources: [], remainingToday: 1, cached: false, cards: null }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    })
+  }
+  try {
+    await help.askHelp('Log4Shell 터졌어', 'Finding 목록', [], 'checklist')
+    await help.askHelp('대응 건은?', 'Finding 목록', [])
+    assert.equal(bodies[0].mode, 'checklist')
+    assert.ok(!('mode' in bodies[1]))
+  } finally {
+    globalThis.fetch = originalFetch
+    globalThis.document = originalDocument
+  }
+})
+
+test('card screen keys map only to fixed internal routes', () => {
+  // 백엔드 HelpChecklist.SCREENS와 같은 목록 (HelpChecklistTest가 반대쪽을 확인)
+  const expected = ['COMPLIANCE', 'IAC', 'OUTSIDE', 'RUNTIME', 'SECRET_CASES', 'SECRET_FINDINGS',
+    'VULN_FINDINGS', 'VULN_SCANS', 'VULN_SUMMARY', 'VULN_WORKLOADS']
+  assert.deepEqual(Object.keys(help.HELP_SCREEN_ROUTES).sort(), expected)
+  for (const [key, route] of Object.entries(help.HELP_SCREEN_ROUTES)) {
+    if (route === null) continue
+    const page = help.sectionPages.find((p) => p.path === route.path)
+    assert.ok(page, `${key} → ${route.path} is a real page`)
+    assert.equal(page.title, route.title, key)
+    assert.ok(route.path.startsWith('/') && !route.path.startsWith('//') && !route.path.includes('?'), key)
+  }
+  assert.equal(help.helpScreenRoute('OUTSIDE'), undefined)
+  for (const bad of ['ADMIN', '/vulnerabilities', 'https://example.invalid', '__proto__', 'constructor', 'toString', null, 7]) {
+    assert.equal(help.helpScreenRoute(bad), undefined, String(bad))
+  }
+  assert.equal(help.helpScreenRoute('RUNTIME').path, '/runtime')
+})
+
+test('only well-formed cards are drawn, otherwise the text answer is shown', () => {
+  const card = { checks: [1], titles: ['1. 무엇이 터졌나'], screen: 'VULN_FINDINGS', focus: 'CVE 검색' }
+  assert.deepEqual(help.usableCards([card]), [card])
+  assert.equal(help.usableCards(null), undefined)
+  assert.equal(help.usableCards([]), undefined)
+  assert.equal(help.usableCards([{ ...card, titles: [] }]), undefined)
+  assert.equal(help.usableCards([{ ...card, focus: 3 }]), undefined)
+  assert.equal(help.usableCards(Array(11).fill(card)), undefined)
+})
+
+test('the open-screen button navigates only through the route table', async () => {
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  assert.ok(source.includes('const route = helpScreenRoute(card.screen)'))
+  assert.ok(source.includes('if (route) navigate(route.path)'))
+  assert.ok(!/navigate\(\s*card\./.test(source))
+  assert.ok(!/href=\{/.test(source))
+  assert.ok(source.includes("'checklist')"))
 })
 
 async function filesUnder(dir) {
