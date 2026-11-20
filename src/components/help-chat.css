@@ -16,7 +16,10 @@
 .help-message.ungrounded { background: var(--high-soft); color: var(--high); }
 .help-message.error { background: var(--critical-soft); color: var(--critical); }
 .help-message.pending { color: var(--text-muted); }
-.help-sources { margin: 8px 0 0; padding: 8px 0 0; list-style: none; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+.help-sources { margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+.help-sources summary { cursor: pointer; width: fit-content; }
+.help-sources summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.help-sources ul { margin: 6px 0 0; padding: 0; list-style: none; }
 
 .help-form { padding: 16px 28px 20px; border-top: 1px solid var(--divider); display: grid; gap: 8px; }
 .help-form textarea { width: 100%; resize: vertical; min-height: 56px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; font-size: 14px; }
