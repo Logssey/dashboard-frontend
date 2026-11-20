@@ -522,13 +522,19 @@ export const fetchReachScans = (filter: ReachScanFilter, cursor: string | null) 
 export const fetchReachScan = (scanId: number) =>
   orSample(() => apiRequest<ReachScan>(`/api/v1/reach/scans/${scanId}`), () => sampleReachScan(scanId))
 
-/** API-01 본문. app을 안 주면 서버가 저장소 이름으로 정한다(모르면 422) */
-export interface ReachScanInput {
-  target:
-    | { type: 'IMAGE'; app?: ReachApp; image: { repository: string; digest: string } }
-    | { type: 'REPO'; app?: ReachApp; repo: { name: string; commit: string; path?: string } }
-  options: { l1: boolean; l2: boolean }
-}
+/**
+ * API-01 본문. target과 rescanOf 중 하나만 준다.
+ * target: app을 안 주면 서버가 저장소 이름으로 정한다(모르면 422).
+ * rescanOf: 성공한 스캔의 ID. 그 스캔의 대상을 보관한 SBOM으로 다시 대조한다(성공한 스캔이 아니면 422)
+ */
+export type ReachScanInput =
+  | {
+      target:
+        | { type: 'IMAGE'; app?: ReachApp; image: { repository: string; digest: string } }
+        | { type: 'REPO'; app?: ReachApp; repo: { name: string; commit: string; path?: string } }
+      options: { l1: boolean; l2: boolean }
+    }
+  | { rescanOf: number }
 
 /** API-01. 응답은 API-03과 같은 스캔(202). 같은 멱등 키로 다시 보내면 처음 응답을 다시 준다. 예시 데이터로 대신하지 않는다 */
 export const createReachScan = (input: ReachScanInput, idempotencyKey: string) =>

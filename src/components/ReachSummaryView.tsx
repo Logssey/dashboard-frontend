@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { ReachDeployment, ReachReviewState, ReachSeverity, ReachStatus, ReachSummary } from '@/api/reach'
 import { formatKst, fraction, judgedCount, matrixCell, notAnalyzedReasonParts } from '@/lib/reach'
 import {
@@ -48,11 +49,13 @@ function KpiCard({ label, value, description, alert = false, onClick }: {
 }
 
 /** SCR-01 요약. 숫자는 백엔드 요약(API-08)을 그대로 쓰고 0도 그대로 쓴다. "안전" 같은 문구를 쓰지 않는다 */
-export function ReachSummaryView({ summary, onOpen, onNavigate }: {
+export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
   summary: ReachSummary
   onOpen: (link: ReachSummaryLink) => void
   /** 워크로드·스캔 화면으로 이동. 없으면 이동 버튼을 그리지 않는다 */
   onNavigate?: (path: string) => void
+  /** 기준 스캔 줄마다 붙일 버튼 ([다시 대조]). 기준 스캔은 모두 PR이 아닌 성공 스캔이다 */
+  scanAction?: (scanId: number) => ReactNode
 }) {
   const { byStatus } = summary
   const judged = judgedCount(byStatus)
@@ -243,6 +246,7 @@ export function ReachSummaryView({ summary, onOpen, onNavigate }: {
                     `스캔 #${scan.scanId}`
                   )}
                   <span className="caption"> · {scan.running ? '운영에서 실행 중' : scan.targetType === 'IMAGE' ? '최신 빌드(실행 중 아님·모름)' : '최신 커밋'}</span>
+                  {scanAction && <span className="reach-basis-action">{scanAction(scan.scanId)}</span>}
                 </li>
               ))}
             </ul>
