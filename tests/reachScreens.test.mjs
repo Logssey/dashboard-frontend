@@ -277,6 +277,119 @@ test('new scan input follows API-01 rules before sending', () => {
   assert.deepEqual(reach.newScanRequest(repo).input.target.repo, { name: 'service-backend', commit: '1'.repeat(40) })
 })
 
+test('rescan is offered for finished scans that are not PR scans', () => {
+  assert.equal(reach.canRescan(scan), true)
+  assert.equal(reach.canRescan({ ...scan, trigger: 'SCHEDULE' }), true)
+  assert.equal(reach.canRescan({ ...scan, trigger: 'IMAGE_BUILD' }), true)
+  // PR 스캔을 다시 대조하면 수동 스캔이 되어 머지 전 코드가 기준 집계에 들어간다
+  assert.equal(reach.canRescan({ ...scan, trigger: 'PR' }), false)
+  assert.equal(reach.canRescan(failed), false)
+  assert.equal(reach.canRescan({ ...scan, scanStatus: 'RUNNING' }), false)
+
+  const queryClient = client()
+  queryClient.setQueryData(['reach-scans', noScanFilter], {
+    pages: [{ data: { items: [failed, scan], nextCursor: null, hasNext: false, totalCount: 2 }, sample: false }],
+    pageParams: [null],
+  })
+  queryClient.setQueryData(['reach-scan', 1], { data: scan, sample: false })
+  queryClient.setQueryData(['reach-scan', 2], { data: failed, sample: false })
+  queryClient.setQueryData(['reach-scan', 3], { data: { ...scan, id: 3, trigger: 'PR' }, sample: false })
+  assert.match(renderAt(queryClient, reach.VulnerabilityScansPage, '/vulnerabilities/scans?scan=1'), />다시 대조</)
+  assert.doesNotMatch(renderAt(queryClient, reach.VulnerabilityScansPage, '/vulnerabilities/scans?scan=2'), />다시 대조</)
+  assert.doesNotMatch(renderAt(queryClient, reach.VulnerabilityScansPage, '/vulnerabilities/scans?scan=3'), />다시 대조</)
+})
+
+test('a rescan error names the scan, not the app', () => {
+  assert.match(reach.rescanErrorText(422, 'UNPROCESSABLE', 'Unprocessable'), /성공으로 끝난 스캔만/)
+  assert.match(reach.rescanErrorText(422, 'UNPROCESSABLE', 'RUNNER_NOT_INSTALLED: service-backend'), /실행기가 아직 없어요/)
+  assert.match(reach.rescanErrorText(503, 'UNAVAILABLE', 'x'), /지금 부를 수 없어요/)
+})
+
+test('summary basis rows offer a rescan each', () => {
+  const queryClient = client()
+  queryClient.setQueryData(['reach-summary', 'RUNNING'], { data: { ...reach.sampleReachSummary(), scope: { targetId: null, scanId: null },
+    basis: { requested: 'RUNNING', applied: 'RUNNING', unscannedRunning: [], scans: [
+      { app: 'API', targetType: 'IMAGE', targetId: 1, scanId: 27, imageDigest: A, running: true },
+      { app: 'CHAT', targetType: 'IMAGE', targetId: 2, scanId: 28, imageDigest: C, running: true },
+    ] } }, sample: false })
+  const html = renderAt(queryClient, reach.VulnerabilitySummaryPage, '/vulnerabilities')
+  assert.match(html, /스캔 #27/)
+  assert.equal(html.match(/>다시 대조</g).length, 2)
+})
+
+test('pick list: running images first, then recent targets without PR scans or repeats', () => {
+  const repoScan = { ...scan, id: 9, trigger: 'MANUAL', createdAt: '2026-11-19T01:00:00Z', startedAt: '2026-11-19T01:00:05Z',
+    target: { id: 5, type: 'REPO', app: 'API', image: null, repo: { name: 'service-backend', path: null, commit: 'c'.repeat(40) }, displayName: 'service-backend' } }
+  const oldImage = { ...scan, id: 7, target: { ...scan.target, id: 6, image: { repository: 'logssey/reused-api', digest: 'sha256:' + 'e'.repeat(64) } } }
+  const scans = [
+    { ...scan, id: 12, trigger: 'PR', target: { ...repoScan.target, id: 8 } },   // PR 스캔: 뺀다
+    { ...scan, id: 11, target: { ...scan.target, id: 4, image: { repository: 'logssey/reused-api', digest: A } } },   // 실행 중 목록에 있는 이미지: 뺀다
+    repoScan,
+    oldImage,
+    { ...oldImage, id: 6 },   // 같은 대상의 더 옛 스캔: 뺀다
+  ]
+  const picks = reach.scanPicks(rows, scans)
+
+  // 실행 중: 불일치 → 스캔 없음 → 일치 순, 이미지마다 한 줄
+  assert.deepEqual(picks.running.map((pick) => [pick.title, pick.ref, pick.note]), [
+    ['reused-api', 'logssey/reused-api @ bbbbbbbb', '이 이미지는 아직 스캔 없음'],
+    ['reused-chat', 'logssey/reused-chat @ cccccccc', '이 이미지는 아직 스캔 없음'],
+    ['reused-api', 'logssey/reused-api @ aaaaaaaa', '스캔 #1 있음'],
+  ])
+  assert.deepEqual(picks.running[1].fill, { type: 'IMAGE', app: '', repository: 'logssey/reused-chat', digest: C, repoName: '', commit: '', path: '' })
+  assert.equal(reach.scanPicks([rows[0], { ...rows[0], id: 9, container: 'sidecar' }], []).running.length, 1)
+
+  assert.deepEqual(picks.recent.map((pick) => pick.key), ['recent:5', 'recent:6'])
+  assert.equal(picks.recent[0].ref, 'service-backend @ ccccccc')
+  assert.match(picks.recent[0].note, /^스캔 #9 · /)
+  assert.deepEqual(picks.recent[0].fill, { type: 'REPO', app: 'API', repository: '', digest: '', repoName: 'service-backend', commit: 'c'.repeat(40), path: '' })
+  assert.match(picks.recent[1].note, /^스캔 #7 · /)
+
+  // 고른 줄은 양식만 보고 안다. 고르면 요청 본문이 그대로 나온다
+  const form = { ...reach.emptyNewScanForm, ...picks.running[1].fill, l1: false }
+  assert.equal(reach.isScanPicked(form, picks.running[1]), true)
+  assert.equal(reach.isScanPicked(form, picks.running[0]), false)
+  assert.equal(reach.isScanPicked(reach.emptyNewScanForm, picks.recent[0]), false)
+  assert.deepEqual(reach.newScanRequest(form).input, {
+    target: { type: 'IMAGE', app: undefined, image: { repository: 'logssey/reused-chat', digest: C } },
+    options: { l1: false, l2: true },
+  })
+  assert.deepEqual(reach.newScanRequest({ ...reach.emptyNewScanForm, ...picks.recent[0].fill }).input.target,
+    { type: 'REPO', app: 'API', repo: { name: 'service-backend', commit: 'c'.repeat(40) } })
+})
+
+test('new scan dialog lists the targets to pick and keeps manual entry folded', () => {
+  const queryClient = client()
+  queryClient.setQueryData(['reach-scans', noScanFilter], {
+    pages: [{ data: { items: [scan], nextCursor: null, hasNext: false, totalCount: 1 }, sample: false }],
+    pageParams: [null],
+  })
+  queryClient.setQueryData(['reach-workloads'], { data: { observations: [observation], items: rows }, sample: false })
+  queryClient.setQueryData(['reach-scans', 'picks'], { data: { items: [scan], nextCursor: null, hasNext: false }, sample: false })
+
+  const html = renderAt(queryClient, reach.VulnerabilityScansPage, '/vulnerabilities/scans?new=image')
+  assert.match(html, /<h3>실행 중인 이미지<\/h3>/)
+  assert.match(html, /logssey\/reused-chat @ cccccccc/)
+  assert.equal(html.match(/class="reach-pick"/g).length, 4)   // 실행 중 3 + 최근 1
+  assert.match(html, /<h3>최근 스캔한 대상<\/h3>/)
+  assert.doesNotMatch(html, /aria-pressed="true"/)
+  assert.match(html, /<details class="reach-manual">/)   // 접힌 채로 열린다
+
+  // 값을 채워서 열면(워크로드의 [스캔 요청]) 그 줄이 골라져 있고 직접 입력이 펼쳐져 있다
+  const filled = renderAt(queryClient, reach.VulnerabilityScansPage, `/vulnerabilities/scans?new=image&repository=logssey%2Freused-chat&digest=${C}`)
+  assert.equal(filled.match(/aria-pressed="true"/g).length, 1)
+  assert.match(filled, /<details class="reach-manual" open="">/)
+
+  // 예시 값은 고를 대상으로 보이지 않고, 고를 것이 없으면 직접 입력이 펼쳐진다
+  const sample = client()
+  sample.setQueryData(['reach-scans', noScanFilter], { pages: [{ data: { items: [], nextCursor: null, hasNext: false, totalCount: 0 }, sample: false }], pageParams: [null] })
+  sample.setQueryData(['reach-workloads'], { data: reach.sampleReachWorkloads(), sample: true })
+  sample.setQueryData(['reach-scans', 'picks'], { data: { items: [], nextCursor: null, hasNext: false }, sample: false })
+  const empty = renderAt(sample, reach.VulnerabilityScansPage, '/vulnerabilities/scans?new=image')
+  assert.doesNotMatch(empty, /class="reach-pick"/)
+  assert.match(empty, /<details class="reach-manual" open="">/)
+})
+
 test('scan request errors read as next steps', () => {
   assert.match(reach.scanRequestErrorText(503, 'UNAVAILABLE', 'x'), /잠시 뒤 다시/)
   assert.match(reach.scanRequestErrorText(422, 'UNPROCESSABLE', 'x'), /앱을 직접 골라/)

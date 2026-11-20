@@ -58,6 +58,7 @@
 .reach-basis-toggle { display: flex; gap: 6px; }
 .reach-unscanned ul { margin: 6px 0 10px 18px; }
 .reach-basis-scans { margin: 6px 0 12px 18px; display: grid; gap: 4px; }
+.reach-basis-action { display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; }
 
 /* Finding 목록 (SCR-02) */
 .reach-chips { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -185,6 +186,20 @@
 .reach-fieldset legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
 .reach-radio { display: flex; align-items: center; gap: 8px; }
 .reach-disabled { color: var(--text-muted); }
+/* 새 스캔 대화상자의 고르기 목록 (SCR-05-09) */
+.reach-picks { display: grid; gap: 12px; }
+.reach-pick-group { display: grid; gap: 6px; }
+.reach-pick-group h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.reach-pick-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 208px; overflow-y: auto; }
+.reach-pick { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: baseline; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font: inherit; text-align: left; cursor: pointer; }
+.reach-pick:hover { background: var(--surface-subtle); }
+.reach-pick:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.reach-pick[aria-pressed='true'] { border-color: var(--primary); background: var(--primary-soft); }
+.reach-pick-title { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reach-pick-note { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.reach-pick-ref { grid-column: 1 / -1; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reach-manual > summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.reach-manual-body { display: grid; gap: 16px; margin-top: 12px; }
 
 /* 규칙·취약 함수 (SCR-06) */
 .reach-search { flex-wrap: nowrap; }

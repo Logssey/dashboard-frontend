@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
 import { ReachFindingDrawer } from '@/components/ReachFindingDrawer'
 import { ReachFindingTable } from '@/components/ReachFindingTable'
+import { ReachRescanButton } from '@/components/ReachRescanButton'
 import { ReachStatusBadge } from '@/components/ReachBadges'
 import { type ReachSummaryLink, ReachSummaryView } from '@/components/ReachSummaryView'
 import { formatKst } from '@/lib/reach'
@@ -20,7 +21,7 @@ import {
   reachStatusLabel,
   reachStatusOrder,
 } from '@/lib/reachLabels'
-import { VULNERABILITY_FINDINGS_PATH, VULNERABILITY_RULES_PATH, VULNERABILITY_WORKLOADS_PATH } from '@/lib/reachRoutes'
+import { VULNERABILITY_FINDINGS_PATH, VULNERABILITY_RULES_PATH, VULNERABILITY_SCANS_PATH, VULNERABILITY_WORKLOADS_PATH } from '@/lib/reachRoutes'
 import './reach.css'
 
 // 취약점 관리(Reach). 사이드바 하위 메뉴로 요약(/vulnerabilities)과 Finding 목록(/vulnerabilities/findings)을 나눈다.
@@ -233,7 +234,17 @@ export function VulnerabilitySummaryPage() {
           </button>
         </p>
       )}
-      {summaryData && <ReachSummaryView summary={summaryData} onOpen={openFindings} onNavigate={navigate} />}
+      {summaryData && (
+        <ReachSummaryView
+          summary={summaryData}
+          onOpen={openFindings}
+          onNavigate={navigate}
+          scanAction={(scanId) => (
+            // 요청한 뒤에는 새 스캔의 상세로 옮긴다. 거기서 진행 상태가 10초마다 갱신된다
+            <ReachRescanButton key={scanId} scanId={scanId} onCreated={(scan) => navigate(`${VULNERABILITY_SCANS_PATH}?scan=${scan.id}`)} />
+          )}
+        />
+      )}
     </>
   )
 }
