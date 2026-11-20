@@ -76,6 +76,9 @@ test('every page gets at least one suggested question', () => {
   for (const page of ['통합 현황', '키·노출 위치', '대응 관리', '연결 관리', '컴플라이언스', 'Finding 목록', '알 수 없는 화면']) {
     assert.ok(help.suggestedQuestions(page).length > 0, page)
   }
+  for (const page of ['요약', 'Finding 목록', '워크로드', '스캔']) {
+    assert.ok(help.suggestedQuestions(page).some((q) => q.includes('Log4Shell')), page)
+  }
 })
 
 async function filesUnder(dir) {
