@@ -36,7 +36,7 @@ export function ReachL3Section({ l3 }: { l3: ReachL3Detail | null | undefined })
       <section className="reach-section">
         <h3>실제 실행 (L3)</h3>
         <p className="caption">
-          이 이미지를 띄워 시나리오를 보낸 결과가 없어요. 판정 데이터가 없는 취약점이거나, 서비스 저장소에 L3 시나리오가 없는 경우예요.
+          이 이미지를 띄워 시나리오를 보낸 결과가 없어요. 판정 데이터가 없는 취약점이거나, 서비스 저장소에 L3 시나리오가 없거나, 대시보드에서 [새 스캔]으로 요청한 스캔인 경우예요(앱은 PR 이미지가 빌드될 때만 띄워요).
         </p>
       </section>
     )

@@ -267,7 +267,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
               <input type="checkbox" checked={form.l2} onChange={(event) => set('l2', event.target.checked)} /> L2 판정
             </label>
             <label className="reach-radio reach-disabled">
-              <input type="checkbox" disabled /> L3 실제 호출 (계획)
+              <input type="checkbox" disabled /> L3 실제 실행 (PR 이미지가 빌드될 때 자동으로 돌아요)
             </label>
             <span className="caption">L2 판정은 앱 1개에 약 40초 걸려요(bootJar 빌드 제외).</span>
           </fieldset>

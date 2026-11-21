@@ -134,12 +134,13 @@ test('the CI tab shows the notice, lookup and plan with each status', () => {
   assert.doesNotMatch(html, /지우기/)
   assert.equal(reach.CI_PLAN.length, 4)
   for (const label of ['PR', '이미지 빌드', '일정', '수동']) assert.match(html, new RegExp(`<strong>${label}</strong>`))
-  // PR은 동작, 이미지는 준비(권한 남음), 일정·수동은 계획
-  assert.deepEqual(reach.CI_PLAN.map((row) => row.status), ['WORKING', 'READY', 'PLANNED', 'PLANNED'])
-  assert.equal((html.match(/badge success">동작/g) ?? []).length, 1)
-  assert.equal((html.match(/reach-flag">준비/g) ?? []).length, 1)
-  assert.equal((html.match(/reach-flag">계획/g) ?? []).length, 2)
-  assert.match(html, /ECR 읽기 권한을 넣으면 돌아요/)
+  // 네 경로 모두 운영에서 돈다. "준비"·"계획"으로 남은 줄이 없어야 한다
+  assert.deepEqual(reach.CI_PLAN.map((row) => row.status), ['WORKING', 'WORKING', 'WORKING', 'WORKING'])
+  assert.equal((html.match(/badge success">동작/g) ?? []).length, 4)
+  assert.doesNotMatch(html, /reach-flag">(준비|계획)/)
+  assert.doesNotMatch(html, /ECR 읽기 권한을 넣으면|워크플로를 부르지 않아/)
+  assert.match(html, /L3 실제 실행까지 기록한다/)
+  assert.match(html, /보관한 실행 기록으로 다시 맞춘다/)
 })
 
 test('the check list shows one row per check and marks the selected one', () => {
@@ -169,7 +170,7 @@ test('the CI tab lists checks from the list API above the plan', () => {
   assert.match(html, /5건 중 2건 표시/)
   assert.match(html, /더 보기/)
   assert.match(html, /모든 실행/)
-  assert.ok(html.indexOf('검사 목록') < html.indexOf('실행 계획'))
+  assert.ok(html.indexOf('검사 목록') < html.indexOf('실행 경로'))
 })
 
 test('scans page keeps the tab and check id in the address', () => {
@@ -185,9 +186,9 @@ test('scans page keeps the tab and check id in the address', () => {
   const history = renderPage(client(), '/vulnerabilities/scans')
   assert.match(history, /aria-selected="true" class="tab reach-tab active">스캔 이력/)
   assert.match(history, /필터 초기화/)
-  assert.doesNotMatch(history, /실행 계획/)
+  assert.doesNotMatch(history, /실행 경로/)
 
   const badId = renderPage(client(), '/vulnerabilities/scans?tab=ci&check=abc')
-  assert.match(badId, /실행 계획/)
+  assert.match(badId, /실행 경로/)
   assert.doesNotMatch(badId, /검사 #/)
 })

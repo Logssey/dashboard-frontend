@@ -102,7 +102,8 @@ test('workload page shows the observation, cards and attention rows first', () =
   const html = renderAt(queryClient, reach.VulnerabilityWorkloadsPage, '/vulnerabilities/workloads')
 
   assert.match(html, /reused-prod \/ reused/)
-  assert.match(html, /kubectl로 조회해 올린 결과/)
+  assert.match(html, /kubectl로 조회해 손으로 올린 결과가 섞여 있어요/)
+  assert.doesNotMatch(html, /자동 수집은 아직 연결되지 않았어요/)
   assert.doesNotMatch(html, /오래됨/)
   assert.doesNotMatch(html, /예시 값/)
   assert.match(html, /준비된 파드 2개/)
