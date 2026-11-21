@@ -32,23 +32,32 @@ import { VULNERABILITY_FINDINGS_PATH, VULNERABILITY_SCANS_PATH } from '@/lib/rea
 
 const POLL_MS = 10_000
 
-/** CI 실행 상태. 동작 = 서비스 레포 워크플로(deploy/reach/ci/reach.yml)가 돈다, 준비 = 워크플로는 있고 설치마다 권한이 남았다 */
+/** CI 실행 상태. 동작 = 서비스 레포 워크플로(deploy/reach/ci/reach.yml)가 돈다. 준비·계획은 새 경로를 더할 때를 위해 남겨 둔다(지금 쓰는 줄 없음) */
 export type CiPlanStatus = 'WORKING' | 'READY' | 'PLANNED'
 
 export const CI_PLAN_STATUS_LABEL: Record<CiPlanStatus, string> = { WORKING: '동작', READY: '준비', PLANNED: '계획' }
 
-/** 실행 계획 (화면 명세 "CI 검사 탭 배치", PRD FR-11) */
+/** 실행 경로 (화면 명세 "CI 검사 탭 배치", PRD FR-11). 네 경로 모두 운영에서 돈다 */
 export const CI_PLAN: { mode: ReachTrigger; when: string; what: string; status: CiPlanStatus; note?: string }[] = [
   { mode: 'PR', when: 'PR마다', what: '레포 SBOM으로 CVE 대조와 L2 판정. 기준 스캔에 없던 Finding만 게이트로 본다', status: 'WORKING' },
   {
     mode: 'IMAGE_BUILD',
-    when: 'CI/CD가 이미지를 ECR에 올린 뒤',
-    what: '이미지 SBOM 생성·대조·L2 판정. L3 능동 관측(FR-14)은 그다음',
-    status: 'READY',
-    note: 'ECR 읽기 권한을 넣으면 돌아요',
+    when: 'CI/CD가 PR 이미지를 ECR에 올린 뒤',
+    what: '이미지 SBOM 생성·대조·L2 판정. 서비스 레포에 시나리오가 있으면 그 이미지를 띄워 L3 실제 실행까지 기록한다',
+    status: 'WORKING',
   },
-  { mode: 'SCHEDULE', when: '하루 1번', what: '저장된 SBOM을 새 취약점 DB로 다시 대조하고 다시 판정', status: 'PLANNED' },
-  { mode: 'MANUAL', when: '필요할 때', what: '수동 실행. [새 스캔]은 검사를 만들지만 워크플로를 부르지 않아 대기에 머물러요', status: 'PLANNED' },
+  {
+    mode: 'SCHEDULE',
+    when: '하루 1번',
+    what: '실행 중인 이미지마다 보관한 SBOM을 그날의 취약점 DB·판정 데이터로 다시 대조한다. L3는 보관한 실행 기록으로 다시 맞춘다',
+    status: 'WORKING',
+  },
+  {
+    mode: 'MANUAL',
+    when: '필요할 때',
+    what: '[새 스캔]·[다시 대조]로 요청하면 서비스 레포의 워크플로가 돌아 결과를 올린다. 앱은 띄우지 않는다',
+    status: 'WORKING',
+  },
 ]
 
 /** 검사 ID 입력값. 양의 정수만 받는다 */
@@ -473,10 +482,10 @@ export function CiChecksTab({
 
       <section className="card list-card">
         <div className="toolbar reach-filters">
-          <strong>실행 계획</strong>
+          <strong>실행 경로</strong>
           <span className="caption">처음에는 리포트 전용으로 돌리고, 게이트 전환 시점은 팀이 정해요(ARD Q-07)</span>
         </div>
-        <div className="table-scroll" tabIndex={0} role="region" aria-label="CI 실행 계획 표. 좁은 화면에서는 가로로 스크롤하세요.">
+        <div className="table-scroll" tabIndex={0} role="region" aria-label="CI 실행 경로 표. 좁은 화면에서는 가로로 스크롤하세요.">
           <table className="reach-table reach-ci-plan">
             <thead>
               <tr>

@@ -142,7 +142,7 @@ export const reachTriggerLabel: Record<ReachTrigger, string> = {
   SCHEDULE: '일정',
 }
 
-/** API의 다섯 단계 (SCR-05-06). L3는 FR-14 [계획]이라 없다 */
+/** API의 다섯 단계 (SCR-05-06). L3(FR-14)는 단계가 아니라 Finding의 근거로 따로 온다 */
 export const reachStageLabel: Record<string, string> = {
   SBOM: 'SBOM 생성',
   MATCH: 'CVE 대조',

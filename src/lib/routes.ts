@@ -21,7 +21,7 @@ export const sectionPages: SectionPage[] = [
   { path: '/identities', title: '신원·권한', description: '누가 무엇에 접근하는지 확인하고 필요한 권한을 검토하세요.' },
   { path: '/runtime', title: '런타임 보안', description: '실행 중인 워크로드의 이벤트와 조사 근거를 확인하세요.' },
   { path: '/iac', title: 'IaC 보안', description: '인프라 코드 변경이 만드는 공격 경로와 State·드리프트를 확인하세요.' },
-  { path: '/vulnerabilities', title: '취약점 관리', description: '업데이트가 필요한 이미지와 패키지를 확인하세요.' },
+  { path: '/vulnerabilities', title: '취약점 관리', description: '실제로 도달 가능한 취약점부터 확인하세요.' },
   { path: '/vulnerabilities/findings', title: 'Finding 목록', description: '판정 상태와 근거로 취약점을 걸러 보세요.' },
   { path: '/vulnerabilities/workloads', title: '워크로드', description: '실행 중인 이미지가 스캔한 이미지와 같은지 확인하세요.' },
   { path: '/vulnerabilities/scans', title: '스캔', description: '스캔을 요청하고 진행 상태와 이력을 확인하세요.' },

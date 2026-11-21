@@ -292,7 +292,7 @@ export function isMissingEndpoint(error: unknown): boolean {
 }
 
 /**
- * Reach 백엔드는 API를 하나씩 붙여 가는 중이다. 개발 서버에서 아직 없는 API만 명세 예시 값으로 대신 그리고 화면에 알린다.
+ * API-01~14는 모두 develop에 있다. 옛 백엔드를 띄운 개발 서버에서만, 그 서버에 없는 API를 명세 예시 값으로 대신 그리고 화면에 알린다.
  * 배포 빌드에서는 예시 값을 쓰지 않고 오류를 그대로 보인다
  */
 async function orSample<T>(request: () => Promise<T>, sample: () => T): Promise<Sampled<T>> {
@@ -609,7 +609,7 @@ export interface ReachVulnFunctionPage {
   generated?: string
 }
 
-/** 규칙·취약 함수 데이터는 작아서(규칙 14개, 함수 46개) 전부 받아 화면이 찾고 묶는다 (SCR-06-01) */
+/** 규칙·취약 함수 데이터는 작아서(CVE 수십 개) 전부 받아 화면이 찾고 묶는다 (SCR-06-01) */
 export interface ReachRuleData {
   rules: ReachRule[]
   rulesVersion: string | null

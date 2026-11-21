@@ -52,7 +52,7 @@ function ObservationBand({ observations }: { observations: ReachObservation[] })
       </ul>
       <p className="caption">
         {observations.some((observation) => observation.source === 'MANUAL')
-          ? '운영 파드의 imageID를 kubectl로 조회해 올린 결과예요. 자동 수집은 아직 연결되지 않았어요.'
+          ? '운영 파드의 imageID를 kubectl로 조회해 손으로 올린 결과가 섞여 있어요.'
           : '클러스터 안 수집기가 조회한 결과예요.'}
         {stale && ' 48시간이 지난 조회는 실행 여부를 "확인 못 함"으로 보여요.'}
       </p>
@@ -233,7 +233,7 @@ export function VulnerabilityWorkloadsPage() {
         <section className="card">
           <EmptyState
             title="클러스터 조회 기록이 없어요"
-            description="운영 파드를 조회한 결과를 올리면(L1 수집 결과 올리기) 실행 중인 이미지와 스캔 연결을 여기에 보여줘요."
+            description="클러스터 안 수집기가 운영 파드를 조회해 올리면 실행 중인 이미지와 스캔 연결을 여기에 보여줘요."
           />
         </section>
       )}
