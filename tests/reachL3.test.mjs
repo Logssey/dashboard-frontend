@@ -13,7 +13,8 @@ const bundled = await build({
       "export * from '@/lib/reachL3'",
       "export { ReachL3Section } from '@/components/ReachL3Section'",
       "export { ReachL3Badge } from '@/components/ReachBadges'",
-      "export { ReachFindingTable } from '@/components/ReachFindingTable'",
+      "export { ReachFindingTable, deploymentGroupStarts } from '@/components/ReachFindingTable'",
+      "export { compareFindings } from '@/lib/reach'",
       "export { ReachFindingDetailView } from '@/components/ReachFindingDrawer'",
       "export { sampleReachFinding, sampleReachFindings } from '@/api/reachSample'",
       "export { reachFindingQuery } from '@/api/reach'",
@@ -121,6 +122,28 @@ test('the list sends the l3 filter and the table shows the level next to the ver
   assert.match(html, /reach-l3 function[^>]*title="[^"]*기동 중에만[^"]*"[^>]*>함수까지 실행</)
   // the third row has no L3 result: a dash, not "no run"
   assert.equal((html.match(/이 이미지를 띄워 본 결과가 없어요/g) ?? []).length, 1)
+})
+
+test('running images come first and the table marks where the deployment changes', () => {
+  const sample = l3.sampleReachFindings({ status: [], severity: [], reviewState: [], deployment: [], cveContains: '' }, null, 3).items
+  const row = (item, id, deployment, status) => ({ ...item, id, deployment, verdict: { ...item.verdict, status } })
+  const items = [
+    row(sample[0], 1, 'NOT_RUNNING', 'REACHABLE'),
+    row(sample[1], 2, 'UNKNOWN', 'REACHABLE'),
+    row(sample[2], 3, 'RUNNING', 'UNREACHABLE'),
+  ].sort(l3.compareFindings)
+  assert.deepEqual(items.map((item) => item.id), [3, 2, 1])
+  assert.deepEqual([...l3.deploymentGroupStarts(items)], [3, 2, 1])
+
+  const html = renderToStaticMarkup(createElement(l3.ReachFindingTable, { items, onSelect: () => {} }))
+  assert.equal((html.match(/reach-group-row/g) ?? []).length, 3)
+  assert.match(html, /colSpan="9"|colspan="9"/)
+  assert.ok(html.indexOf('지금 돌고 있는 이미지') < html.indexOf('실행 여부를 모르는 대상'))
+
+  // one deployment only (a single scan, or the deployment filter): no group rows
+  const same = items.map((item) => ({ ...item, deployment: 'RUNNING' }))
+  assert.equal(l3.deploymentGroupStarts(same).size, 0)
+  assert.doesNotMatch(renderToStaticMarkup(createElement(l3.ReachFindingTable, { items: same, onSelect: () => {} })), /reach-group-row/)
 })
 
 test('the detail shows the request, the functions, the executed lines and the run', () => {

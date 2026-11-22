@@ -380,6 +380,13 @@ export function VulnerabilityFindingsPage() {
           )}
 
           {items.length > 0 && (
+            <p className="caption reach-sort-note">
+              운영에서 실행 중인 이미지의 Finding부터 보여 줘요(실행 중 → 확인 못 함 → 실행 안 함). 같은 배포 상태 안에서는
+              도달 가능 → 미확인 → 도달 불가 → 분석 대상 아님, 그다음 심각도·CVE 순이에요.
+            </p>
+          )}
+
+          {items.length > 0 && (
             <ReachFindingTable items={items} onSelect={(id) => update({ finding: String(id) }, { replace: true })} />
           )}
 
