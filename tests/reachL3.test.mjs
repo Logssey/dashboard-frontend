@@ -13,7 +13,8 @@ const bundled = await build({
       "export * from '@/lib/reachL3'",
       "export { ReachL3Section } from '@/components/ReachL3Section'",
       "export { ReachL3Badge } from '@/components/ReachBadges'",
-      "export { ReachFindingTable } from '@/components/ReachFindingTable'",
+      "export { ReachFindingTable, deploymentGroupStarts } from '@/components/ReachFindingTable'",
+      "export { compareFindings } from '@/lib/reach'",
       "export { ReachFindingDetailView } from '@/components/ReachFindingDrawer'",
       "export { sampleReachFinding, sampleReachFindings } from '@/api/reachSample'",
       "export { reachFindingQuery } from '@/api/reach'",
@@ -99,11 +100,29 @@ test('names are shortened for reading', () => {
   assert.match(l3.l3PathText({ reachedStep: 0, of: 15 }), /진입점이 실행되지 않음/)
 })
 
-test('L2 unreachable with an executed region is flagged, nothing else is', () => {
+test('an unreachable verdict that L3 contradicts is flagged, nothing else is', () => {
   assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'REGION' }), true)
-  assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'FUNCTION' }), false)
+  // the vulnerable function ran but its region could not be checked
+  assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'FUNCTION', regionsChecked: false }), true)
+  assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'FUNCTION', regionsChecked: true }), false)
   assert.equal(l3.l3DiffersFromL2('REACHABLE', { reached: 'REGION' }), false)
   assert.equal(l3.l3DiffersFromL2('UNREACHABLE', null), false)
+})
+
+test('a verdict raised by L3 shows the tag and the L2 verdict it replaced', () => {
+  const runtime = { order: 2, kind: 'RUNTIME', summary: 'L3: ...', executed: true, reached: 'REGION', regionsChecked: true,
+    startupOnly: false, l2Status: 'UNREACHABLE' }
+  assert.equal(l3.l3Raise([{ order: 1, kind: 'NOTE', summary: 'x' }]), undefined)
+  assert.equal(l3.l3Raise([{ order: 1, kind: 'NOTE', summary: 'x' }, runtime]), runtime)
+
+  const detail = l3.sampleReachFinding(8)
+  const raised = { ...detail, verdict: { ...detail.verdict, status: 'REACHABLE', evidence: [...detail.verdict.evidence, runtime] },
+    l3: region }
+  const html = renderToStaticMarkup(createElement(l3.ReachFindingDetailView, { detail: raised }))
+  assert.match(html, />L3로 올림</)
+  assert.match(html, /L3가 실제 실행을 확인해 판정을 올렸어요\(코드 분석 L2 판정: 도달 불가\)/)
+  assert.doesNotMatch(html, /≠ 판정/)
+  assert.doesNotMatch(renderToStaticMarkup(createElement(l3.ReachFindingDetailView, { detail })), /L3로 올림/)
 })
 
 test('the list sends the l3 filter and the table shows the level next to the verdict', () => {
@@ -121,6 +140,28 @@ test('the list sends the l3 filter and the table shows the level next to the ver
   assert.match(html, /reach-l3 function[^>]*title="[^"]*기동 중에만[^"]*"[^>]*>함수까지 실행</)
   // the third row has no L3 result: a dash, not "no run"
   assert.equal((html.match(/이 이미지를 띄워 본 결과가 없어요/g) ?? []).length, 1)
+})
+
+test('running images come first and the table marks where the deployment changes', () => {
+  const sample = l3.sampleReachFindings({ status: [], severity: [], reviewState: [], deployment: [], cveContains: '' }, null, 3).items
+  const row = (item, id, deployment, status) => ({ ...item, id, deployment, verdict: { ...item.verdict, status } })
+  const items = [
+    row(sample[0], 1, 'NOT_RUNNING', 'REACHABLE'),
+    row(sample[1], 2, 'UNKNOWN', 'REACHABLE'),
+    row(sample[2], 3, 'RUNNING', 'UNREACHABLE'),
+  ].sort(l3.compareFindings)
+  assert.deepEqual(items.map((item) => item.id), [3, 2, 1])
+  assert.deepEqual([...l3.deploymentGroupStarts(items)], [3, 2, 1])
+
+  const html = renderToStaticMarkup(createElement(l3.ReachFindingTable, { items, onSelect: () => {} }))
+  assert.equal((html.match(/reach-group-row/g) ?? []).length, 3)
+  assert.match(html, /colSpan="9"|colspan="9"/)
+  assert.ok(html.indexOf('지금 돌고 있는 이미지') < html.indexOf('실행 여부를 모르는 대상'))
+
+  // one deployment only (a single scan, or the deployment filter): no group rows
+  const same = items.map((item) => ({ ...item, deployment: 'RUNNING' }))
+  assert.equal(l3.deploymentGroupStarts(same).size, 0)
+  assert.doesNotMatch(renderToStaticMarkup(createElement(l3.ReachFindingTable, { items: same, onSelect: () => {} })), /reach-group-row/)
 })
 
 test('the detail shows the request, the functions, the executed lines and the run', () => {

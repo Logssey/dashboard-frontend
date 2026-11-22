@@ -28,7 +28,7 @@ function Requests({ during, run, limit = 4 }: { during: ReachL3Detail['during'];
 
 /**
  * SCR-03 "실제 실행(L3)" 절. 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드 쪽으로 어디까지 실행됐는지,
- * 어느 요청에서였는지를 근거로 보인다. 판정(L2)을 바꾸지 않는다
+ * 어느 요청에서였는지를 근거로 보인다. 판정을 올렸는지는 판정 요약 띠가 보인다
  */
 export function ReachL3Section({ l3 }: { l3: ReachL3Detail | null | undefined }) {
   if (!l3) {

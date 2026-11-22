@@ -72,6 +72,9 @@
 .reach-table-notice { margin: 0 28px 16px; }
 .reach-table td { vertical-align: top; }
 .reach-row { cursor: pointer; }
+.reach-sort-note { margin: 0 28px 12px; }
+.reach-group-row th { text-align: left; color: var(--text); background: var(--canvas); white-space: normal; }
+.reach-group-row .caption { margin-left: 8px; font-weight: 400; }
 .reach-cve { min-width: 0; white-space: nowrap; }
 .reach-group { font-size: 12px; }
 .reach-evidence-cell { min-width: 240px; max-width: 360px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text-body); }

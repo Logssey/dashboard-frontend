@@ -1,5 +1,6 @@
 // 취약점 관리(Reach) 화면 계산. 집계는 백엔드가 하고, 여기서는 표시용 계산만 한다
 import type {
+  ReachDeployment,
   ReachFindingDetail,
   ReachFindingListItem,
   ReachNotAnalyzedReason,
@@ -128,9 +129,16 @@ export function compareCve(a: string, b: string): number {
   return a.localeCompare(b)
 }
 
-/** 기본 정렬: 상태(도달 가능 → 미확인 → 도달 불가 → 분석 대상 아님) → 심각도 → CVE (API-04 sort 기본값) */
+/**
+ * 목록 정렬의 배포 순서: 실행 중 → 확인 못 함 → 실행 안 함 (API-04 기본 정렬).
+ * 확인 못 함(레포 스캔, 클러스터 조회 없음)은 돌고 있을 수 있어 실행 안 함보다 앞이다. 필터 순서(reachDeploymentOrder)와 다르다
+ */
+export const reachDeploymentSortOrder: ReachDeployment[] = ['RUNNING', 'UNKNOWN', 'NOT_RUNNING']
+
+/** 기본 정렬: 배포(실행 중 먼저) → 상태(도달 가능 → 미확인 → 도달 불가 → 분석 대상 아님) → 심각도 → CVE (API-04 기본 정렬) */
 export function compareFindings(a: ReachFindingListItem, b: ReachFindingListItem): number {
   return (
+    reachDeploymentSortOrder.indexOf(a.deployment) - reachDeploymentSortOrder.indexOf(b.deployment) ||
     reachStatusOrder.indexOf(a.verdict.status) - reachStatusOrder.indexOf(b.verdict.status) ||
     reachSeverityOrder.indexOf(a.vulnerability.severity) - reachSeverityOrder.indexOf(b.vulnerability.severity) ||
     compareCve(a.vulnerability.id, b.vulnerability.id) ||

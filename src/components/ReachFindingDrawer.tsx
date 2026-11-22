@@ -10,7 +10,7 @@ import {
   type ReachVulnFunction,
 } from '@/api/reach'
 import { findingVulnFunctions, formatKst, nearestFixedVersion, safeExternalUrl } from '@/lib/reach'
-import { l3DiffersFromL2 } from '@/lib/reachL3'
+import { l3DiffersFromL2, l3Raise } from '@/lib/reachL3'
 import {
   labelOf,
   reachHistoryKindLabel,
@@ -297,6 +297,7 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
   reviewForm?: React.ReactNode
 }) {
   const { verdict, review, vulnerability, component } = detail
+  const raised = l3Raise(verdict.evidence)
   const fix = nearestFixedVersion(component.version, vulnerability.fixedVersions)
   const humanDiffers = review.disagreesWithTool
 
@@ -348,6 +349,7 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
             <dd>
               <ReachL3Badge l3={detail.l3} />
               {l3DiffersFromL2(verdict.status, detail.l3) && <span className="badge reach-flag differs">≠ 판정</span>}
+              {raised && <span className="badge reach-flag">L3로 올림</span>}
             </dd>
           </div>
         </dl>
@@ -356,6 +358,11 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
             ? `${labelOf(reachNotAnalyzedReasonLabel, verdict.notAnalyzedReason)} · ${verdict.summary}`
             : verdict.summary}
         </p>
+        {raised?.l2Status && (
+          <p className="notice">
+            L3가 실제 실행을 확인해 판정을 올렸어요(코드 분석 L2 판정: {labelOf(reachStatusLabel, raised.l2Status)}).
+          </p>
+        )}
         <p className="caption">
           판정 {formatKst(verdict.analyzedAt)} · 스캔 #{detail.scanId}
           {verdict.engine?.reach ? ` · reach ${verdict.engine.reach}` : ''}

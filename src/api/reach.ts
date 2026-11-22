@@ -27,7 +27,7 @@ export type ReachResetReason = 'VERDICT_CHANGED' | 'EVIDENCE_CHANGED'
 
 /**
  * L3 능동 관측이 닿은 곳 (PRD FR-14). 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드 쪽으로 어디까지 실행됐나.
- * 판정(L2) 옆에 놓는 근거이고 판정을 바꾸지 않는다.
+ * 판정(L2) 옆에 놓는 근거다. 취약 구간이 실행됐으면 서버가 판정을 도달 가능으로 올리고 근거에 RUNTIME 한 줄을 남긴다.
  * REGION 취약 구간 실행 / FUNCTION 취약 함수까지 / NONE 모두 확인했고 실행 없음 / NOT_RECORDED 확인하지 못한 것이 있음
  */
 export type ReachL3Level = 'REGION' | 'FUNCTION' | 'NONE' | 'NOT_RECORDED'
@@ -138,6 +138,12 @@ export interface ReachEvidence {
   candidate?: boolean
   entryStage?: 1 | 2
   weak?: boolean
+  /** RUNTIME: L3가 판정을 올렸을 때. executed면 취약 구간 실행, l2Status는 올리기 전 L2 판정 */
+  executed?: boolean
+  reached?: ReachL3Level
+  regionsChecked?: boolean
+  startupOnly?: boolean
+  l2Status?: ReachStatus
 }
 
 /** API-05 Finding 상세 */
