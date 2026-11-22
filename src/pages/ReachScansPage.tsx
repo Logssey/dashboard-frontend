@@ -26,6 +26,7 @@ import {
   reachStageStatusLabel,
   reachStatusLabel,
   reachStatusOrder,
+  reachRefLink,
   reachToolLabel,
   reachTriggerLabel,
   reachTriggerOrder,
@@ -169,6 +170,21 @@ export function ReachScanTable({ items, selectedId, onSelect }: { items: ReachSc
   )
 }
 
+/** SCR-05-07 도구·DB 버전 한 줄의 값. 판정 데이터 커밋(reachRef)은 GitHub 커밋 링크로 */
+function toolValue(name: string, value: string | null) {
+  if (name === 'reachRef' && value) {
+    const ref = reachRefLink(value)
+    return ref.href ? (
+      <a href={ref.href} target="_blank" rel="noopener noreferrer" title={value}>
+        {ref.text}
+      </a>
+    ) : (
+      ref.text
+    )
+  }
+  return name.endsWith('At') ? formatKst(value) : value
+}
+
 /** SCR-05-05~08 스캔 상세. onRescanned를 주면 성공한 스캔에 [다시 대조]가 보인다 */
 export function ReachScanDetail({ scan, onRerun, onRescanned }: {
   scan: ReachScan
@@ -283,7 +299,7 @@ export function ReachScanDetail({ scan, onRerun, onRescanned }: {
             {tools.map(([name, value]) => (
               <div key={name} className="reach-kv-row">
                 <dt>{labelOf(reachToolLabel, name)}</dt>
-                <dd>{name.endsWith('At') ? formatKst(value) : value}</dd>
+                <dd>{toolValue(name, value)}</dd>
               </div>
             ))}
           </dl>

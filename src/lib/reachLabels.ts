@@ -169,6 +169,24 @@ export const reachToolLabel: Record<string, string> = {
   reach: 'Reach',
   rulesVersion: '규칙 데이터',
   vulnFunctionsVersion: '취약 함수 데이터',
+  reachRef: '판정 데이터·분석기 커밋',
+  sbomSource: 'SBOM',
+}
+
+/** 판정 데이터·분석기·CI 스크립트가 있는 저장소 (tools.reachRef가 이 저장소의 커밋이다) */
+export const REACH_CODE_REPO_URL = 'https://github.com/Logssey/dashboard-backend'
+
+/**
+ * tools.reachRef(40자 커밋, 로컬 실행에서 판정 데이터·분석기를 고친 채 돌렸으면 끝에 -dirty)를 화면 글자와 커밋 링크로.
+ * 커밋 모양이 아니면 받은 값을 그대로, 링크 없이
+ */
+export function reachRefLink(value: string): { text: string; href: string | null } {
+  const match = /^([0-9a-f]{40})(-dirty)?$/.exec(value)
+  if (!match) return { text: value, href: null }
+  return {
+    text: match[1].slice(0, 12) + (match[2] ? ' (로컬에서 고친 채 실행)' : ''),
+    href: `${REACH_CODE_REPO_URL}/commit/${match[1]}`,
+  }
 }
 
 /** 검토 이력의 바뀐 까닭 (SCR-03-14) */

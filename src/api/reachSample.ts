@@ -306,7 +306,12 @@ const SAMPLE_SCAN: ReachScan = {
     { name: 'L2', status: 'SUCCEEDED', durationSeconds: 40 },
     { name: 'REPORT', status: 'SUCCEEDED' },
   ],
-  tools: { trivy: '0.75.0', trivyDbUpdatedAt: '2026-10-10T14:44:00Z', reach: 'v0' },
+  tools: {
+    trivy: '0.75.0',
+    trivyDbUpdatedAt: '2026-10-10T14:44:00Z',
+    reach: 'v0',
+    reachRef: '4c912326c7c1f7fd9aa5e96dd993e9caca91a6bf',
+  },
   counts: {
     total: 23,
     bySeverity: { CRITICAL: 5, HIGH: 11, MEDIUM: 7, LOW: 0, UNKNOWN: 0 },

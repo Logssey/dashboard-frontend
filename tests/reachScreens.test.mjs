@@ -14,6 +14,7 @@ const bundled = await build({
   stdin: {
     contents: [
       "export * from '@/lib/reach'",
+      "export { reachRefLink } from '@/lib/reachLabels'",
       "export { sampleReachWorkloads, sampleReachScans, sampleReachScan } from '@/api/reachSample'",
       "export { VulnerabilityWorkloadsPage, scanRequestLink } from '@/pages/ReachWorkloadsPage'",
       "export { VulnerabilityScansPage, readNewScan, rerunParams } from '@/pages/ReachScansPage'",
@@ -202,6 +203,7 @@ test('scan page shows the history and the selected scan detail', () => {
   assert.match(html, /SBOM 생성/)
   assert.match(html, /L2 판정<\/span><span class="caption">완료 · 40초/)
   assert.match(html, /Trivy DB 갱신/)
+  assert.match(html, /<dt>판정 데이터·분석기 커밋<\/dt><dd><a href="https:\/\/github.com\/Logssey\/dashboard-backend\/commit\/4c912326c7c1f7fd9aa5e96dd993e9caca91a6bf"[^>]*>4c912326c7c1<\/a>/)
   assert.match(html, /href="\/vulnerabilities\/findings\?scan=1"[^>]*>결과 보기/)
   assert.doesNotMatch(html, /다시 실행/)
   assert.doesNotMatch(html, /예시 값/)
@@ -226,6 +228,16 @@ test('queued scans explain why they wait and unknown tools keep a readable name'
   assert.match(html, /실행기가 연결되지 않은 환경에서는 대기에 머물러요/)
   assert.match(html, /<dt>스캐너<\/dt><dd>trivy<\/dd>/)
   assert.match(html, /진행 중인 스캔은 10초마다/)
+})
+
+test('the judgement data commit becomes a short commit link', () => {
+  const sha = '4c912326c7c1f7fd9aa5e96dd993e9caca91a6bf'
+  assert.deepEqual(reach.reachRefLink(sha), { text: '4c912326c7c1', href: `https://github.com/Logssey/dashboard-backend/commit/${sha}` })
+  assert.deepEqual(reach.reachRefLink(`${sha}-dirty`), {
+    text: '4c912326c7c1 (로컬에서 고친 채 실행)',
+    href: `https://github.com/Logssey/dashboard-backend/commit/${sha}`,
+  })
+  assert.deepEqual(reach.reachRefLink('main'), { text: 'main', href: null })
 })
 
 test('rerun refills the dialog with the failed target', () => {
