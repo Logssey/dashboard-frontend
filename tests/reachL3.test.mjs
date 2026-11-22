@@ -100,11 +100,29 @@ test('names are shortened for reading', () => {
   assert.match(l3.l3PathText({ reachedStep: 0, of: 15 }), /진입점이 실행되지 않음/)
 })
 
-test('L2 unreachable with an executed region is flagged, nothing else is', () => {
+test('an unreachable verdict that L3 contradicts is flagged, nothing else is', () => {
   assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'REGION' }), true)
-  assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'FUNCTION' }), false)
+  // the vulnerable function ran but its region could not be checked
+  assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'FUNCTION', regionsChecked: false }), true)
+  assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'FUNCTION', regionsChecked: true }), false)
   assert.equal(l3.l3DiffersFromL2('REACHABLE', { reached: 'REGION' }), false)
   assert.equal(l3.l3DiffersFromL2('UNREACHABLE', null), false)
+})
+
+test('a verdict raised by L3 shows the tag and the L2 verdict it replaced', () => {
+  const runtime = { order: 2, kind: 'RUNTIME', summary: 'L3: ...', executed: true, reached: 'REGION', regionsChecked: true,
+    startupOnly: false, l2Status: 'UNREACHABLE' }
+  assert.equal(l3.l3Raise([{ order: 1, kind: 'NOTE', summary: 'x' }]), undefined)
+  assert.equal(l3.l3Raise([{ order: 1, kind: 'NOTE', summary: 'x' }, runtime]), runtime)
+
+  const detail = l3.sampleReachFinding(8)
+  const raised = { ...detail, verdict: { ...detail.verdict, status: 'REACHABLE', evidence: [...detail.verdict.evidence, runtime] },
+    l3: region }
+  const html = renderToStaticMarkup(createElement(l3.ReachFindingDetailView, { detail: raised }))
+  assert.match(html, />L3로 올림</)
+  assert.match(html, /L3가 실제 실행을 확인해 판정을 올렸어요\(코드 분석 L2 판정: 도달 불가\)/)
+  assert.doesNotMatch(html, /≠ 판정/)
+  assert.doesNotMatch(renderToStaticMarkup(createElement(l3.ReachFindingDetailView, { detail })), /L3로 올림/)
 })
 
 test('the list sends the l3 filter and the table shows the level next to the verdict', () => {

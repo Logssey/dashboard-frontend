@@ -1,11 +1,21 @@
-// L3(실제 실행) 근거를 화면 글자로 바꾸는 순수 함수. L3는 L2 판정 옆에 놓는 근거이고 판정을 바꾸지 않는다 (PRD FR-14)
-import type { ReachL3Detail, ReachL3Path, ReachL3Region, ReachL3Run, ReachL3Segment, ReachL3Summary, ReachStatus } from '@/api/reach'
+// L3(실제 실행) 근거를 화면 글자로 바꾸는 순수 함수 (PRD FR-14).
+// 취약 구간이 실행됐으면 서버가 판정을 도달 가능으로, 구간을 확인 못 한 함수 실행이면 도달 불가를 확인 못 함으로 올린다
+import type { ReachEvidence, ReachL3Detail, ReachL3Path, ReachL3Region, ReachL3Run, ReachL3Segment, ReachL3Summary, ReachStatus } from '@/api/reach'
 
 export const L3_STARTUP = 'startup'
 
-/** L2는 닿지 않는다고 했는데 실제로는 취약 구간이 실행된 경우. 사람이 먼저 볼 것 */
+/**
+ * 판정이 L3와 맞지 않는 경우: 도달 불가인데 취약 구간이 실행됐거나, 함수가 실행됐는데 구간을 확인하지 못했다.
+ * 서버가 올리기 전에 저장된 판정(다음 재대조에서 올라간다)에서만 보인다
+ */
 export function l3DiffersFromL2(status: ReachStatus, l3: ReachL3Summary | null | undefined): boolean {
-  return status === 'UNREACHABLE' && l3?.reached === 'REGION'
+  if (status !== 'UNREACHABLE' || !l3) return false
+  return l3.reached === 'REGION' || (l3.reached === 'FUNCTION' && !l3.regionsChecked)
+}
+
+/** L3가 올린 판정이면 그 근거(RUNTIME). l2Status가 올리기 전 판정이다 */
+export function l3Raise(evidence: ReachEvidence[] | null | undefined): ReachEvidence | undefined {
+  return (evidence ?? []).find((item) => item.kind === 'RUNTIME' && item.l2Status)
 }
 
 /** 한 줄 결론. "실행 없음"은 도달 불가의 근거가 아니라는 점을 함께 적는다 */
