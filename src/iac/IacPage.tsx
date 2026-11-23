@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
@@ -69,6 +70,7 @@ export function IacPage() {
         <span className="caption">그래프 기준 {formatDateTime(summary.data?.graphAsOf ?? null)}</span>
         <div className="iac-status-actions">
           <a className="btn outline" href={IAC_POLICY_URL} target="_blank" rel="noopener noreferrer">규칙 보기</a>
+          <Link className="btn outline" to="/reports?new=1&part=IAC">리포트 만들기</Link>
           <button className="btn primary" onClick={() => checkNow.mutate()} disabled={checkNow.isPending}>
             {checkNow.isPending ? '등록 중…' : '지금 점검'}
           </button>
