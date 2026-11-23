@@ -26,6 +26,7 @@ export const sectionPages: SectionPage[] = [
   { path: '/vulnerabilities/workloads', title: '워크로드', description: '실행 중인 이미지가 스캔한 이미지와 같은지 확인하세요.' },
   { path: '/vulnerabilities/scans', title: '스캔', description: '스캔을 요청하고 진행 상태와 이력을 확인하세요.' },
   { path: '/vulnerabilities/rules', title: '규칙', description: '판정에 쓰는 규칙·사실·취약 함수 데이터를 확인하세요.' },
+  { path: '/reports', title: '리포트', description: '파트별 보안 결과를 같은 기준으로 묶은 스냅샷을 만들고 확인하세요.' },
 ]
 
 /** 인프라 보안 메뉴 아래 하위 탭 3개 */
@@ -42,5 +43,6 @@ export function pageTitle(pathname: string): string {
   if (pathname.startsWith('/secrets/cases/')) return '대응 상세'
   if (pathname.startsWith('/secrets/connections/')) return '연결 범위'
   if (/^\/secrets\/\d+$/.test(pathname)) return '키 상세'
+  if (/^\/reports\/\d+$/.test(pathname)) return '리포트 보기'
   return sectionPages.find((page) => page.path === pathname)?.title ?? '통합 현황'
 }
