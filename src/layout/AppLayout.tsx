@@ -17,6 +17,7 @@ const navigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: '/secrets', icon: 'key', label: '시크릿' },
   { path: '/configuration', icon: 'cloud', label: '인프라 보안' },
   { path: '/vulnerabilities', icon: 'shield', label: '취약점 관리' },
+  { path: '/reports', icon: 'list', label: '리포트' },
 ]
 
 
@@ -97,7 +98,8 @@ export function AppLayout() {
             const isInfrastructure = item.path === '/configuration'
             const isSecrets = item.path === '/secrets'
             const active = isInfrastructure ? inInfrastructure : isSecrets ? inSecrets
-              : item.path === '/vulnerabilities' ? inVulnerabilities : location.pathname === item.path
+              : item.path === '/vulnerabilities' ? inVulnerabilities
+              : item.path === '/reports' ? location.pathname.startsWith('/reports') : location.pathname === item.path
             return (
               <div key={item.path}>
                 <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={item.path} end>

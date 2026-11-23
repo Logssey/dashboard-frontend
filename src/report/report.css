@@ -1,0 +1,79 @@
+/* 통합 리포트 화면 전용. 색·간격은 tokens.css 변수만 쓴다 */
+.report-card-body { margin: 0 28px 28px; }
+.report-part-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.report-row-actions { white-space: nowrap; }
+.report-row-actions .btn + .btn { margin-left: var(--space-2); }
+
+.report-form { display: grid; gap: var(--space-5); max-width: 720px; }
+.report-form-period { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.report-form-parts { display: grid; gap: var(--space-2); margin: 0; padding: 0; border: 0; font-size: 13px; }
+.report-form-parts legend { margin-bottom: var(--space-2); }
+.report-part-option { display: flex; align-items: center; gap: var(--space-2); }
+
+.report-head-badges { margin-top: var(--space-3); }
+.report-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: var(--space-6); align-items: start; }
+.report-toc { position: sticky; top: calc(var(--header-height) + var(--space-4)); display: flex; flex-direction: column; gap: var(--space-2); padding: 20px; font-size: 13px; }
+.report-toc a { color: var(--text-body); text-decoration: none; }
+.report-toc a:hover { color: var(--primary-text); }
+.report-body section[id] { scroll-margin-top: calc(var(--header-height) + var(--space-4)); }
+
+.report-h3 { margin: var(--space-6) 0 var(--space-3); font-size: 14px; font-weight: 600; color: var(--text); }
+.card-head + .report-h3, .report-headline + .report-h3 { margin-top: 0; }
+.report-headline { margin: 0 0 var(--space-6); padding: var(--space-4); border-left: 3px solid var(--primary); border-radius: var(--radius-sm); background: var(--primary-soft); font-weight: 600; color: var(--text); }
+.report-footnote { margin: var(--space-2) 0 0; }
+.report-num { text-align: right; }
+.report-danger { color: var(--critical); font-weight: 600; }
+
+.report-priorities { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.report-priorities li { padding: var(--space-4); }
+
+.report-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-6); margin: 0; font-size: 13px; }
+.report-facts dt { color: var(--text-muted); font-size: 12px; }
+.report-facts dd { margin: 2px 0 0; color: var(--text-body); word-break: break-word; }
+
+.report-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.report-strip-cell { display: flex; flex-direction: column; gap: 4px; padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border); }
+.report-strip-cell:last-child { border-right: 0; }
+.report-strip-cell strong { font-size: 22px; color: var(--text); }
+.report-strip-cell.critical strong { color: var(--critical); }
+.report-strip-cell.high strong { color: var(--high); }
+.report-strip-cell.medium strong { color: var(--medium); }
+
+.report-finding { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.report-finding-link { margin-left: auto; font-size: 12px; color: var(--primary-text); }
+.report-criteria { display: grid; gap: var(--space-2); margin: 0; padding-left: 20px; font-size: 13px; color: var(--text-body); }
+.report-appendix-part { padding: 0 28px 28px; }
+
+@media (max-width: 1100px) {
+  .report-layout { grid-template-columns: 1fr; }
+  .report-toc { position: static; flex-direction: row; flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+  .report-form-period, .report-facts { grid-template-columns: 1fr; }
+  .report-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* 파트 리포트: 4개 절 번호, 삭제, AI 입력, 카드 */
+.report-toc a { display: flex; align-items: center; gap: var(--space-2); }
+.report-toc-num, .report-section-num, .report-rank { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--primary-soft); color: var(--primary-text); font-size: 12px; font-weight: 700; }
+.report-section-num { margin-right: var(--space-2); vertical-align: 2px; }
+.report-rank { background: var(--primary); color: white; }
+.report-delete { color: var(--critical); }
+.report-ai-input { resize: vertical; min-height: 84px; font: inherit; }
+.report-cards { display: grid; gap: var(--space-3); }
+.report-text { margin: 0; font-size: 13px; color: var(--text-body); line-height: 1.6; }
+.report-table { margin-top: var(--space-4); }
+
+/* AI 대응 방법: 요약 불릿과 건별 펼침 행 */
+.report-ai-btn { padding: 6px 12px; font-size: 12px; white-space: nowrap; }
+.report-advice-row > td { background: var(--surface-subtle); }
+.report-advice { display: grid; gap: var(--space-3); font-size: 13px; }
+.report-points { display: grid; gap: 4px; margin: 0; padding-left: 20px; color: var(--text); font-weight: 600; }
+.report-advice-item p { margin: 0 0 4px; }
+
+/* 순위 표시, 공통 조치의 해결 건, 우선순위 카드의 AI 결과 */
+.report-rank-label { display: inline-block; margin-right: var(--space-2); padding: 1px 8px; border-radius: 999px; background: var(--primary); color: white; font-size: 11px; font-weight: 700; }
+.report-covers { display: grid; gap: var(--space-2); }
+.report-covers .badge { text-decoration: none; }
+.report-row-end { margin-left: auto; }
+.report-advice-box { padding: var(--space-4); border-radius: var(--radius-sm); background: var(--surface-subtle); }
