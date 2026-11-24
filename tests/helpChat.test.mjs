@@ -154,6 +154,76 @@ test('the open-screen button navigates only through the route table', async () =
   assert.ok(source.includes("'checklist')"))
 })
 
+test('CVE impact counts come from the existing vulnerability API as numbers only', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  const totals = { '': 7, RUNNING: 3, REACHABLE: 2, 'RUNNING|REACHABLE': 1 }
+  globalThis.fetch = async (path, options) => {
+    calls.push({ path, options })
+    const url = new URL(path, 'http://local.test')
+    if (url.pathname === '/api/v1/reach/summary') {
+      return Response.json({ basis: { applied: 'RUNNING', unscannedRunning: [{ name: 'a' }, { name: 'b' }] } })
+    }
+    const key = [url.searchParams.get('deployment'), url.searchParams.get('status')].filter(Boolean).join('|')
+    return Response.json({ items: [{ id: 1 }], hasNext: true, nextCursor: 'x', totalCount: totals[key] })
+  }
+  try {
+    const impact = await help.fetchCveImpact('CVE-2021-44228')
+    assert.deepEqual(impact, {
+      cve: 'CVE-2021-44228', total: 7, running: 3, reachable: 2, runningReachable: 1, unscannedRunning: 2, basis: 'RUNNING',
+    })
+    assert.equal(calls.length, 5)
+    for (const call of calls) {
+      assert.ok(call.path.startsWith('/api/v1/reach/'), call.path)
+      assert.ok(!call.options?.method || call.options.method === 'GET', call.path)
+    }
+    for (const call of calls.filter((c) => c.path.startsWith('/api/v1/reach/findings'))) {
+      const params = new URL(call.path, 'http://local.test').searchParams
+      assert.equal(params.get('cveContains'), 'CVE-2021-44228')
+      assert.equal(params.get('size'), '1')
+      assert.equal(params.get('include'), 'total')
+    }
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('CVE numbers are picked from questions and only exact ids are reused from storage', () => {
+  assert.equal(help.findCve('cve-2021-44228 터졌어'), 'CVE-2021-44228')
+  assert.equal(help.findCve('Log4Shell 터졌어'), undefined)
+  assert.equal(help.usableCve('CVE-2024-4577'), 'CVE-2024-4577')
+  for (const bad of ['CVE-2024-4577&size=100', 'cve-2024-4577', ' CVE-2024-4577', 7, null]) {
+    assert.equal(help.usableCve(bad), undefined, String(bad))
+  }
+})
+
+test('impact lines warn that zero is not safe and point at unscanned workloads', () => {
+  const base = { cve: 'CVE-2021-44228', total: 0, running: 0, reachable: 0, runningReachable: 0, unscannedRunning: 2, basis: 'LATEST' }
+  const zero = help.impactLines(base)
+  assert.deepEqual(zero.rows[0], ['Finding 전체', '0건'])
+  assert.ok(zero.notes.some((n) => n.includes('안전하다는 뜻은 아니에요')))
+  assert.ok(zero.notes.some((n) => n.includes('스캔 없는 워크로드')))
+  assert.ok(zero.notes.some((n) => n.includes('최신 스캔 기준')))
+  const hit = help.impactLines({ ...base, total: 4, running: 2, reachable: 1, runningReachable: 1, unscannedRunning: null, basis: 'RUNNING' })
+  assert.equal(hit.rows.length, 4)
+  assert.ok(hit.notes[0].includes('Finding부터 처리'))
+})
+
+test('impact numbers never enter the history sent to the help API', async () => {
+  const messages = [
+    { role: 'user', text: 'CVE-2021-44228 우리 영향 있어?', impactCve: 'CVE-2021-44228' },
+    { role: 'assistant', text: '체크리스트' },
+  ]
+  assert.deepEqual(help.buildHistory(messages), [
+    { role: 'user', text: 'CVE-2021-44228 우리 영향 있어?' },
+    { role: 'assistant', text: '체크리스트' },
+  ])
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  const box = source.slice(source.indexOf('function CveImpactBox'), source.indexOf('export function HelpChat'))
+  assert.ok(box.includes('fetchCveImpact(cve)'))
+  assert.ok(!/askHelp|setMessages/.test(box), 'impact box does not talk to the help API or the stored conversation')
+})
+
 async function filesUnder(dir) {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true })
   return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath ?? entry.path, entry.name))

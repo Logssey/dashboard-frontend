@@ -1,4 +1,4 @@
-import type { HelpCard, HelpSource, HelpTurn } from '@/api/help'
+import type { CveImpact, HelpCard, HelpSource, HelpTurn } from '@/api/help'
 
 export const HELP_QUESTION_MAX = 500
 const HISTORY_MESSAGES = 6
@@ -11,6 +11,38 @@ export interface HelpMessage {
   sources?: HelpSource[]
   cards?: HelpCard[]
   error?: boolean
+  /** 사용자 질문에 있던 CVE 번호. 영향 조회 상자를 그릴 때만 쓰고, 조회한 숫자는 저장하지 않는다 */
+  impactCve?: string
+}
+
+const CVE_IN_TEXT = /\bCVE-\d{4}-\d{4,7}\b/i
+const CVE_EXACT = /^CVE-\d{4}-\d{4,7}$/
+
+/** 질문 속 첫 CVE 번호(대문자). 백엔드 HelpChecklist.wanted와 같은 모양 */
+export function findCve(text: string): string | undefined {
+  return text.match(CVE_IN_TEXT)?.[0].toUpperCase()
+}
+
+/** 저장소에서 읽은 값도 정확한 CVE 모양일 때만 조회에 쓴다 */
+export function usableCve(value: unknown): string | undefined {
+  return typeof value === 'string' && CVE_EXACT.test(value) ? value : undefined
+}
+
+/** 영향 조회 결과를 사람이 읽는 줄로 바꾼다. 숫자는 서버 조회 값 그대로이고 AI가 만든 문장이 아니다 */
+export function impactLines(impact: CveImpact): { rows: Array<[string, string]>; notes: string[] } {
+  const rows: Array<[string, string]> = [
+    ['Finding 전체', `${impact.total}건`],
+    ['실행 중인 곳', `${impact.running}건`],
+    ['도달 가능 판정', `${impact.reachable}건`],
+    ['실행 중 + 도달 가능', `${impact.runningReachable}건`],
+  ]
+  if (impact.unscannedRunning !== null) rows.push(['스캔 없는 실행 중 워크로드', `${impact.unscannedRunning}개`])
+  const notes: string[] = []
+  if (impact.runningReachable > 0) notes.push('실행 중이면서 도달 가능한 Finding부터 처리하세요.')
+  if (impact.total === 0) notes.push('0건이라고 안전하다는 뜻은 아니에요. 스캔하지 않은 이미지는 목록에 나오지 않아요.')
+  if (impact.unscannedRunning) notes.push('스캔 없는 워크로드는 이 숫자에 빠져 있어요. 워크로드 화면에서 먼저 스캔하세요.')
+  if (impact.basis === 'LATEST') notes.push('실행 중 정보가 없어 최신 스캔 기준으로 셌어요.')
+  return { rows, notes }
 }
 
 /** 체크리스트 버튼을 눌렀는데 입력칸이 비어 있을 때 보내는 질문 */
@@ -104,7 +136,7 @@ const suggestions: Array<{ match: (page: string) => boolean; questions: string[]
   { match: (p) => p === '스캔 이력' || p === '스캔 상세', questions: ['스캔은 어떻게 시작해요?'] },
   { match: (p) => p === '키 형식 등록', questions: ['사내 키 형식은 어떻게 등록해요?'] },
   { match: (p) => p === '컴플라이언스', questions: ['컴플라이언스 점검은 어떻게 시작해요?'] },
-  { match: (p) => ['요약', '취약점 관리', 'Finding 목록', '워크로드', '스캔'].includes(p), questions: ['Log4Shell 같은 취약점이 터지면 무엇부터 봐요?', '취약점 스캔은 어떻게 요청해요?', 'Finding 검토는 어떻게 저장해요?'] },
+  { match: (p) => ['요약', '취약점 관리', 'Finding 목록', '워크로드', '스캔'].includes(p), questions: ['Log4Shell 같은 취약점이 터지면 무엇부터 봐요?', 'CVE-2021-44228 우리 영향 있어?','취약점 스캔은 어떻게 요청해요?', 'Finding 검토는 어떻게 저장해요?'] },
 ]
 
 /** 답 아래 근거 목록은 기본으로 접어 두고, 이 문구를 눌러 펼친다 */
@@ -129,7 +161,13 @@ export function loadHelpMessages(): HelpMessage[] {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     const parsed = raw ? (JSON.parse(raw) as unknown) : []
-    return Array.isArray(parsed) ? (parsed as HelpMessage[]).slice(-40) : []
+    if (!Array.isArray(parsed)) return []
+    return (parsed as HelpMessage[]).slice(-40).map((message) => {
+      if (message === null || typeof message !== 'object' || !('impactCve' in message)) return message
+      const { impactCve, ...rest } = message
+      const cve = usableCve(impactCve)
+      return cve ? { ...rest, impactCve: cve } : rest
+    })
   } catch {
     return []
   }

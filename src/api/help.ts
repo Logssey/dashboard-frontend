@@ -43,6 +43,49 @@ export function fetchHelpStatus(): Promise<HelpStatus> {
   return apiRequest<HelpStatus>('/api/v1/help/status')
 }
 
+/**
+ * 질문 속 CVE의 우리 환경 영향 (설계 문서 14장).
+ * 기존 취약점 API를 로그인한 사용자 권한 그대로 부른다. 숫자만 받고, 이 값은 Claude로 보내지 않는다.
+ */
+export interface CveImpact {
+  cve: string
+  total: number
+  running: number
+  reachable: number
+  runningReachable: number
+  /** 실행 중인데 스캔이 없는 워크로드 수 (CVE와 무관한 전체 수). 서버가 주지 않으면 null */
+  unscannedRunning: number | null
+  /** 실제로 쓴 집계 기준. RUNNING을 요청해도 실행 중 정보가 없으면 LATEST */
+  basis: 'RUNNING' | 'LATEST' | null
+}
+
+async function countFindings(cve: string, extra: Record<string, string>): Promise<number> {
+  const params = new URLSearchParams({ cveContains: cve, ...extra, size: '1', include: 'total' })
+  const page = await apiRequest<{ totalCount?: number | null }>(`/api/v1/reach/findings?${params}`)
+  if (typeof page.totalCount !== 'number') throw new Error('totalCount missing')
+  return page.totalCount
+}
+
+export async function fetchCveImpact(cve: string): Promise<CveImpact> {
+  const [total, running, reachable, runningReachable, summary] = await Promise.all([
+    countFindings(cve, {}),
+    countFindings(cve, { deployment: 'RUNNING' }),
+    countFindings(cve, { status: 'REACHABLE' }),
+    countFindings(cve, { deployment: 'RUNNING', status: 'REACHABLE' }),
+    apiRequest<{ basis?: { applied?: string; unscannedRunning?: unknown[] } | null }>('/api/v1/reach/summary'),
+  ])
+  const applied = summary.basis?.applied
+  return {
+    cve,
+    total,
+    running,
+    reachable,
+    runningReachable,
+    unscannedRunning: Array.isArray(summary.basis?.unscannedRunning) ? summary.basis.unscannedRunning.length : null,
+    basis: applied === 'RUNNING' || applied === 'LATEST' ? applied : null,
+  }
+}
+
 export function askHelp(question: string, page: string, history: HelpTurn[], mode?: HelpMode): Promise<HelpChatResponse> {
   return apiRequest<HelpChatResponse>('/api/v1/help/chat', {
     method: 'POST',
