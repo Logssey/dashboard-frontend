@@ -12,6 +12,7 @@ import { HelpChat } from '@/components/HelpChat'
 import { clearHelpMessages } from '@/lib/helpChat'
 import { infrastructurePaths, LOGIN_PATH, OVERVIEW_PATH, pageTitle, sectionPages } from '@/lib/routes'
 import { isVulnerabilityPath, vulnerabilityPages } from '@/lib/reachRoutes'
+import { codePages, isCodePath } from '@/code/routes'
 import { ME_QUERY_KEY, useMe } from './useMe'
 
 const navigation: Array<{ path: string; icon: IconName; label: string }> = [
@@ -19,6 +20,7 @@ const navigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: '/secrets', icon: 'key', label: '시크릿' },
   { path: '/configuration', icon: 'cloud', label: '인프라 보안' },
   { path: '/vulnerabilities', icon: 'shield', label: '취약점 관리' },
+  { path: '/code', icon: 'code', label: '코드 취약점' },
   { path: '/reports', icon: 'list', label: '리포트' },
 ]
 
@@ -41,6 +43,7 @@ export function AppLayout() {
   const inInfrastructure = infrastructurePaths.includes(location.pathname)
   const inSecrets = location.pathname === '/secrets' || location.pathname.startsWith('/secrets/')
   const inVulnerabilities = isVulnerabilityPath(location.pathname)
+  const inCode = isCodePath(location.pathname)
   const safeNavigation = sanitizedSecretSearchParams(new URLSearchParams(location.search))
 
   const summarySelection = parseWorkbenchFilters(new URLSearchParams())
@@ -102,6 +105,7 @@ export function AppLayout() {
             const isSecrets = item.path === '/secrets'
             const active = isInfrastructure ? inInfrastructure : isSecrets ? inSecrets
               : item.path === '/vulnerabilities' ? inVulnerabilities
+              : item.path === '/code' ? inCode
               : item.path === '/reports' ? location.pathname.startsWith('/reports') : location.pathname === item.path
             return (
               <div key={item.path}>
@@ -129,6 +133,12 @@ export function AppLayout() {
                 )}
                 {item.path === '/vulnerabilities' && inVulnerabilities &&
                   vulnerabilityPages.map((page) => (
+                    <NavLink key={page.path} className={`nav-link sub ${location.pathname === page.path ? 'active' : ''}`.trim()} to={page.path} end>
+                      {page.title}
+                    </NavLink>
+                  ))}
+                {item.path === '/code' && inCode &&
+                  codePages.map((page) => (
                     <NavLink key={page.path} className={`nav-link sub ${location.pathname === page.path ? 'active' : ''}`.trim()} to={page.path} end>
                       {page.title}
                     </NavLink>
