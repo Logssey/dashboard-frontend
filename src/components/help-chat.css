@@ -23,6 +23,13 @@
 .help-card p { margin: 4px 0 6px; font-size: 13px; }
 .help-card-foot { gap: 8px; align-items: center; }
 .help-form-actions { gap: 6px; }
+.help-impact { border: 1px solid var(--border); white-space: normal; display: grid; gap: 6px; }
+.help-impact .caption { margin: 0; font-size: 12px; }
+.help-impact-rows { margin: 0; display: grid; gap: 2px; font-size: 13px; }
+.help-impact-rows div { display: flex; justify-content: space-between; gap: 12px; }
+.help-impact-rows dt { color: var(--text-muted); }
+.help-impact-rows dd { margin: 0; font-weight: 600; color: var(--text); }
+.help-impact-note { font-size: 13px; }
 .help-sources summary { cursor: pointer; width: fit-content; }
 .help-sources summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
 .help-sources ul { margin: 6px 0 0; padding: 0; list-style: none; }
