@@ -2,14 +2,27 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '@/api/client'
-import { askHelp, fetchCveImpact, fetchHelpStatus, type HelpCard, type HelpMode } from '@/api/help'
+import { askHelp, fetchCveImpact, fetchHelpStatus, fetchIncidentStatus, type HelpCard, type HelpMode } from '@/api/help'
 import {
   buildHistory,
   CHECKLIST_DEFAULT_QUESTION,
-  findCve,
   HELP_SCREEN_ROUTES,
   helpScreenRoute,
   impactLines,
+  incidentCves,
+  incidentPriorities,
+  incidentRows,
+  incidentTypeLabel,
+  incidentTypes,
+  firstSeenBaseline,
+  incidentSignals,
+  loadSeenSignals,
+  saveSeenSignals,
+  signalCheckTime,
+  signalQuestion,
+  signalSnapshot,
+  type SignalSnapshot,
+  looksLikeIncident,
   usableCve,
   usableCards,
   HELP_QUESTION_MAX,
@@ -24,10 +37,76 @@ import {
 import { Icon } from './Icon'
 import './help-chat.css'
 
+/** 새 보안 신호를 확인하는 주기. 탭이 보일 때만 읽는다 */
+const SIGNAL_POLL_MS = 15 * 60_000
+
 /**
  * 질문 속 CVE의 우리 환경 영향 (설계 문서 14장). 기존 취약점 API를 내 권한으로 직접 부른다.
  * 숫자는 화면에만 그리고 대화 기록·Claude로 보내지 않는다.
  */
+/**
+ * 사고 이야기에 붙이는 "지금 우리 환경 현황"과 숫자로 정한 "먼저 볼 것" (설계 문서 15장).
+ * 기존 취약점·런타임 API를 내 권한으로 읽기만 하고, 숫자와 순서는 AI에 보내지 않는다.
+ */
+function IncidentStatusBox({ types, onOpen }: { types: string[]; onOpen: (screen: string) => void }) {
+  const status = useQuery({ queryKey: ['help', 'incident-status'], queryFn: fetchIncidentStatus, staleTime: 60_000, retry: false })
+  const denied = status.error instanceof ApiError && status.error.status === 403
+  const data = status.data
+  const priorities = data ? incidentPriorities(data, types) : null
+  const labels = types.map(incidentTypeLabel).filter((label): label is string => !!label)
+  return (
+    <section className="help-message assistant help-impact" aria-label="지금 우리 환경 현황">
+      <strong className="help-card-title">지금 우리 환경 현황</strong>
+      <p className="caption">
+        내 권한으로 런타임·시크릿·IaC·취약점 데이터를 직접 센 숫자와, 그 숫자로 정한 순서예요. AI가 만든 값이 아니고, AI에 보내지
+        않아요.
+      </p>
+      {labels.length > 0 && <p className="caption">사고 유형: {labels.join(', ')} (질문 낱말 기준)</p>}
+      {status.isPending && <p>환경 데이터를 조회하는 중…</p>}
+      {denied && <p>환경 데이터를 볼 권한이 없어요.</p>}
+      {status.isError && !denied && <p>환경 데이터를 조회하지 못했어요. 각 화면에서 직접 확인해 주세요.</p>}
+      {priorities && (
+        <>
+          <strong className="help-card-title">먼저 볼 것</strong>
+          <ol className="help-priorities">
+            {priorities.map((item) => {
+              const route = helpScreenRoute(item.screen)
+              return (
+                <li key={item.text}>
+                  <span>{item.text}</span>
+                  {route && (
+                    <button type="button" className="btn outline small" onClick={() => onOpen(item.screen)}>
+                      {route.title} 열기
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+        </>
+      )}
+      {data &&
+        incidentRows(data).map((group) => (
+          <div key={group.title} className="help-incident-group">
+            <strong className="help-incident-group-title">{group.title}</strong>
+            {group.note ? (
+              <p className="caption">{group.note}</p>
+            ) : (
+              <dl className="help-impact-rows">
+                {group.rows.map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        ))}
+    </section>
+  )
+}
+
 function CveImpactBox({ cve, onOpenFindings }: { cve: string; onOpenFindings: () => void }) {
   const impact = useQuery({ queryKey: ['help', 'cve-impact', cve], queryFn: () => fetchCveImpact(cve), staleTime: 60_000, retry: false })
   const denied = impact.error instanceof ApiError && impact.error.status === 403
@@ -83,6 +162,36 @@ export function HelpChat({ page }: { page: string }) {
   const status = useQuery({ queryKey: ['help', 'status'], queryFn: fetchHelpStatus, enabled: open, staleTime: 60_000 })
   const ready = status.data?.ready === true
 
+  // 새 보안 신호 (설계 문서 16장): 탭이 보이는 동안 15분마다(또는 "지금 확인"을 누르면 바로) 기존 API를 읽어 기준과 비교한다. AI는 쓰지 않는다.
+  const signalStatus = useQuery({
+    queryKey: ['help', 'incident-status'],
+    queryFn: fetchIncidentStatus,
+    refetchInterval: SIGNAL_POLL_MS,
+    refetchIntervalInBackground: false,
+    staleTime: 60_000,
+    retry: false,
+  })
+  const [seenSignals, setSeenSignals] = useState<SignalSnapshot | null>(() => loadSeenSignals())
+  const currentSignals = signalStatus.data ? signalSnapshot(signalStatus.data) : null
+  useEffect(() => {
+    if (currentSignals && seenSignals === null) {
+      const baseline = firstSeenBaseline(currentSignals)
+      setSeenSignals(baseline)
+      saveSeenSignals(baseline)
+    }
+  }, [currentSignals, seenSignals])
+  const signals = currentSignals && seenSignals ? incidentSignals(seenSignals, currentSignals) : []
+  const acknowledgeSignals = () => {
+    if (!currentSignals) return
+    setSeenSignals(currentSignals)
+    saveSeenSignals(currentSignals)
+  }
+  // "지금 확인": 주기를 기다리지 않고 바로 다시 읽는다. 누르는 동안에는 다시 누를 수 없다.
+  const checkSignalsNow = () => {
+    if (!signalStatus.isFetching) void signalStatus.refetch()
+  }
+  const signalCheckedAt = signalStatus.dataUpdatedAt ? signalCheckTime(signalStatus.dataUpdatedAt) : null
+
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
@@ -132,8 +241,17 @@ export function HelpChat({ page }: { page: string }) {
     }
     setInputError(null)
     const history = buildHistory(messages)
-    const impactCve = findCve(question)
-    setMessages((current) => [...current, impactCve ? { role: 'user', text: question, impactCve } : { role: 'user', text: question }])
+    const impact = incidentCves(question)
+    const userMessage: HelpMessage = {
+      role: 'user',
+      text: question,
+      ...(impact.cves.length ? { impactCves: impact.cves } : {}),
+      ...(impact.name ? { incidentName: impact.name } : {}),
+      ...(looksLikeIncident(question) || mode === 'checklist' ? { incidentStatus: true } : {}),
+    }
+    const types = incidentTypes(question)
+    if (userMessage.incidentStatus && types.length) userMessage.incidentTypes = types
+    setMessages((current) => [...current, userMessage])
     setDraft('')
     ask.mutate({ question, history, mode })
   }
@@ -144,8 +262,9 @@ export function HelpChat({ page }: { page: string }) {
     const route = helpScreenRoute(card.screen)
     if (route) navigate(route.path)
   }
-  const openFindings = () => {
-    const route = helpScreenRoute('VULN_FINDINGS')
+  const openFindings = () => openKey('VULN_FINDINGS')
+  const openKey = (screen: string) => {
+    const route = helpScreenRoute(screen)
     if (route) navigate(route.path)
   }
 
@@ -161,13 +280,13 @@ export function HelpChat({ page }: { page: string }) {
     <>
       <button
         type="button"
-        className="icon-btn help-trigger"
+        className={`icon-btn help-trigger${signals.length ? ' has-signal' : ''}`}
         onClick={() => setOpen(true)}
-        aria-label="도움말 열기"
+        aria-label={signals.length ? `도움말 열기 (새 보안 신호 ${signals.length}개)` : '도움말 열기'}
         aria-haspopup="dialog"
-        title="사용법 도우미"
+        title={signals.length ? `새 보안 신호 ${signals.length}개` : '사용법 도우미'}
       >
-        ?
+        ?{signals.length > 0 && <span className="help-signal-dot" aria-hidden="true" />}
       </button>
       <dialog
         ref={dialogRef}
@@ -185,11 +304,61 @@ export function HelpChat({ page }: { page: string }) {
               </button>
             </div>
             <p className="help-notice">
-              답은 사용 가이드 문서로만 해요. 질문에 CVE 번호가 있으면 내 권한으로 취약점 수만 직접 조회해 보여 주고, 그 숫자는
-              AI에 보내지 않아요. 질문에 키나 비밀번호를 넣지 마세요.
+              답은 사용 가이드 문서로만 해요. 사고 이야기나 CVE 번호·사고 이름이 있으면 내 권한으로 현황 숫자만 직접 조회해 보여
+              주고, 그 숫자는 AI에 보내지 않아요. 질문에 키나 비밀번호를 넣지 마세요.
             </p>
+            <div className="row between help-signal-bar">
+              <span className="caption" role="status">
+                {signalStatus.isFetching
+                  ? '보안 신호를 확인하는 중…'
+                  : signalStatus.isError
+                    ? '보안 신호를 확인하지 못했어요.'
+                    : signals.length > 0
+                      ? `새 보안 신호 ${signals.length}개 · ${signalCheckedAt} 확인`
+                      : signalCheckedAt
+                        ? `새 보안 신호 없음 · ${signalCheckedAt} 확인 (15분마다 자동)`
+                        : '보안 신호를 15분마다 확인해요.'}
+              </span>
+              <button type="button" className="btn outline small" disabled={signalStatus.isFetching} onClick={checkSignalsNow}>
+                지금 확인
+              </button>
+            </div>
 
             <div className="help-messages" ref={listRef} aria-live="polite">
+              {signals.length > 0 && (
+                <section className="help-signals" aria-label="새 보안 신호">
+                  <strong className="help-card-title">새 보안 신호</strong>
+                  <p className="caption">마지막으로 확인한 뒤 새로 생긴 것이에요. 15분마다(또는 "지금 확인"으로) 내 권한으로 확인하고, AI가 만든 값이 아니에요.</p>
+                  <ul>
+                    {signals.map((signal) => {
+                      const route = helpScreenRoute(signal.screen)
+                      return (
+                        <li key={signal.kind}>
+                          <span>{signal.text}</span>
+                          {route && (
+                            <button type="button" className="btn outline small" onClick={() => openKey(signal.screen)}>
+                              {route.title} 열기
+                            </button>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  <div className="row help-form-actions">
+                    <button
+                      type="button"
+                      className="btn primary small"
+                      disabled={!ready || ask.isPending}
+                      onClick={() => send(signalQuestion(signals))}
+                    >
+                      대응 순서 물어보기
+                    </button>
+                    <button type="button" className="btn outline small" onClick={acknowledgeSignals}>
+                      확인했어요
+                    </button>
+                  </div>
+                </section>
+              )}
               {messages.length === 0 && (
                 <div className="help-suggestions">
                   <p className="caption">이 화면에서 자주 묻는 질문</p>
@@ -207,7 +376,10 @@ export function HelpChat({ page }: { page: string }) {
                 </div>
               )}
               {messages.map((message, index) => {
-                const impactCve = message.role === 'user' ? usableCve(message.impactCve) : undefined
+                const impactCves =
+                  message.role === 'user'
+                    ? (message.impactCves ?? []).map(usableCve).filter((cve): cve is string => cve !== undefined)
+                    : []
                 return (
                 <Fragment key={index}>
                 <div
@@ -250,7 +422,17 @@ export function HelpChat({ page }: { page: string }) {
                     </details>
                   )}
                 </div>
-                {impactCve && <CveImpactBox cve={impactCve} onOpenFindings={openFindings} />}
+                {message.role === 'user' && message.incidentStatus === true && (
+                  <IncidentStatusBox types={message.incidentTypes ?? []} onOpen={openKey} />
+                )}
+                {message.role === 'user' && message.incidentName && impactCves.length > 0 && (
+                  <p className="caption help-incident-name">
+                    {message.incidentName} → {impactCves.join(', ')} 로 찾아봤어요 (정해진 표 기준)
+                  </p>
+                )}
+                {impactCves.map((cve) => (
+                  <CveImpactBox key={cve} cve={cve} onOpenFindings={openFindings} />
+                ))}
                 </Fragment>
                 )
               })}

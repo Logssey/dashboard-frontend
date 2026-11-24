@@ -30,6 +30,9 @@
 .help-impact-rows dt { color: var(--text-muted); }
 .help-impact-rows dd { margin: 0; font-weight: 600; color: var(--text); }
 .help-impact-note { font-size: 13px; }
+.help-priorities { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; }
+.help-priorities li { display: grid; gap: 4px; justify-items: start; }
+.help-incident-name { align-self: flex-start; margin: 0; font-size: 12px; color: var(--text-muted); }
 .help-sources summary { cursor: pointer; width: fit-content; }
 .help-sources summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
 .help-sources ul { margin: 6px 0 0; padding: 0; list-style: none; }
@@ -43,3 +46,15 @@
   .help-drawer[open] { width: 100%; }
   .help-messages, .help-form, .help-notice { padding-left: 16px; padding-right: 16px; }
 }
+.help-incident-group { display: grid; gap: 2px; padding-top: 6px; border-top: 1px solid var(--divider); }
+.help-incident-group-title { font-size: 12px; color: var(--text-muted); }
+.help-trigger { position: relative; }
+.help-trigger.has-signal { color: var(--critical); border-color: var(--critical); }
+.help-signal-dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 999px; background: var(--critical); border: 2px solid var(--surface, #fff); }
+.help-signals { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--critical); border-radius: var(--radius-md); background: var(--critical-soft); color: var(--text); font-size: 13px; }
+.help-signals .caption { margin: 0; font-size: 12px; }
+.help-signals ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.help-signals li { display: grid; gap: 4px; justify-items: start; }
+.help-signal-bar { gap: 8px; align-items: center; padding: 8px 28px; border-bottom: 1px solid var(--divider); }
+.help-signal-bar .caption { margin: 0; font-size: 12px; }
+@media (max-width: 720px) { .help-signal-bar { padding-left: 16px; padding-right: 16px; } }
