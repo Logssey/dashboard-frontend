@@ -27,16 +27,24 @@ export type ReachResetReason = 'VERDICT_CHANGED' | 'EVIDENCE_CHANGED'
 
 /**
  * L3 능동 관측이 닿은 곳 (PRD FR-14). 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드 쪽으로 어디까지 실행됐나.
- * 판정(L2) 옆에 놓는 근거다. 취약 구간이 실행됐으면 서버가 판정을 도달 가능으로 올리고 근거에 RUNTIME 한 줄을 남긴다.
+ * 판정(L2) 옆에 놓는 근거다. 실행이 그 CVE의 조건을 보여 주면 서버가 판정을 raiseLimit까지 올리고 근거에 RUNTIME 한 줄을 남긴다.
  * REGION 취약 구간 실행 / FUNCTION 취약 함수까지 / NONE 모두 확인했고 실행 없음 / NOT_RECORDED 확인하지 못한 것이 있음
  */
 export type ReachL3Level = 'REGION' | 'FUNCTION' | 'NONE' | 'NOT_RECORDED'
+
+/**
+ * 이 L3 결과가 판정을 올릴 수 있는 한도. 구간이 실행돼도 그 CVE 규칙의 조건(설정·기능 사용)을 보여 주지 않으면
+ * UNKNOWN(확인 못 함까지)이나 NONE(올리지 않음)이다. CVE마다 규칙 데이터가 정한다
+ */
+export type ReachL3RaiseLimit = 'REACHABLE' | 'UNKNOWN' | 'NONE'
 
 /** 목록(API-04)의 L3. regionsChecked는 FUNCTION일 때 구간을 봤는지, startupOnly는 앱이 뜨는 동안에만 실행됐는지 */
 export interface ReachL3Summary {
   reached: ReachL3Level
   regionsChecked: boolean
   startupOnly: boolean
+  /** 서버가 이 칸을 주기 전 응답이면 없다(그때는 구간 실행 = 도달 가능까지로 본다) */
+  raiseLimit?: ReachL3RaiseLimit | null
 }
 
 /** 실행 기록을 끊은 구간 id: "startup"(앱이 준비될 때까지) 또는 시나리오 단계("001", "002", …) */

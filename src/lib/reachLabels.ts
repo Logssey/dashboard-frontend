@@ -57,7 +57,7 @@ export const reachL3Order: ReachL3Level[] = ['REGION', 'FUNCTION', 'NONE', 'NOT_
  * NOT_RECORDED는 기록 범위 밖이거나 클래스 파일이 없어 볼 수 없었던 것
  */
 export const reachL3Label: Record<ReachL3Level, string> = {
-  REGION: '실행 확인',
+  REGION: '구간 실행',
   FUNCTION: '함수까지 실행',
   NONE: '실행 없음',
   NOT_RECORDED: '기록 안 됨',

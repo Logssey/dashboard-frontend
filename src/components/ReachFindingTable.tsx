@@ -48,7 +48,7 @@ export function ReachFindingTable({ items, onSelect }: { items: ReachFindingList
             <th scope="col">방식</th>
             <th scope="col">검토</th>
             <th scope="col">배포</th>
-            <th scope="col" title="L3: 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드가 실행됐는지. 취약 구간이 실행됐으면 판정을 도달 가능으로 올려요">실행</th>
+            <th scope="col" title="L3: 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드가 실행됐는지. 실행이 그 취약점의 조건을 보여 주는 만큼 판정을 올려요(도달 가능까지, 확인 못 함까지, 또는 올리지 않음)">실행</th>
             <th scope="col">근거 요약</th>
           </tr>
         </thead>

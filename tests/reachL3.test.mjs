@@ -76,6 +76,18 @@ test('the headline says how far the run got and never calls "no run" unreachable
   assert.match(l3.l3Headline({ reached: 'NOT_RECORDED', regionsChecked: false, startupOnly: false }), /확인하지 못했어요/)
 })
 
+test('the headline says when the run does not show the condition of the vulnerability', () => {
+  // e.g. a Tomcat line that runs for every response write: the run does not show the AJP connector the rule needs
+  assert.match(l3.l3Headline({ reached: 'REGION', regionsChecked: true, startupOnly: false, raiseLimit: 'NONE' }), /판정 근거로 쓰지 않아요/)
+  assert.match(l3.l3Headline({ reached: 'REGION', regionsChecked: true, startupOnly: false, raiseLimit: 'UNKNOWN' }), /확인 못 함보다 높이지 않아요/)
+  assert.match(l3.l3Headline({ reached: 'REGION', regionsChecked: true, startupOnly: false, raiseLimit: 'REACHABLE' }), /취약 구간이 실제로 실행/)
+  assert.match(l3.l3Headline({ reached: 'FUNCTION', regionsChecked: false, startupOnly: false, raiseLimit: 'NONE' }), /판정 근거로 쓰지 않아요/)
+  // an older server without the field: the region raises as before
+  assert.equal(l3.l3RaiseLimit({ reached: 'REGION', regionsChecked: true, startupOnly: false }), 'REACHABLE')
+  assert.equal(l3.l3RaiseLimit({ reached: 'FUNCTION', regionsChecked: false, startupOnly: false }), 'UNKNOWN')
+  assert.equal(l3.l3RaiseLimit({ reached: 'NONE', regionsChecked: true, startupOnly: false }), 'NONE')
+})
+
 test('segments become the requests of that run', () => {
   assert.deepEqual(l3.l3Requests(['startup', '002', '009'], run), [
     { segment: 'startup', name: '앱 기동 중' },
@@ -107,6 +119,21 @@ test('an unreachable verdict that L3 contradicts is flagged, nothing else is', (
   assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'FUNCTION', regionsChecked: true }), false)
   assert.equal(l3.l3DiffersFromL2('REACHABLE', { reached: 'REGION' }), false)
   assert.equal(l3.l3DiffersFromL2('UNREACHABLE', null), false)
+  // the region ran but does not show the condition: the server keeps the verdict on purpose, nothing to flag
+  assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'REGION', raiseLimit: 'NONE' }), false)
+  assert.equal(l3.l3DiffersFromL2('UNREACHABLE', { reached: 'REGION', raiseLimit: 'UNKNOWN' }), true)
+})
+
+test('a verdict L3 raised before the limits of the rule data is told apart', () => {
+  const raised = { order: 2, kind: 'RUNTIME', summary: 'L3: ...', l2Status: 'UNREACHABLE' }
+  // CVE-2026-103119 raised to reachable by the old rule: now the run is no evidence, the next scan puts it back
+  assert.equal(l3.l3RaiseOutdated('REACHABLE', { reached: 'REGION', regionsChecked: true, raiseLimit: 'NONE' }, raised), 'UNREACHABLE')
+  assert.equal(l3.l3RaiseOutdated('REACHABLE', { reached: 'REGION', regionsChecked: true, raiseLimit: 'UNKNOWN' }, raised), 'UNKNOWN')
+  // raised as far as the limit allows now
+  assert.equal(l3.l3RaiseOutdated('REACHABLE', { reached: 'REGION', regionsChecked: true, raiseLimit: 'REACHABLE' }, raised), undefined)
+  assert.equal(l3.l3RaiseOutdated('UNKNOWN', { reached: 'REGION', regionsChecked: true, raiseLimit: 'UNKNOWN' }, raised), undefined)
+  // not raised by L3
+  assert.equal(l3.l3RaiseOutdated('REACHABLE', { reached: 'REGION', regionsChecked: true, raiseLimit: 'NONE' }, undefined), undefined)
 })
 
 test('a verdict raised by L3 shows the tag and the L2 verdict it replaced', () => {
@@ -135,7 +162,7 @@ test('the list sends the l3 filter and the table shows the level next to the ver
   items[1] = { ...items[1], l3: { reached: 'FUNCTION', regionsChecked: false, startupOnly: true } }
   const html = renderToStaticMarkup(createElement(l3.ReachFindingTable, { items, onSelect: () => {} }))
   assert.match(html, /<th[^>]*>실행<\/th>/)
-  assert.match(html, /reach-l3 region[^>]*>실행 확인</)
+  assert.match(html, /reach-l3 region[^>]*>구간 실행</)
   assert.match(html, /≠ 판정/)
   assert.match(html, /reach-l3 function[^>]*title="[^"]*기동 중에만[^"]*"[^>]*>함수까지 실행</)
   // the third row has no L3 result: a dash, not "no run"
@@ -167,7 +194,7 @@ test('running images come first and the table marks where the deployment changes
 test('the detail shows the request, the functions, the executed lines and the run', () => {
   const html = renderToStaticMarkup(createElement(l3.ReachL3Section, { l3: region }))
   assert.match(html, /취약 구간이 실제로 실행됐어요/)
-  assert.match(html, /판정과 검토는 이 결과로 바뀌지 않아요/)
+  assert.match(html, /조건을 보여 주는 만큼만 서버가 판정을 올려요/)
   assert.match(html, /<code>POST \/api\/v1\/listings<\/code>/)
   assert.match(html, /price as text/)
   assert.match(html, /NumberInput\.looksLikeValidNumber/)
