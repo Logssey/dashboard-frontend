@@ -55,3 +55,6 @@
 .help-signals .caption { margin: 0; font-size: 12px; }
 .help-signals ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
 .help-signals li { display: grid; gap: 4px; justify-items: start; }
+.help-signal-bar { gap: 8px; align-items: center; padding: 8px 28px; border-bottom: 1px solid var(--divider); }
+.help-signal-bar .caption { margin: 0; font-size: 12px; }
+@media (max-width: 720px) { .help-signal-bar { padding-left: 16px; padding-right: 16px; } }

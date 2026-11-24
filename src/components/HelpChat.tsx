@@ -18,6 +18,7 @@ import {
   incidentSignals,
   loadSeenSignals,
   saveSeenSignals,
+  signalCheckTime,
   signalQuestion,
   signalSnapshot,
   type SignalSnapshot,
@@ -37,7 +38,7 @@ import { Icon } from './Icon'
 import './help-chat.css'
 
 /** 새 보안 신호를 확인하는 주기. 탭이 보일 때만 읽는다 */
-const SIGNAL_POLL_MS = 5 * 60_000
+const SIGNAL_POLL_MS = 15 * 60_000
 
 /**
  * 질문 속 CVE의 우리 환경 영향 (설계 문서 14장). 기존 취약점 API를 내 권한으로 직접 부른다.
@@ -161,7 +162,7 @@ export function HelpChat({ page }: { page: string }) {
   const status = useQuery({ queryKey: ['help', 'status'], queryFn: fetchHelpStatus, enabled: open, staleTime: 60_000 })
   const ready = status.data?.ready === true
 
-  // 새 보안 신호 (설계 문서 16장): 탭이 보이는 동안 5분마다 기존 API를 읽어 기준과 비교한다. AI는 쓰지 않는다.
+  // 새 보안 신호 (설계 문서 16장): 탭이 보이는 동안 15분마다(또는 "지금 확인"을 누르면 바로) 기존 API를 읽어 기준과 비교한다. AI는 쓰지 않는다.
   const signalStatus = useQuery({
     queryKey: ['help', 'incident-status'],
     queryFn: fetchIncidentStatus,
@@ -185,6 +186,11 @@ export function HelpChat({ page }: { page: string }) {
     setSeenSignals(currentSignals)
     saveSeenSignals(currentSignals)
   }
+  // "지금 확인": 주기를 기다리지 않고 바로 다시 읽는다. 누르는 동안에는 다시 누를 수 없다.
+  const checkSignalsNow = () => {
+    if (!signalStatus.isFetching) void signalStatus.refetch()
+  }
+  const signalCheckedAt = signalStatus.dataUpdatedAt ? signalCheckTime(signalStatus.dataUpdatedAt) : null
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -301,12 +307,28 @@ export function HelpChat({ page }: { page: string }) {
               답은 사용 가이드 문서로만 해요. 사고 이야기나 CVE 번호·사고 이름이 있으면 내 권한으로 현황 숫자만 직접 조회해 보여
               주고, 그 숫자는 AI에 보내지 않아요. 질문에 키나 비밀번호를 넣지 마세요.
             </p>
+            <div className="row between help-signal-bar">
+              <span className="caption" role="status">
+                {signalStatus.isFetching
+                  ? '보안 신호를 확인하는 중…'
+                  : signalStatus.isError
+                    ? '보안 신호를 확인하지 못했어요.'
+                    : signals.length > 0
+                      ? `새 보안 신호 ${signals.length}개 · ${signalCheckedAt} 확인`
+                      : signalCheckedAt
+                        ? `새 보안 신호 없음 · ${signalCheckedAt} 확인 (15분마다 자동)`
+                        : '보안 신호를 15분마다 확인해요.'}
+              </span>
+              <button type="button" className="btn outline small" disabled={signalStatus.isFetching} onClick={checkSignalsNow}>
+                지금 확인
+              </button>
+            </div>
 
             <div className="help-messages" ref={listRef} aria-live="polite">
               {signals.length > 0 && (
                 <section className="help-signals" aria-label="새 보안 신호">
                   <strong className="help-card-title">새 보안 신호</strong>
-                  <p className="caption">마지막으로 확인한 뒤 새로 생긴 것이에요. 5분마다 내 권한으로 확인하고, AI가 만든 값이 아니에요.</p>
+                  <p className="caption">마지막으로 확인한 뒤 새로 생긴 것이에요. 15분마다(또는 "지금 확인"으로) 내 권한으로 확인하고, AI가 만든 값이 아니에요.</p>
                   <ul>
                     {signals.map((signal) => {
                       const route = helpScreenRoute(signal.screen)

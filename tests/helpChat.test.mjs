@@ -459,6 +459,11 @@ test('signal polling uses the shared incident status query and never the help AP
   assert.ok(block.includes('refetchIntervalInBackground: false'))
   assert.ok(!/askHelp/.test(block))
   assert.ok(source.includes('send(signalQuestion(signals))'))
+  assert.ok(source.includes('const SIGNAL_POLL_MS = 15 * 60_000'), 'automatic check every 15 minutes')
+  const now = source.slice(source.indexOf('const checkSignalsNow'), source.indexOf('const signalCheckedAt'))
+  assert.ok(now.includes('signalStatus.refetch()') && now.includes('isFetching'), 'check-now refetches at once and not twice')
+  assert.ok(source.includes('onClick={checkSignalsNow}'))
+  assert.equal(help.signalCheckTime(new Date(2026, 10, 24, 9, 5).getTime()), '09:05')
 })
 
 async function filesUnder(dir) {

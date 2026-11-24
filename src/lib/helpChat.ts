@@ -563,6 +563,12 @@ export function incidentSignals(seen: SignalSnapshot, now: SignalSnapshot): Inci
   return signals
 }
 
+/** 마지막으로 신호를 확인한 시각 (예: "14:05"). 패널의 "지금 확인" 옆에 보인다 */
+export function signalCheckTime(epochMs: number): string {
+  const time = new Date(epochMs)
+  return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`
+}
+
 const SIGNAL_SITUATIONS: Record<IncidentSignal['kind'], string> = {
   runtime: '이상한 접속이나 프로그램 실행 같은 런타임 탐지',
   keys: '살아 있는 키가 새어 나간 것 같은 신호',
