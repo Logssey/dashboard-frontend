@@ -46,3 +46,5 @@
   .help-drawer[open] { width: 100%; }
   .help-messages, .help-form, .help-notice { padding-left: 16px; padding-right: 16px; }
 }
+.help-incident-group { display: grid; gap: 2px; padding-top: 6px; border-top: 1px solid var(--divider); }
+.help-incident-group-title { font-size: 12px; color: var(--text-muted); }

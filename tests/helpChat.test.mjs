@@ -245,49 +245,115 @@ test('incident talk is recognised by fixed words only', () => {
   }
 })
 
-test('incident status reads runtime and vulnerability APIs and survives one failing', async () => {
+test('incident status reads runtime, secret, IaC and vulnerability APIs and survives failures', async () => {
   const originalFetch = globalThis.fetch
   const calls = []
   globalThis.fetch = async (path, options) => {
     calls.push({ path, options })
     const url = new URL(path, 'http://local.test')
-    if (url.pathname === '/api/v1/runtime/overview') return new Response('', { status: 500 })
-    if (url.pathname === '/api/v1/reach/summary') return Response.json({ basis: { unscannedRunning: [{}, {}, {}] } })
+    if (url.pathname === '/api/v1/runtime/overview') {
+      return Response.json({
+        summary: { unreviewedFindingCount: 4, affectedWorkloadCount: 2 },
+        findingsByRule: [
+          { title: 'Terminal shell in container', count: 3 },
+          { title: 'Unexpected outbound connection', count: 1 },
+          { title: 'Zero', count: 0 },
+          { title: 7, count: 9 },
+        ],
+        sensorSummary: { healthy: 1, degraded: 0, offline: 1, unknown: 0 },
+      })
+    }
+    if (url.pathname === '/api/v1/secrets/summary') return new Response(JSON.stringify({ code: 'FORBIDDEN' }), { status: 403, headers: { 'content-type': 'application/json' } })
+    if (url.pathname === '/api/v1/iac/summary') return Response.json({ metrics: { openPaths: 72, tier1OpenPaths: 54, drifts: 5, stateSecrets: 2 } })
+    if (url.pathname === '/api/v1/reach/summary') return Response.json({ basis: { unscannedRunning: [{}] } })
     return Response.json({ items: [], hasNext: false, totalCount: url.searchParams.get('severity') === 'CRITICAL,HIGH' ? 2 : 5 })
   }
   try {
     const status = await help.fetchIncidentStatus()
-    assert.deepEqual(status.vuln, { runningReachableSevere: 2, runningReachable: 5, unscannedRunning: 3 })
-    assert.equal(status.runtime, null)
+    assert.deepEqual(status.runtime.topRules, [
+      { title: 'Terminal shell in container', count: 3 },
+      { title: 'Unexpected outbound connection', count: 1 },
+    ])
+    assert.equal(status.keys, null)
+    assert.deepEqual(status.unavailable, [{ source: 'keys', denied: true }])
+    assert.deepEqual(status.exposure, { openPaths: 72, tier1OpenPaths: 54, drifts: 5, stateSecrets: 2 })
+    assert.deepEqual(status.vuln, { runningReachableSevere: 2, runningReachable: 5, unscannedRunning: 1 })
     for (const call of calls) {
-      assert.ok(/^\/api\/v1\/(reach|runtime)\//.test(call.path), call.path)
+      assert.ok(/^\/api\/v1\/(reach|runtime|secrets|iac)\//.test(call.path), call.path)
       assert.ok(!call.options?.method || call.options.method === 'GET', call.path)
-      assert.ok(!call.path.includes('cveContains'), call.path)
     }
-    const priorities = help.incidentPriorities(status)
-    assert.ok(priorities[0].text.includes('런타임 탐지를 불러오지 못했어요'))
-    assert.equal(priorities[0].screen, 'RUNTIME')
+    const groups = help.incidentRows(status)
+    assert.deepEqual(groups.map((g) => g.title.split(' ')[0]), ['의심스러운', '활발한', '바깥에서', '열린'])
+    assert.equal(groups[1].note, '볼 권한이 없어요')
+    const list = help.incidentPriorities(status, ['key'])
+    assert.ok(!list.some((p) => p.text.startsWith('뚫린 서버가 쓰던')), 'denied key status replaces the fixed key check')
+    const denied = list.find((p) => p.text.startsWith('시크릿 키 현황을 볼 권한이 없어요'))
+    assert.equal(denied.topic, 'key')
+    assert.deepEqual(list.slice(0, 4).map((p) => p.topic), ['evidence', 'blind', 'key', 'key'], 'key type moves key items right after evidence and blind spots')
   } finally {
     globalThis.fetch = originalFetch
   }
 })
 
-test('priorities follow evidence, blind spots, open risk, gaps, then fixed checks', () => {
-  const base = {
-    vuln: { runningReachableSevere: 1, runningReachable: 2, unscannedRunning: 1 },
-    runtime: { unreviewedFindings: 4, affectedWorkloads: 2, sensors: { healthy: 2, degraded: 0, offline: 1, unknown: 0 }, period: null },
+test('incident status fails only when every source fails', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response('', { status: 500 })
+  try {
+    await assert.rejects(help.fetchIncidentStatus())
+  } finally {
+    globalThis.fetch = originalFetch
   }
-  const screens = help.incidentPriorities(base).map((p) => p.screen)
-  assert.deepEqual(screens, ['RUNTIME', 'RUNTIME', 'VULN_FINDINGS', 'VULN_WORKLOADS', 'SECRET_FINDINGS', 'COMPLIANCE'])
-  const blind = help.incidentPriorities({ ...base, runtime: { ...base.runtime, unreviewedFindings: 0, sensors: { healthy: 0, degraded: 0, offline: 0, unknown: 0 } } })
-  assert.equal(blind[0].screen, 'OUTSIDE')
-  assert.ok(blind[0].text.includes('연결된 런타임 센서가 없어'))
-  const calm = help.incidentPriorities({
+})
+
+const fullStatus = () => ({
+  runtime: { unreviewedFindings: 4, affectedWorkloads: 2, topRules: [{ title: 'Shell', count: 3 }], sensors: { healthy: 2, degraded: 0, offline: 1, unknown: 0 } },
+  keys: { validKeyCases: 2, crossEnvironmentAlerts: 1, reviewRequiredLocations: 3 },
+  exposure: { openPaths: 10, tier1OpenPaths: 4, drifts: 2, stateSecrets: 0 },
+  vuln: { runningReachableSevere: 1, runningReachable: 2, unscannedRunning: 1 },
+  unavailable: [],
+})
+
+test('priorities put suspicious attempts and blind spots first, then live keys', () => {
+  const list = help.incidentPriorities(fullStatus())
+  assert.deepEqual(list.map((p) => p.topic), ['evidence', 'blind', 'key', 'key', 'exposure', 'vuln', 'config', 'coverage', 'config'])
+  assert.ok(list[0].text.startsWith('의심스러운 시도') && list[0].text.includes('Shell 3건'))
+  assert.ok(list[2].text.startsWith('활발한 키') && list[2].text.includes('2건') && list[2].text.includes('실키 경고 1건'))
+  for (const p of list) assert.ok(p.screen in help.HELP_SCREEN_ROUTES, p.screen)
+})
+
+test('incident types move their data up without dropping anything', () => {
+  assert.deepEqual(help.incidentTypes('AWS 키가 유출된 것 같아'), ['key'])
+  assert.deepEqual(help.incidentTypes('랜섬웨어 걸려서 서비스가 멈췄어'), ['ransomware'])
+  assert.deepEqual(help.incidentTypes('S3 버킷이 공개됐어'), ['cloud'])
+  assert.deepEqual(help.incidentTypes('관리자 계정이 탈취됐어'), ['account'])
+  assert.deepEqual(help.incidentTypes('Log4Shell 터졌어'), ['web'])
+  assert.deepEqual(help.incidentTypes('서버에서 이상한 프로세스가 돌아'), ['intrusion'])
+
+  const base = help.incidentPriorities(fullStatus())
+  const web = help.incidentPriorities(fullStatus(), ['web'])
+  assert.deepEqual(web.slice(0, 4).map((p) => p.topic), ['evidence', 'blind', 'vuln', 'exposure'])
+  const cloud = help.incidentPriorities(fullStatus(), ['cloud'])
+  assert.deepEqual(cloud.slice(2, 4).map((p) => p.topic), ['exposure', 'config'])
+  const ransom = help.incidentPriorities(fullStatus(), ['ransomware'])
+  assert.equal(ransom[0].topic, 'isolate')
+  assert.equal(ransom[0].screen, 'OUTSIDE')
+  for (const variant of [web, cloud]) {
+    assert.deepEqual([...variant.map((p) => p.text)].sort(), [...base.map((p) => p.text)].sort())
+  }
+})
+
+test('quiet environments still get the fixed key and account checks', () => {
+  const quiet = {
+    runtime: { unreviewedFindings: 0, affectedWorkloads: 0, topRules: [], sensors: { healthy: 1, degraded: 0, offline: 0, unknown: 0 } },
+    keys: { validKeyCases: 0, crossEnvironmentAlerts: 0, reviewRequiredLocations: 0 },
+    exposure: { openPaths: 0, tier1OpenPaths: 0, drifts: 0, stateSecrets: 0 },
     vuln: { runningReachableSevere: 0, runningReachable: 0, unscannedRunning: 0 },
-    runtime: { unreviewedFindings: 0, affectedWorkloads: 0, sensors: { healthy: 1, degraded: 0, offline: 0, unknown: 0 }, period: null },
-  })
-  assert.deepEqual(calm.map((p) => p.screen), ['SECRET_FINDINGS', 'COMPLIANCE'])
-  for (const p of help.incidentPriorities(base)) assert.ok(p.screen in help.HELP_SCREEN_ROUTES, p.screen)
+    unavailable: [],
+  }
+  assert.deepEqual(help.incidentPriorities(quiet).map((p) => p.screen), ['COMPLIANCE', 'SECRET_FINDINGS'])
+  const blind = help.incidentPriorities({ ...quiet, runtime: { ...quiet.runtime, sensors: { healthy: 0, degraded: 0, offline: 0, unknown: 6 } } })
+  assert.equal(blind[0].screen, 'OUTSIDE')
+  assert.ok(blind[0].text.includes('정상인 런타임 센서가 없어'))
 })
 
 test('stored incident fields are checked when the conversation is loaded', () => {
@@ -297,7 +363,7 @@ test('stored incident fields are checked when the conversation is loaded', () =>
   try {
     store.set('logssey.help.chat', JSON.stringify([
       { role: 'user', text: 'old', impactCve: 'CVE-2021-44228' },
-      { role: 'user', text: 'new', impactCves: ['CVE-2024-4577', 'x&size=100'], incidentName: 'Log4Shell', incidentStatus: true },
+      { role: 'user', text: 'new', impactCves: ['CVE-2024-4577', 'x&size=100'], incidentName: 'Log4Shell', incidentStatus: true, incidentTypes: ['key', 'evil', 'key'] },
       { role: 'user', text: 'bad', incidentName: '<script>', incidentStatus: 'yes' },
     ]))
     const [old, fresh, bad] = help.loadHelpMessages()
@@ -306,6 +372,7 @@ test('stored incident fields are checked when the conversation is loaded', () =>
     assert.deepEqual(fresh.impactCves, ['CVE-2024-4577'])
     assert.equal(fresh.incidentName, 'Log4Shell')
     assert.equal(fresh.incidentStatus, true)
+    assert.deepEqual(fresh.incidentTypes, ['key'])
     assert.ok(!('incidentName' in bad) && !('incidentStatus' in bad))
   } finally {
     globalThis.sessionStorage = originalStorage

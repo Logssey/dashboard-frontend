@@ -1,4 +1,4 @@
-import type { CveImpact, HelpCard, HelpSource, HelpTurn, IncidentStatus } from '@/api/help'
+import type { CveImpact, HelpCard, HelpSource, HelpTurn, IncidentSource, IncidentStatus } from '@/api/help'
 
 export const HELP_QUESTION_MAX = 500
 const HISTORY_MESSAGES = 6
@@ -19,6 +19,64 @@ export interface HelpMessage {
   incidentName?: string
   /** 사고 이야기라서 "지금 우리 환경 현황" 상자를 그린다 */
   incidentStatus?: boolean
+  /** 정해진 낱말로 고른 사고 유형 키 (INCIDENT_TYPES) */
+  incidentTypes?: string[]
+}
+
+/**
+ * 현황 상자에 보일 줄 묶음. "의심스러운 시도"와 "활발한 키"를 늘 맨 위에 둔다 (빨리 보이도록).
+ * 값은 서버 조회 값 그대로이고, 불러오지 못한 묶음은 note로 바꾼다.
+ */
+export function incidentRows(status: IncidentStatus): Array<{ title: string; rows: Array<[string, string]>; note?: string }> {
+  const missing = (source: IncidentSource) => status.unavailable.find((item) => item.source === source)
+  const noteFor = (source: IncidentSource) => (missing(source)?.denied ? '볼 권한이 없어요' : '불러오지 못했어요')
+  const groups: Array<{ title: string; rows: Array<[string, string]>; note?: string }> = []
+  const { runtime, keys, exposure, vuln } = status
+  groups.push(
+    runtime
+      ? {
+          title: '의심스러운 시도 (런타임)',
+          rows: [
+            ['검토 안 한 탐지', `${runtime.unreviewedFindings}건`],
+            ['영향 워크로드', `${runtime.affectedWorkloads}개`],
+            ...runtime.topRules.map((rule): [string, string] => [rule.title, `${rule.count}건`]),
+            ['센서 (정상 / 전체)', `${runtime.sensors.healthy} / ${runtime.sensors.healthy + runtime.sensors.degraded + runtime.sensors.offline + runtime.sensors.unknown}`],
+          ],
+        }
+      : { title: '의심스러운 시도 (런타임)', rows: [], note: noteFor('runtime') },
+    keys
+      ? {
+          title: '활발한 키 (시크릿)',
+          rows: [
+            ['살아 있는(유효한) 키 대응 건', `${keys.validKeyCases}건`],
+            ['실키 경고', `${keys.crossEnvironmentAlerts}건`],
+            ...(keys.reviewRequiredLocations !== null ? [['확인 필요 노출 위치', `${keys.reviewRequiredLocations}곳`] as [string, string]] : []),
+            ...(exposure ? [['IaC State 속 실제 시크릿', `${exposure.stateSecrets}개`] as [string, string]] : []),
+          ],
+        }
+      : { title: '활발한 키 (시크릿)', rows: [], note: noteFor('keys') },
+    exposure
+      ? {
+          title: '바깥에서 닿는 경로·바뀐 설정 (IaC)',
+          rows: [
+            ['열린 공격 경로', `${exposure.openPaths}개`],
+            ['그중 1순위', `${exposure.tier1OpenPaths}개`],
+            ['실제 드리프트', `${exposure.drifts}건`],
+          ],
+        }
+      : { title: '바깥에서 닿는 경로·바뀐 설정 (IaC)', rows: [], note: noteFor('exposure') },
+    vuln
+      ? {
+          title: '열린 취약점',
+          rows: [
+            ['실행 중 + 도달 가능 (Critical·High)', `${vuln.runningReachableSevere}건`],
+            ['실행 중 + 도달 가능 (전체)', `${vuln.runningReachable}건`],
+            ...(vuln.unscannedRunning !== null ? [['스캔 없는 실행 중 워크로드', `${vuln.unscannedRunning}개`] as [string, string]] : []),
+          ],
+        }
+      : { title: '열린 취약점', rows: [], note: noteFor('vuln') },
+  )
+  return groups
 }
 
 const CVE_IN_TEXT = /\bCVE-\d{4}-\d{4,7}\b/gi
@@ -60,35 +118,87 @@ export function incidentCves(text: string): { cves: string[]; name?: string } {
 }
 
 const INCIDENT_WORDS =
-  /뚫렸|뚫린|뚫려|해킹|침해|사고|터졌|터진|랜섬|유출|새어\s*나|털렸|공격|악성|이상한\s*(접속|프로그램|트래픽|로그인)|감염|breach|hacked|ransom|compromis|incident/i
+  /뚫렸|뚫린|뚫려|해킹|침해|침입|사고|터졌|터진|랜섬|유출|새어\s*나|털렸|탈취|공격|악성|이상한\s*(접속|프로그램|트래픽|로그인|프로세스)|감염|채굴|웹\s*셸|breach|hacked|ransom|compromis|incident/i
 
 /** 보안사고 이야기인지 (정해진 낱말로만 판단한다). 맞으면 "지금 우리 환경 현황" 상자를 붙인다 */
 export function looksLikeIncident(text: string): boolean {
-  return INCIDENT_WORDS.test(text)
+  return INCIDENT_WORDS.test(text) || INCIDENT_ALIASES.some((entry) => entry.match.test(text))
+}
+
+/**
+ * 사고 유형 (설계 문서 15장). 정해진 낱말로만 고른다. 여러 개가 맞으면 모두 쓴다.
+ * 유형은 "현황" 상자에서 어떤 항목을 위로 올릴지만 바꾼다. 확인 항목을 빼지는 않는다.
+ */
+export const INCIDENT_TYPES = Object.freeze([
+  { key: 'key', label: '키·비밀 유출', match: /키|토큰|비밀번호|패스워드|자격\s*증명|시크릿|credential|secret|access\s*key|api\s*key/i },
+  { key: 'account', label: '계정·권한 탈취', match: /계정|권한|로그인|관리자|탈취|\biam\b|\broot\b/i },
+  { key: 'ransomware', label: '랜섬웨어·서비스 피해', match: /랜섬|ransom|암호화\s*됐|서비스.{0,6}(멈|장애|다운|중단)/i },
+  { key: 'cloud', label: '클라우드 설정 노출', match: /버킷|\bs3\b|보안\s*그룹|security\s*group|공개\s*(설정|됐)|설정.{0,4}(노출|바뀌|변경)|클라우드/i },
+  { key: 'web', label: '웹·취약점 공격', match: /취약점|cve|\brce\b|원격\s*코드|웹\s*셸|인젝션|\bsql\b|\bxss\b|터졌|터진|exploit/i },
+  { key: 'intrusion', label: '서버 침입·이상 행위', match: /뚫렸|뚫린|뚫려|해킹|침입|침해|이상한|채굴|악성|감염|프로세스|hacked|breach|compromis/i },
+] as const)
+
+export type IncidentType = (typeof INCIDENT_TYPES)[number]['key']
+
+export function incidentTypes(text: string): IncidentType[] {
+  const found: IncidentType[] = INCIDENT_TYPES.filter((type) => type.match.test(text)).map((type) => type.key)
+  if (INCIDENT_ALIASES.some((entry) => entry.match.test(text)) && !found.includes('web')) found.push('web')
+  return found
+}
+
+export function incidentTypeLabel(type: string): string | undefined {
+  return INCIDENT_TYPES.find((entry) => entry.key === type)?.label
 }
 
 export interface IncidentPriority {
   text: string
   /** HELP_SCREEN_ROUTES 키. OUTSIDE면 버튼 없음 */
   screen: string
+  /** 사고 유형에 따라 위로 올릴 때 쓰는 항목 종류 */
+  topic: 'isolate' | 'evidence' | 'blind' | 'key' | 'exposure' | 'vuln' | 'config' | 'coverage'
+}
+
+/** 사고 유형별로 위로 올릴 항목 종류. 격리(랜섬웨어)·공격 흔적·볼 수 없는 곳은 늘 맨 위다 */
+const TYPE_TOPICS: Record<IncidentType, IncidentPriority['topic'][]> = {
+  key: ['key'],
+  account: ['config', 'key'],
+  ransomware: [],
+  cloud: ['exposure', 'config', 'key'],
+  web: ['vuln', 'exposure'],
+  intrusion: ['key', 'exposure'],
+}
+
+const SOURCE_NAMES: Record<IncidentSource, { name: string; screen: string; check: string }> = {
+  runtime: { name: '런타임 탐지를', screen: 'RUNTIME', check: '5번' },
+  keys: { name: '시크릿 키 현황을', screen: 'SECRET_FINDINGS', check: '7번' },
+  exposure: { name: 'IaC 공격 경로를', screen: 'IAC', check: '4·6번' },
+  vuln: { name: '취약점 데이터를', screen: 'VULN_FINDINGS', check: '2·4번' },
 }
 
 /**
- * "지금 먼저 볼 것" (설계 문서 15장, 대응 절차 문서 "상황별로 먼저 볼 것").
+ * "먼저 볼 것" (설계 문서 15장, 대응 절차 문서 "상황별로 먼저 볼 것").
  * 실제 숫자로 정해진 규칙에 따라 순서를 매긴다. AI가 정하지 않는다.
- * 공격 흔적 → 볼 수 없는 곳 → 열려 있는 위험 → 빠진 곳 → 늘 확인할 것 순서.
+ * 기본 순서: 공격 흔적 → 볼 수 없는 곳 → 살아 있는 키 → 바깥에서 닿는 경로 → 열린 취약점 → 바뀐 설정 → 빠진 곳 → 늘 확인할 것.
+ * 사고 유형이 있으면 그 유형의 항목을 공격 흔적·볼 수 없는 곳 바로 다음으로 올린다.
  */
-export function incidentPriorities(status: IncidentStatus): IncidentPriority[] {
+export function incidentPriorities(status: IncidentStatus, types: readonly string[] = []): IncidentPriority[] {
   const list: IncidentPriority[] = []
-  const runtime = status.runtime
-  const vuln = status.vuln
-  if (!runtime) {
-    list.push({ text: '런타임 탐지를 불러오지 못했어요. 런타임 보안 화면에서 사고 이후 탐지를 직접 보세요 (5번).', screen: 'RUNTIME' })
-  } else {
+  const { runtime, keys, exposure, vuln } = status
+
+  if (types.includes('ransomware')) {
+    list.push({
+      text: '피해가 번지지 않게 영향 받은 서버를 먼저 격리하고 바깥 접근을 막으세요. Logssey는 차단하지 않아요 (6번, Logssey 밖).',
+      screen: 'OUTSIDE',
+      topic: 'isolate',
+    })
+  }
+  if (runtime) {
     if (runtime.unreviewedFindings > 0) {
+      const rules = runtime.topRules.map((rule) => `${rule.title} ${rule.count}건`).join(', ')
       list.push({
-        text: `검토하지 않은 런타임 탐지 ${runtime.unreviewedFindings}건(영향 워크로드 ${runtime.affectedWorkloads}개)부터 보세요. 이미 뚫렸는지 확인하는 단계예요 (5번).`,
+        text: `의심스러운 시도: 검토하지 않은 런타임 탐지 ${runtime.unreviewedFindings}건(영향 워크로드 ${runtime.affectedWorkloads}개)${rules ? ` — ${rules}` : ''}. 이미 뚫렸는지부터 보세요 (5번).`,
         screen: 'RUNTIME',
+        topic: 'evidence',
       })
     }
     const sensorTotal = runtime.sensors.healthy + runtime.sensors.degraded + runtime.sensors.offline + runtime.sensors.unknown
@@ -96,34 +206,95 @@ export function incidentPriorities(status: IncidentStatus): IncidentPriority[] {
       list.push({
         text: `${sensorTotal === 0 ? '연결된 런타임 센서가 없어' : '정상인 런타임 센서가 없어'} Logssey로는 침해 흔적을 볼 수 없어요. 웹 서버 접근 로그와 클라우드 감사 로그를 먼저 확인하세요 (Logssey 밖).`,
         screen: 'OUTSIDE',
+        topic: 'blind',
       })
     } else if (runtime.sensors.offline + runtime.sensors.degraded > 0) {
       list.push({
         text: `꺼졌거나 불안정한 센서가 ${runtime.sensors.offline + runtime.sensors.degraded}개 있어요. 그 노드는 탐지가 비어 있을 수 있어요.`,
         screen: 'RUNTIME',
+        topic: 'blind',
       })
     }
   }
-  if (!vuln) {
-    list.push({ text: '취약점 데이터를 불러오지 못했어요. Finding 목록에서 실행 중·도달 가능 Finding을 직접 보세요 (2·4번).', screen: 'VULN_FINDINGS' })
-  } else {
+  if (keys) {
+    if (keys.validKeyCases > 0 || keys.crossEnvironmentAlerts > 0) {
+      const parts = [
+        keys.validKeyCases > 0 ? `살아 있는(유효한) 키 대응 건 ${keys.validKeyCases}건` : '',
+        keys.crossEnvironmentAlerts > 0 ? `실키 경고 ${keys.crossEnvironmentAlerts}건` : '',
+      ].filter(Boolean)
+      list.push({ text: `활발한 키: ${parts.join(', ')}. 쓰이기 전에 교체하세요 (7번).`, screen: 'SECRET_CASES', topic: 'key' })
+    }
+    if (keys.reviewRequiredLocations) {
+      list.push({
+        text: `확인이 필요한 키 노출 위치 ${keys.reviewRequiredLocations}곳이 있어요. 뚫린 서버와 관련된 키가 있는지 보세요 (7번).`,
+        screen: 'SECRET_FINDINGS',
+        topic: 'key',
+      })
+    }
+  }
+  if (exposure) {
+    if (exposure.stateSecrets > 0) {
+      list.push({ text: `IaC State 속 실제 시크릿 ${exposure.stateSecrets}개가 있어요. 교체 대상에 넣으세요 (7번).`, screen: 'IAC', topic: 'key' })
+    }
+    if (exposure.openPaths > 0) {
+      list.push({
+        text: `바깥에서 닿는 공격 경로 ${exposure.openPaths}개(가장 위험한 1순위 ${exposure.tier1OpenPaths}개)가 열려 있어요. 막을 곳을 정하세요 (4·6번).`,
+        screen: 'IAC',
+        topic: 'exposure',
+      })
+    }
+  }
+  if (vuln) {
     if (vuln.runningReachableSevere > 0) {
       list.push({
         text: `실행 중이면서 도달 가능한 Critical·High Finding ${vuln.runningReachableSevere}건이 있어요. 바깥에서 닿는지 보고 고치세요 (4·9번).`,
         screen: 'VULN_FINDINGS',
+        topic: 'vuln',
       })
     } else if (vuln.runningReachable > 0) {
-      list.push({ text: `실행 중이면서 도달 가능한 Finding ${vuln.runningReachable}건을 확인하세요 (4번).`, screen: 'VULN_FINDINGS' })
-    }
-    if (vuln.unscannedRunning) {
-      list.push({ text: `스캔 없는 실행 중 워크로드 ${vuln.unscannedRunning}개는 위 숫자에 빠져 있어요. 먼저 스캔하세요 (3번).`, screen: 'VULN_WORKLOADS' })
+      list.push({ text: `실행 중이면서 도달 가능한 Finding ${vuln.runningReachable}건을 확인하세요 (4번).`, screen: 'VULN_FINDINGS', topic: 'vuln' })
     }
   }
-  list.push(
-    { text: '뚫린 서버가 쓰던 키·비밀을 찾아 교체 대응 건을 만드세요 (7번).', screen: 'SECRET_FINDINGS' },
-    { text: '새로 실패한 점검이나 바뀐 계정·권한·설정이 없는지 보세요 (8번).', screen: 'COMPLIANCE' },
-  )
+  if (exposure && exposure.drifts > 0) {
+    list.push({
+      text: `실제 드리프트 ${exposure.drifts}건: 코드와 다르게 바뀐 설정이에요. 사고 뒤에 바뀐 것인지 보세요 (8번).`,
+      screen: 'IAC',
+      topic: 'config',
+    })
+  }
+  if (vuln?.unscannedRunning) {
+    list.push({
+      text: `스캔 없는 실행 중 워크로드 ${vuln.unscannedRunning}개는 위 숫자에 빠져 있어요. 먼저 스캔하세요 (3번).`,
+      screen: 'VULN_WORKLOADS',
+      topic: 'coverage',
+    })
+  }
+  for (const missing of status.unavailable) {
+    const source = SOURCE_NAMES[missing.source]
+    list.push({
+      text: `${source.name} ${missing.denied ? '볼 권한이 없어요. 담당자에게 확인을 부탁하세요' : '불러오지 못했어요. 화면에서 직접 보세요'} (${source.check}).`,
+      screen: source.screen,
+      // 키 현황을 못 보면 그 항목이 키 확인을 대신한다 (같은 화면 버튼이 두 번 나오지 않게)
+      topic: missing.source === 'runtime' ? 'blind' : missing.source === 'keys' ? 'key' : 'coverage',
+    })
+  }
+  list.push({ text: '새로 실패한 점검이나 바뀐 계정·권한·설정이 없는지 보세요 (8번).', screen: 'COMPLIANCE', topic: 'config' })
+  if (!list.some((item) => item.topic === 'key')) {
+    list.push({ text: '뚫린 서버가 쓰던 키·비밀을 찾아 교체 대응 건을 만드세요 (7번).', screen: 'SECRET_FINDINGS', topic: 'key' })
+  }
+
+  const boosted = types.flatMap((type) => TYPE_TOPICS[type as IncidentType] ?? [])
+  const rank = (item: IncidentPriority) => {
+    if (item.topic === 'isolate') return 0
+    if (item.topic === 'evidence') return 1
+    if (item.topic === 'blind') return 2
+    const boost = boosted.indexOf(item.topic)
+    return boost >= 0 ? 3 + boost / 10 : 4
+  }
   return list
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => rank(a.item) - rank(b.item) || a.index - b.index)
+    .map(({ item }) => item)
 }
 
 /** 저장소에서 읽은 값도 정확한 CVE 모양일 때만 조회에 쓴다 */
@@ -267,7 +438,10 @@ export function loadHelpMessages(): HelpMessage[] {
     if (!Array.isArray(parsed)) return []
     return (parsed as HelpMessage[]).slice(-40).map((message) => {
       if (message === null || typeof message !== 'object') return message
-      const { impactCve, impactCves, incidentName, incidentStatus, ...rest } = message
+      const { impactCve, impactCves, incidentName, incidentStatus, incidentTypes: storedTypes, ...rest } = message
+      const types = Array.isArray(storedTypes)
+        ? [...new Set(storedTypes.filter((type) => INCIDENT_TYPES.some((entry) => entry.key === type)))]
+        : []
       const cves = [...(Array.isArray(impactCves) ? impactCves : []), impactCve]
         .map(usableCve)
         .filter((cve): cve is string => cve !== undefined)
@@ -278,6 +452,7 @@ export function loadHelpMessages(): HelpMessage[] {
         ...(cves.length ? { impactCves: cves } : {}),
         ...(name ? { incidentName: name } : {}),
         ...(incidentStatus === true ? { incidentStatus: true } : {}),
+        ...(incidentStatus === true && types.length ? { incidentTypes: types } : {}),
       }
     })
   } catch {

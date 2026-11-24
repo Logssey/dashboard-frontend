@@ -11,6 +11,9 @@ import {
   impactLines,
   incidentCves,
   incidentPriorities,
+  incidentRows,
+  incidentTypeLabel,
+  incidentTypes,
   looksLikeIncident,
   usableCve,
   usableCards,
@@ -34,50 +37,23 @@ import './help-chat.css'
  * 사고 이야기에 붙이는 "지금 우리 환경 현황"과 숫자로 정한 "먼저 볼 것" (설계 문서 15장).
  * 기존 취약점·런타임 API를 내 권한으로 읽기만 하고, 숫자와 순서는 AI에 보내지 않는다.
  */
-function IncidentStatusBox({ onOpen }: { onOpen: (screen: string) => void }) {
+function IncidentStatusBox({ types, onOpen }: { types: string[]; onOpen: (screen: string) => void }) {
   const status = useQuery({ queryKey: ['help', 'incident-status'], queryFn: fetchIncidentStatus, staleTime: 60_000, retry: false })
   const denied = status.error instanceof ApiError && status.error.status === 403
   const data = status.data
-  const priorities = data ? incidentPriorities(data) : null
+  const priorities = data ? incidentPriorities(data, types) : null
+  const labels = types.map(incidentTypeLabel).filter((label): label is string => !!label)
   return (
     <section className="help-message assistant help-impact" aria-label="지금 우리 환경 현황">
       <strong className="help-card-title">지금 우리 환경 현황</strong>
-      <p className="caption">내 권한으로 취약점·런타임 데이터를 직접 센 숫자와, 그 숫자로 정한 순서예요. AI가 만든 값이 아니고, AI에 보내지 않아요.</p>
+      <p className="caption">
+        내 권한으로 런타임·시크릿·IaC·취약점 데이터를 직접 센 숫자와, 그 숫자로 정한 순서예요. AI가 만든 값이 아니고, AI에 보내지
+        않아요.
+      </p>
+      {labels.length > 0 && <p className="caption">사고 유형: {labels.join(', ')} (질문 낱말 기준)</p>}
       {status.isPending && <p>환경 데이터를 조회하는 중…</p>}
       {denied && <p>환경 데이터를 볼 권한이 없어요.</p>}
       {status.isError && !denied && <p>환경 데이터를 조회하지 못했어요. 각 화면에서 직접 확인해 주세요.</p>}
-      {data && (
-        <dl className="help-impact-rows">
-          {data.runtime && (
-            <>
-              <div>
-                <dt>검토 안 한 런타임 탐지</dt>
-                <dd>{data.runtime.unreviewedFindings}건</dd>
-              </div>
-              <div>
-                <dt>런타임 센서 (정상 / 전체)</dt>
-                <dd>
-                  {data.runtime.sensors.healthy} / {data.runtime.sensors.healthy + data.runtime.sensors.degraded + data.runtime.sensors.offline + data.runtime.sensors.unknown}
-                </dd>
-              </div>
-            </>
-          )}
-          {data.vuln && (
-            <>
-              <div>
-                <dt>실행 중 + 도달 가능 (Critical·High)</dt>
-                <dd>{data.vuln.runningReachableSevere}건</dd>
-              </div>
-              {data.vuln.unscannedRunning !== null && (
-                <div>
-                  <dt>스캔 없는 실행 중 워크로드</dt>
-                  <dd>{data.vuln.unscannedRunning}개</dd>
-                </div>
-              )}
-            </>
-          )}
-        </dl>
-      )}
       {priorities && (
         <>
           <strong className="help-card-title">먼저 볼 것</strong>
@@ -98,6 +74,24 @@ function IncidentStatusBox({ onOpen }: { onOpen: (screen: string) => void }) {
           </ol>
         </>
       )}
+      {data &&
+        incidentRows(data).map((group) => (
+          <div key={group.title} className="help-incident-group">
+            <strong className="help-incident-group-title">{group.title}</strong>
+            {group.note ? (
+              <p className="caption">{group.note}</p>
+            ) : (
+              <dl className="help-impact-rows">
+                {group.rows.map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        ))}
     </section>
   )
 }
@@ -214,6 +208,8 @@ export function HelpChat({ page }: { page: string }) {
       ...(impact.name ? { incidentName: impact.name } : {}),
       ...(looksLikeIncident(question) || mode === 'checklist' ? { incidentStatus: true } : {}),
     }
+    const types = incidentTypes(question)
+    if (userMessage.incidentStatus && types.length) userMessage.incidentTypes = types
     setMessages((current) => [...current, userMessage])
     setDraft('')
     ask.mutate({ question, history, mode })
@@ -335,7 +331,9 @@ export function HelpChat({ page }: { page: string }) {
                     </details>
                   )}
                 </div>
-                {message.role === 'user' && message.incidentStatus === true && <IncidentStatusBox onOpen={openKey} />}
+                {message.role === 'user' && message.incidentStatus === true && (
+                  <IncidentStatusBox types={message.incidentTypes ?? []} onOpen={openKey} />
+                )}
                 {message.role === 'user' && message.incidentName && impactCves.length > 0 && (
                   <p className="caption help-incident-name">
                     {message.incidentName} → {impactCves.join(', ')} 로 찾아봤어요 (정해진 표 기준)
