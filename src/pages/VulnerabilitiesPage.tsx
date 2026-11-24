@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { fetchReachFindings, fetchReachSummary, type ReachBasis, type ReachFindingFilter, type ReachSummary } from '@/api/reach'
 import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
@@ -218,7 +218,11 @@ export function VulnerabilitySummaryPage() {
 
   return (
     <>
-      <PageHeader title="취약점 관리" description="스캐너가 찾은 취약점이 실제로 우리 코드에 닿는지, 판정 근거와 함께 확인하세요." />
+      <PageHeader
+        title="취약점 관리"
+        description="스캐너가 찾은 취약점이 실제로 우리 코드에 닿는지, 판정 근거와 함께 확인하세요."
+        actions={<Link className="btn outline" to="/reports?new=1&part=VULNERABILITY">리포트 만들기</Link>}
+      />
       <SampleNotice parts={[summary.data?.sample ? '요약' : null]} />
       <div className="reach-scope-row">
         <ScopeLine summary={summaryData} />
