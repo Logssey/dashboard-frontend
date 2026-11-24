@@ -54,7 +54,7 @@ export function ReachL3Section({ l3 }: { l3: ReachL3Detail | null | undefined })
         <ReachL3Badge l3={l3} />
         <p className="reach-l3-headline">{l3Headline(l3)}</p>
       </div>
-      <p className="caption">판정(L2)과 따로 보는 근거예요. 판정과 검토는 이 결과로 바뀌지 않아요.</p>
+      <p className="caption">이미지를 실제로 띄워 본 근거예요. 실행이 이 취약점의 조건을 보여 주는 만큼만 서버가 판정을 올려요.</p>
 
       {(l3.reached === 'REGION' || l3.reached === 'FUNCTION') && (
         <>
