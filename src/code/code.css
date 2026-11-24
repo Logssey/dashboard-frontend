@@ -1,0 +1,12 @@
+/* 코드 취약점 화면 전용. 색·간격은 tokens.css 변수만 쓴다 */
+.code-card-body { margin: 0 28px 28px; }
+.code-num { text-align: right; }
+.code-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.code-path { word-break: break-all; }
+.code-message { min-width: 280px; max-width: 520px; white-space: pre-line; }
+.code-filters { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.code-filters .select { min-width: 160px; }
+.code-h3 { margin: var(--space-6) 0 var(--space-3); font-size: 14px; font-weight: 600; color: var(--text); }
+.code-policy > .code-h3:first-child { margin-top: 0; }
+.code-policy .caption { margin: 0 0 var(--space-3); }
+.code-policy-list { display: grid; gap: var(--space-2); margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-body); }

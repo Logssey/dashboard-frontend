@@ -26,6 +26,8 @@ export const sectionPages: SectionPage[] = [
   { path: '/vulnerabilities/workloads', title: '워크로드', description: '실행 중인 이미지가 스캔한 이미지와 같은지 확인하세요.' },
   { path: '/vulnerabilities/scans', title: '스캔', description: '스캔을 요청하고 진행 상태와 이력을 확인하세요.' },
   { path: '/vulnerabilities/rules', title: '규칙', description: '판정에 쓰는 규칙·사실·취약 함수 데이터를 확인하세요.' },
+  { path: '/code', title: '코드 취약점', description: '서비스 코드 정적 분석 결과를 확인하세요.' },
+  { path: '/code/policy', title: '검사 기준·정책', description: '코드 취약점 검사 도구와 기준을 확인하세요.' },
   { path: '/reports', title: '리포트', description: '파트별 보안 결과를 같은 기준으로 묶은 스냅샷을 만들고 확인하세요.' },
 ]
 
