@@ -224,6 +224,103 @@ test('impact numbers never enter the history sent to the help API', async () => 
   assert.ok(!/askHelp|setMessages/.test(box), 'impact box does not talk to the help API or the stored conversation')
 })
 
+test('known incident names map to fixed CVE ids and explicit CVEs win', () => {
+  assert.deepEqual(help.incidentCves('Log4Shell 터졌어 뭐부터 봐?'), { cves: ['CVE-2021-44228', 'CVE-2021-45046'], name: 'Log4Shell' })
+  assert.deepEqual(help.incidentCves('log4j 취약점 우리 괜찮아?').cves, ['CVE-2021-44228', 'CVE-2021-45046'])
+  assert.deepEqual(help.incidentCves('PHP-CGI 원격 코드 실행 터졌대').cves, ['CVE-2024-4577'])
+  assert.deepEqual(help.incidentCves('Log4Shell인데 CVE-2021-44832도 봐줘'), { cves: ['CVE-2021-44832'] })
+  assert.deepEqual(help.incidentCves('cve-2021-44228, CVE-2021-44228, CVE-2024-4577'), { cves: ['CVE-2021-44228', 'CVE-2024-4577'] })
+  assert.deepEqual(help.incidentCves('대응 건은 어떻게 만들어요?'), { cves: [] })
+  for (const alias of help.INCIDENT_ALIASES) {
+    assert.ok(alias.cves.length > 0 && alias.cves.every((cve) => help.usableCve(cve) === cve), alias.name)
+  }
+})
+
+test('incident talk is recognised by fixed words only', () => {
+  for (const q of ['우리 서버 뚫린 것 같아', '해킹당했어 어떡해', '랜섬웨어 걸렸어', '키가 유출된 것 같아', '이상한 접속이 보여']) {
+    assert.equal(help.looksLikeIncident(q), true, q)
+  }
+  for (const q of ['대응 건은 어떻게 만들어요?', 'CSV로 내보내려면?', '스캔은 어떻게 시작해요?']) {
+    assert.equal(help.looksLikeIncident(q), false, q)
+  }
+})
+
+test('incident status reads runtime and vulnerability APIs and survives one failing', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (path, options) => {
+    calls.push({ path, options })
+    const url = new URL(path, 'http://local.test')
+    if (url.pathname === '/api/v1/runtime/overview') return new Response('', { status: 500 })
+    if (url.pathname === '/api/v1/reach/summary') return Response.json({ basis: { unscannedRunning: [{}, {}, {}] } })
+    return Response.json({ items: [], hasNext: false, totalCount: url.searchParams.get('severity') === 'CRITICAL,HIGH' ? 2 : 5 })
+  }
+  try {
+    const status = await help.fetchIncidentStatus()
+    assert.deepEqual(status.vuln, { runningReachableSevere: 2, runningReachable: 5, unscannedRunning: 3 })
+    assert.equal(status.runtime, null)
+    for (const call of calls) {
+      assert.ok(/^\/api\/v1\/(reach|runtime)\//.test(call.path), call.path)
+      assert.ok(!call.options?.method || call.options.method === 'GET', call.path)
+      assert.ok(!call.path.includes('cveContains'), call.path)
+    }
+    const priorities = help.incidentPriorities(status)
+    assert.ok(priorities[0].text.includes('런타임 탐지를 불러오지 못했어요'))
+    assert.equal(priorities[0].screen, 'RUNTIME')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('priorities follow evidence, blind spots, open risk, gaps, then fixed checks', () => {
+  const base = {
+    vuln: { runningReachableSevere: 1, runningReachable: 2, unscannedRunning: 1 },
+    runtime: { unreviewedFindings: 4, affectedWorkloads: 2, sensors: { healthy: 2, degraded: 0, offline: 1, unknown: 0 }, period: null },
+  }
+  const screens = help.incidentPriorities(base).map((p) => p.screen)
+  assert.deepEqual(screens, ['RUNTIME', 'RUNTIME', 'VULN_FINDINGS', 'VULN_WORKLOADS', 'SECRET_FINDINGS', 'COMPLIANCE'])
+  const blind = help.incidentPriorities({ ...base, runtime: { ...base.runtime, unreviewedFindings: 0, sensors: { healthy: 0, degraded: 0, offline: 0, unknown: 0 } } })
+  assert.equal(blind[0].screen, 'OUTSIDE')
+  assert.ok(blind[0].text.includes('연결된 런타임 센서가 없어'))
+  const calm = help.incidentPriorities({
+    vuln: { runningReachableSevere: 0, runningReachable: 0, unscannedRunning: 0 },
+    runtime: { unreviewedFindings: 0, affectedWorkloads: 0, sensors: { healthy: 1, degraded: 0, offline: 0, unknown: 0 }, period: null },
+  })
+  assert.deepEqual(calm.map((p) => p.screen), ['SECRET_FINDINGS', 'COMPLIANCE'])
+  for (const p of help.incidentPriorities(base)) assert.ok(p.screen in help.HELP_SCREEN_ROUTES, p.screen)
+})
+
+test('stored incident fields are checked when the conversation is loaded', () => {
+  const store = new Map()
+  const originalStorage = globalThis.sessionStorage
+  globalThis.sessionStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) }
+  try {
+    store.set('logssey.help.chat', JSON.stringify([
+      { role: 'user', text: 'old', impactCve: 'CVE-2021-44228' },
+      { role: 'user', text: 'new', impactCves: ['CVE-2024-4577', 'x&size=100'], incidentName: 'Log4Shell', incidentStatus: true },
+      { role: 'user', text: 'bad', incidentName: '<script>', incidentStatus: 'yes' },
+    ]))
+    const [old, fresh, bad] = help.loadHelpMessages()
+    assert.deepEqual(old.impactCves, ['CVE-2021-44228'])
+    assert.ok(!('impactCve' in old))
+    assert.deepEqual(fresh.impactCves, ['CVE-2024-4577'])
+    assert.equal(fresh.incidentName, 'Log4Shell')
+    assert.equal(fresh.incidentStatus, true)
+    assert.ok(!('incidentName' in bad) && !('incidentStatus' in bad))
+  } finally {
+    globalThis.sessionStorage = originalStorage
+  }
+})
+
+test('incident boxes do not talk to the help API or the stored conversation', async () => {
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  const box = source.slice(source.indexOf('function IncidentStatusBox'), source.indexOf('function CveImpactBox'))
+  assert.ok(box.includes('fetchIncidentStatus'))
+  assert.ok(!/askHelp|setMessages/.test(box))
+  const messages = [{ role: 'user', text: '서버 뚫렸어', incidentStatus: true }, { role: 'assistant', text: '답' }]
+  assert.deepEqual(help.buildHistory(messages), [{ role: 'user', text: '서버 뚫렸어' }, { role: 'assistant', text: '답' }])
+})
+
 async function filesUnder(dir) {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true })
   return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath ?? entry.path, entry.name))

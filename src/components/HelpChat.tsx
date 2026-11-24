@@ -2,14 +2,16 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '@/api/client'
-import { askHelp, fetchCveImpact, fetchHelpStatus, type HelpCard, type HelpMode } from '@/api/help'
+import { askHelp, fetchCveImpact, fetchHelpStatus, fetchIncidentStatus, type HelpCard, type HelpMode } from '@/api/help'
 import {
   buildHistory,
   CHECKLIST_DEFAULT_QUESTION,
-  findCve,
   HELP_SCREEN_ROUTES,
   helpScreenRoute,
   impactLines,
+  incidentCves,
+  incidentPriorities,
+  looksLikeIncident,
   usableCve,
   usableCards,
   HELP_QUESTION_MAX,
@@ -28,6 +30,78 @@ import './help-chat.css'
  * 질문 속 CVE의 우리 환경 영향 (설계 문서 14장). 기존 취약점 API를 내 권한으로 직접 부른다.
  * 숫자는 화면에만 그리고 대화 기록·Claude로 보내지 않는다.
  */
+/**
+ * 사고 이야기에 붙이는 "지금 우리 환경 현황"과 숫자로 정한 "먼저 볼 것" (설계 문서 15장).
+ * 기존 취약점·런타임 API를 내 권한으로 읽기만 하고, 숫자와 순서는 AI에 보내지 않는다.
+ */
+function IncidentStatusBox({ onOpen }: { onOpen: (screen: string) => void }) {
+  const status = useQuery({ queryKey: ['help', 'incident-status'], queryFn: fetchIncidentStatus, staleTime: 60_000, retry: false })
+  const denied = status.error instanceof ApiError && status.error.status === 403
+  const data = status.data
+  const priorities = data ? incidentPriorities(data) : null
+  return (
+    <section className="help-message assistant help-impact" aria-label="지금 우리 환경 현황">
+      <strong className="help-card-title">지금 우리 환경 현황</strong>
+      <p className="caption">내 권한으로 취약점·런타임 데이터를 직접 센 숫자와, 그 숫자로 정한 순서예요. AI가 만든 값이 아니고, AI에 보내지 않아요.</p>
+      {status.isPending && <p>환경 데이터를 조회하는 중…</p>}
+      {denied && <p>환경 데이터를 볼 권한이 없어요.</p>}
+      {status.isError && !denied && <p>환경 데이터를 조회하지 못했어요. 각 화면에서 직접 확인해 주세요.</p>}
+      {data && (
+        <dl className="help-impact-rows">
+          {data.runtime && (
+            <>
+              <div>
+                <dt>검토 안 한 런타임 탐지</dt>
+                <dd>{data.runtime.unreviewedFindings}건</dd>
+              </div>
+              <div>
+                <dt>런타임 센서 (정상 / 전체)</dt>
+                <dd>
+                  {data.runtime.sensors.healthy} / {data.runtime.sensors.healthy + data.runtime.sensors.degraded + data.runtime.sensors.offline + data.runtime.sensors.unknown}
+                </dd>
+              </div>
+            </>
+          )}
+          {data.vuln && (
+            <>
+              <div>
+                <dt>실행 중 + 도달 가능 (Critical·High)</dt>
+                <dd>{data.vuln.runningReachableSevere}건</dd>
+              </div>
+              {data.vuln.unscannedRunning !== null && (
+                <div>
+                  <dt>스캔 없는 실행 중 워크로드</dt>
+                  <dd>{data.vuln.unscannedRunning}개</dd>
+                </div>
+              )}
+            </>
+          )}
+        </dl>
+      )}
+      {priorities && (
+        <>
+          <strong className="help-card-title">먼저 볼 것</strong>
+          <ol className="help-priorities">
+            {priorities.map((item) => {
+              const route = helpScreenRoute(item.screen)
+              return (
+                <li key={item.text}>
+                  <span>{item.text}</span>
+                  {route && (
+                    <button type="button" className="btn outline small" onClick={() => onOpen(item.screen)}>
+                      {route.title} 열기
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+        </>
+      )}
+    </section>
+  )
+}
+
 function CveImpactBox({ cve, onOpenFindings }: { cve: string; onOpenFindings: () => void }) {
   const impact = useQuery({ queryKey: ['help', 'cve-impact', cve], queryFn: () => fetchCveImpact(cve), staleTime: 60_000, retry: false })
   const denied = impact.error instanceof ApiError && impact.error.status === 403
@@ -132,8 +206,15 @@ export function HelpChat({ page }: { page: string }) {
     }
     setInputError(null)
     const history = buildHistory(messages)
-    const impactCve = findCve(question)
-    setMessages((current) => [...current, impactCve ? { role: 'user', text: question, impactCve } : { role: 'user', text: question }])
+    const impact = incidentCves(question)
+    const userMessage: HelpMessage = {
+      role: 'user',
+      text: question,
+      ...(impact.cves.length ? { impactCves: impact.cves } : {}),
+      ...(impact.name ? { incidentName: impact.name } : {}),
+      ...(looksLikeIncident(question) || mode === 'checklist' ? { incidentStatus: true } : {}),
+    }
+    setMessages((current) => [...current, userMessage])
     setDraft('')
     ask.mutate({ question, history, mode })
   }
@@ -144,8 +225,9 @@ export function HelpChat({ page }: { page: string }) {
     const route = helpScreenRoute(card.screen)
     if (route) navigate(route.path)
   }
-  const openFindings = () => {
-    const route = helpScreenRoute('VULN_FINDINGS')
+  const openFindings = () => openKey('VULN_FINDINGS')
+  const openKey = (screen: string) => {
+    const route = helpScreenRoute(screen)
     if (route) navigate(route.path)
   }
 
@@ -185,8 +267,8 @@ export function HelpChat({ page }: { page: string }) {
               </button>
             </div>
             <p className="help-notice">
-              답은 사용 가이드 문서로만 해요. 질문에 CVE 번호가 있으면 내 권한으로 취약점 수만 직접 조회해 보여 주고, 그 숫자는
-              AI에 보내지 않아요. 질문에 키나 비밀번호를 넣지 마세요.
+              답은 사용 가이드 문서로만 해요. 사고 이야기나 CVE 번호·사고 이름이 있으면 내 권한으로 현황 숫자만 직접 조회해 보여
+              주고, 그 숫자는 AI에 보내지 않아요. 질문에 키나 비밀번호를 넣지 마세요.
             </p>
 
             <div className="help-messages" ref={listRef} aria-live="polite">
@@ -207,7 +289,10 @@ export function HelpChat({ page }: { page: string }) {
                 </div>
               )}
               {messages.map((message, index) => {
-                const impactCve = message.role === 'user' ? usableCve(message.impactCve) : undefined
+                const impactCves =
+                  message.role === 'user'
+                    ? (message.impactCves ?? []).map(usableCve).filter((cve): cve is string => cve !== undefined)
+                    : []
                 return (
                 <Fragment key={index}>
                 <div
@@ -250,7 +335,15 @@ export function HelpChat({ page }: { page: string }) {
                     </details>
                   )}
                 </div>
-                {impactCve && <CveImpactBox cve={impactCve} onOpenFindings={openFindings} />}
+                {message.role === 'user' && message.incidentStatus === true && <IncidentStatusBox onOpen={openKey} />}
+                {message.role === 'user' && message.incidentName && impactCves.length > 0 && (
+                  <p className="caption help-incident-name">
+                    {message.incidentName} → {impactCves.join(', ')} 로 찾아봤어요 (정해진 표 기준)
+                  </p>
+                )}
+                {impactCves.map((cve) => (
+                  <CveImpactBox key={cve} cve={cve} onOpenFindings={openFindings} />
+                ))}
                 </Fragment>
                 )
               })}

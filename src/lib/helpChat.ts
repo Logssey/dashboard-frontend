@@ -1,4 +1,4 @@
-import type { CveImpact, HelpCard, HelpSource, HelpTurn } from '@/api/help'
+import type { CveImpact, HelpCard, HelpSource, HelpTurn, IncidentStatus } from '@/api/help'
 
 export const HELP_QUESTION_MAX = 500
 const HISTORY_MESSAGES = 6
@@ -11,16 +11,119 @@ export interface HelpMessage {
   sources?: HelpSource[]
   cards?: HelpCard[]
   error?: boolean
-  /** 사용자 질문에 있던 CVE 번호. 영향 조회 상자를 그릴 때만 쓰고, 조회한 숫자는 저장하지 않는다 */
+  /** 예전 저장 형식(CVE 하나). 읽을 때 impactCves로 바꾼다 */
   impactCve?: string
+  /** 질문에 있던 CVE 번호들(또는 사고 이름에서 찾은 번호). 영향 상자를 그릴 때만 쓰고 숫자는 저장하지 않는다 */
+  impactCves?: string[]
+  /** 사고 이름 (예: Log4Shell). 질문에 CVE 번호 대신 이름이 있었을 때 */
+  incidentName?: string
+  /** 사고 이야기라서 "지금 우리 환경 현황" 상자를 그린다 */
+  incidentStatus?: boolean
 }
 
-const CVE_IN_TEXT = /\bCVE-\d{4}-\d{4,7}\b/i
+const CVE_IN_TEXT = /\bCVE-\d{4}-\d{4,7}\b/gi
 const CVE_EXACT = /^CVE-\d{4}-\d{4,7}$/
+const MAX_IMPACT_CVES = 3
 
 /** 질문 속 첫 CVE 번호(대문자). 백엔드 HelpChecklist.wanted와 같은 모양 */
 export function findCve(text: string): string | undefined {
-  return text.match(CVE_IN_TEXT)?.[0].toUpperCase()
+  return findCves(text)[0]
+}
+
+/** 질문 속 CVE 번호들(대문자, 중복 없이 최대 3개) */
+export function findCves(text: string): string[] {
+  return [...new Set([...text.matchAll(CVE_IN_TEXT)].map((match) => match[0].toUpperCase()))].slice(0, MAX_IMPACT_CVES)
+}
+
+/**
+ * 잘 알려진 사고 이름 → CVE 번호 (설계 문서 15장). 고정 표라서 AI가 번호를 지어낼 일이 없다.
+ * 컨테이너 이미지 패키지로 잡히는 것만 넣는다.
+ */
+export const INCIDENT_ALIASES: ReadonlyArray<{ name: string; match: RegExp; cves: readonly string[] }> = Object.freeze([
+  { name: 'Log4Shell', match: /log4\s*shell|log4j/i, cves: ['CVE-2021-44228', 'CVE-2021-45046'] },
+  { name: 'Spring4Shell', match: /spring4\s*shell/i, cves: ['CVE-2022-22965'] },
+  { name: 'Text4Shell', match: /text4\s*shell|commons[-\s]?text/i, cves: ['CVE-2022-42889'] },
+  { name: 'PHP-CGI 원격 코드 실행', match: /php[-\s]?cgi|php\s*(원격|rce)/i, cves: ['CVE-2024-4577'] },
+  { name: 'Apache Struts2 (S2-045)', match: /struts\s*2?|s2-045/i, cves: ['CVE-2017-5638'] },
+  { name: 'Shellshock', match: /shell\s*shock/i, cves: ['CVE-2014-6271'] },
+  { name: 'Heartbleed', match: /heart\s*bleed/i, cves: ['CVE-2014-0160'] },
+  { name: 'xz 백도어', match: /xz[-\s]?(utils|백도어|backdoor)/i, cves: ['CVE-2024-3094'] },
+  { name: 'regreSSHion', match: /regre\s*ssh\s*ion/i, cves: ['CVE-2024-6387'] },
+])
+
+/** 질문에 적힌 CVE 번호가 먼저, 없으면 사고 이름 표에서 찾는다 */
+export function incidentCves(text: string): { cves: string[]; name?: string } {
+  const explicit = findCves(text)
+  if (explicit.length > 0) return { cves: explicit }
+  const alias = INCIDENT_ALIASES.find((entry) => entry.match.test(text))
+  return alias ? { cves: alias.cves.slice(0, MAX_IMPACT_CVES), name: alias.name } : { cves: [] }
+}
+
+const INCIDENT_WORDS =
+  /뚫렸|뚫린|뚫려|해킹|침해|사고|터졌|터진|랜섬|유출|새어\s*나|털렸|공격|악성|이상한\s*(접속|프로그램|트래픽|로그인)|감염|breach|hacked|ransom|compromis|incident/i
+
+/** 보안사고 이야기인지 (정해진 낱말로만 판단한다). 맞으면 "지금 우리 환경 현황" 상자를 붙인다 */
+export function looksLikeIncident(text: string): boolean {
+  return INCIDENT_WORDS.test(text)
+}
+
+export interface IncidentPriority {
+  text: string
+  /** HELP_SCREEN_ROUTES 키. OUTSIDE면 버튼 없음 */
+  screen: string
+}
+
+/**
+ * "지금 먼저 볼 것" (설계 문서 15장, 대응 절차 문서 "상황별로 먼저 볼 것").
+ * 실제 숫자로 정해진 규칙에 따라 순서를 매긴다. AI가 정하지 않는다.
+ * 공격 흔적 → 볼 수 없는 곳 → 열려 있는 위험 → 빠진 곳 → 늘 확인할 것 순서.
+ */
+export function incidentPriorities(status: IncidentStatus): IncidentPriority[] {
+  const list: IncidentPriority[] = []
+  const runtime = status.runtime
+  const vuln = status.vuln
+  if (!runtime) {
+    list.push({ text: '런타임 탐지를 불러오지 못했어요. 런타임 보안 화면에서 사고 이후 탐지를 직접 보세요 (5번).', screen: 'RUNTIME' })
+  } else {
+    if (runtime.unreviewedFindings > 0) {
+      list.push({
+        text: `검토하지 않은 런타임 탐지 ${runtime.unreviewedFindings}건(영향 워크로드 ${runtime.affectedWorkloads}개)부터 보세요. 이미 뚫렸는지 확인하는 단계예요 (5번).`,
+        screen: 'RUNTIME',
+      })
+    }
+    const sensorTotal = runtime.sensors.healthy + runtime.sensors.degraded + runtime.sensors.offline + runtime.sensors.unknown
+    if (runtime.sensors.healthy === 0) {
+      list.push({
+        text: `${sensorTotal === 0 ? '연결된 런타임 센서가 없어' : '정상인 런타임 센서가 없어'} Logssey로는 침해 흔적을 볼 수 없어요. 웹 서버 접근 로그와 클라우드 감사 로그를 먼저 확인하세요 (Logssey 밖).`,
+        screen: 'OUTSIDE',
+      })
+    } else if (runtime.sensors.offline + runtime.sensors.degraded > 0) {
+      list.push({
+        text: `꺼졌거나 불안정한 센서가 ${runtime.sensors.offline + runtime.sensors.degraded}개 있어요. 그 노드는 탐지가 비어 있을 수 있어요.`,
+        screen: 'RUNTIME',
+      })
+    }
+  }
+  if (!vuln) {
+    list.push({ text: '취약점 데이터를 불러오지 못했어요. Finding 목록에서 실행 중·도달 가능 Finding을 직접 보세요 (2·4번).', screen: 'VULN_FINDINGS' })
+  } else {
+    if (vuln.runningReachableSevere > 0) {
+      list.push({
+        text: `실행 중이면서 도달 가능한 Critical·High Finding ${vuln.runningReachableSevere}건이 있어요. 바깥에서 닿는지 보고 고치세요 (4·9번).`,
+        screen: 'VULN_FINDINGS',
+      })
+    } else if (vuln.runningReachable > 0) {
+      list.push({ text: `실행 중이면서 도달 가능한 Finding ${vuln.runningReachable}건을 확인하세요 (4번).`, screen: 'VULN_FINDINGS' })
+    }
+    if (vuln.unscannedRunning) {
+      list.push({ text: `스캔 없는 실행 중 워크로드 ${vuln.unscannedRunning}개는 위 숫자에 빠져 있어요. 먼저 스캔하세요 (3번).`, screen: 'VULN_WORKLOADS' })
+    }
+  }
+  list.push(
+    { text: '뚫린 서버가 쓰던 키·비밀을 찾아 교체 대응 건을 만드세요 (7번).', screen: 'SECRET_FINDINGS' },
+    { text: '새로 실패한 점검이나 바뀐 계정·권한·설정이 없는지 보세요 (8번).', screen: 'COMPLIANCE' },
+  )
+  return list
 }
 
 /** 저장소에서 읽은 값도 정확한 CVE 모양일 때만 조회에 쓴다 */
@@ -163,10 +266,19 @@ export function loadHelpMessages(): HelpMessage[] {
     const parsed = raw ? (JSON.parse(raw) as unknown) : []
     if (!Array.isArray(parsed)) return []
     return (parsed as HelpMessage[]).slice(-40).map((message) => {
-      if (message === null || typeof message !== 'object' || !('impactCve' in message)) return message
-      const { impactCve, ...rest } = message
-      const cve = usableCve(impactCve)
-      return cve ? { ...rest, impactCve: cve } : rest
+      if (message === null || typeof message !== 'object') return message
+      const { impactCve, impactCves, incidentName, incidentStatus, ...rest } = message
+      const cves = [...(Array.isArray(impactCves) ? impactCves : []), impactCve]
+        .map(usableCve)
+        .filter((cve): cve is string => cve !== undefined)
+        .slice(0, MAX_IMPACT_CVES)
+      const name = INCIDENT_ALIASES.find((entry) => entry.name === incidentName)?.name
+      return {
+        ...rest,
+        ...(cves.length ? { impactCves: cves } : {}),
+        ...(name ? { incidentName: name } : {}),
+        ...(incidentStatus === true ? { incidentStatus: true } : {}),
+      }
     })
   } catch {
     return []

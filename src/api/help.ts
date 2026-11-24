@@ -59,8 +59,8 @@ export interface CveImpact {
   basis: 'RUNNING' | 'LATEST' | null
 }
 
-async function countFindings(cve: string, extra: Record<string, string>): Promise<number> {
-  const params = new URLSearchParams({ cveContains: cve, ...extra, size: '1', include: 'total' })
+async function countFindings(cve: string | null, extra: Record<string, string>): Promise<number> {
+  const params = new URLSearchParams({ ...(cve ? { cveContains: cve } : {}), ...extra, size: '1', include: 'total' })
   const page = await apiRequest<{ totalCount?: number | null }>(`/api/v1/reach/findings?${params}`)
   if (typeof page.totalCount !== 'number') throw new Error('totalCount missing')
   return page.totalCount
@@ -83,6 +83,72 @@ export async function fetchCveImpact(cve: string): Promise<CveImpact> {
     runningReachable,
     unscannedRunning: Array.isArray(summary.basis?.unscannedRunning) ? summary.basis.unscannedRunning.length : null,
     basis: applied === 'RUNNING' || applied === 'LATEST' ? applied : null,
+  }
+}
+
+/** 런타임 화면과 같은 기본 클러스터 */
+export const INCIDENT_RUNTIME_CLUSTER = 'logssey-prod'
+
+/**
+ * 사고 이야기(CVE 없이)에 붙이는 "지금 우리 환경 현황" (설계 문서 15장).
+ * 기존 취약점·런타임 API를 내 권한으로 읽기만 한다. 한쪽이 실패해도 다른 쪽은 보여 준다. AI로 보내지 않는다.
+ */
+export interface IncidentStatus {
+  vuln: {
+    /** 실행 중 + 도달 가능 + Critical/High */
+    runningReachableSevere: number
+    runningReachable: number
+    unscannedRunning: number | null
+  } | null
+  runtime: {
+    unreviewedFindings: number
+    affectedWorkloads: number
+    sensors: { healthy: number; degraded: number; offline: number; unknown: number }
+    period: { from: string; to: string } | null
+  } | null
+}
+
+interface RuntimeOverviewShape {
+  period?: { from: string; to: string }
+  summary?: { unreviewedFindingCount?: number; affectedWorkloadCount?: number }
+  sensorSummary?: { healthy?: number; degraded?: number; offline?: number; unknown?: number }
+}
+
+const count = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0)
+
+export async function fetchIncidentStatus(): Promise<IncidentStatus> {
+  const [vuln, runtime] = await Promise.allSettled([
+    Promise.all([
+      countFindings(null, { deployment: 'RUNNING', status: 'REACHABLE', severity: 'CRITICAL,HIGH' }),
+      countFindings(null, { deployment: 'RUNNING', status: 'REACHABLE' }),
+      apiRequest<{ basis?: { unscannedRunning?: unknown[] } | null }>('/api/v1/reach/summary'),
+    ]),
+    apiRequest<RuntimeOverviewShape>(`/api/v1/runtime/overview?clusterId=${encodeURIComponent(INCIDENT_RUNTIME_CLUSTER)}`),
+  ])
+  if (vuln.status === 'rejected' && runtime.status === 'rejected') throw vuln.reason
+  return {
+    vuln:
+      vuln.status === 'fulfilled'
+        ? {
+            runningReachableSevere: vuln.value[0],
+            runningReachable: vuln.value[1],
+            unscannedRunning: Array.isArray(vuln.value[2].basis?.unscannedRunning) ? vuln.value[2].basis.unscannedRunning.length : null,
+          }
+        : null,
+    runtime:
+      runtime.status === 'fulfilled'
+        ? {
+            unreviewedFindings: count(runtime.value.summary?.unreviewedFindingCount),
+            affectedWorkloads: count(runtime.value.summary?.affectedWorkloadCount),
+            sensors: {
+              healthy: count(runtime.value.sensorSummary?.healthy),
+              degraded: count(runtime.value.sensorSummary?.degraded),
+              offline: count(runtime.value.sensorSummary?.offline),
+              unknown: count(runtime.value.sensorSummary?.unknown),
+            },
+            period: runtime.value.period ?? null,
+          }
+        : null,
   }
 }
 
