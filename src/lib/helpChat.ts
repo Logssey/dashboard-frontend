@@ -471,7 +471,136 @@ export function saveHelpMessages(messages: HelpMessage[]): void {
 export function clearHelpMessages(): void {
   try {
     sessionStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(SIGNALS_KEY)
   } catch {
     // 무시
+  }
+}
+
+/**
+ * 새 보안 신호 알림 (설계 문서 16장). 화면에 보이는 숫자만 비교하고 AI는 쓰지 않는다.
+ * 이 탭에서 마지막으로 "확인했어요"를 누른 때의 숫자(기준)와 지금 숫자를 비교한다.
+ */
+const SIGNALS_KEY = 'logssey.help.signals.seen'
+
+/** 비교에 쓰는 숫자. 불러오지 못한 곳은 null이고 그 신호는 비교하지 않는다 */
+export interface SignalSnapshot {
+  runtimeUnreviewed: number | null
+  sensorsHealthy: number | null
+  sensorsTotal: number | null
+  validKeys: number | null
+  crossAlerts: number | null
+  severeReachable: number | null
+  tier1Paths: number | null
+  drifts: number | null
+}
+
+export function signalSnapshot(status: IncidentStatus): SignalSnapshot {
+  const sensors = status.runtime?.sensors
+  return {
+    runtimeUnreviewed: status.runtime ? status.runtime.unreviewedFindings : null,
+    sensorsHealthy: sensors ? sensors.healthy : null,
+    sensorsTotal: sensors ? sensors.healthy + sensors.degraded + sensors.offline + sensors.unknown : null,
+    validKeys: status.keys ? status.keys.validKeyCases : null,
+    crossAlerts: status.keys ? status.keys.crossEnvironmentAlerts : null,
+    severeReachable: status.vuln ? status.vuln.runningReachableSevere : null,
+    tier1Paths: status.exposure ? status.exposure.tier1OpenPaths : null,
+    drifts: status.exposure ? status.exposure.drifts : null,
+  }
+}
+
+/**
+ * 처음 보는 탭의 기준. 런타임 탐지와 살아 있는 키는 "지금 처리할 일"이라 0을 기준으로 두어 처음에도 알린다.
+ * 센서·취약점·공격 경로·드리프트는 원래 있던 숫자를 기준으로 두어, 늘어날 때만 알린다.
+ */
+export function firstSeenBaseline(current: SignalSnapshot): SignalSnapshot {
+  return { ...current, runtimeUnreviewed: current.runtimeUnreviewed === null ? null : 0, validKeys: current.validKeys === null ? null : 0, crossAlerts: current.crossAlerts === null ? null : 0 }
+}
+
+export interface IncidentSignal {
+  kind: 'runtime' | 'keys' | 'sensors' | 'exposure'
+  text: string
+  /** HELP_SCREEN_ROUTES 키 */
+  screen: string
+}
+
+const grew = (now: number | null, before: number | null) => now !== null && before !== null && now > before
+
+/** 기준보다 나빠진 것만 신호로 만든다. 순서: 의심스러운 시도 → 활발한 키 → 센서 → 위험한 노출 */
+export function incidentSignals(seen: SignalSnapshot, now: SignalSnapshot): IncidentSignal[] {
+  const signals: IncidentSignal[] = []
+  if (grew(now.runtimeUnreviewed, seen.runtimeUnreviewed)) {
+    signals.push({
+      kind: 'runtime',
+      text: `새 런타임 탐지(의심스러운 시도) ${now.runtimeUnreviewed! - seen.runtimeUnreviewed!}건 — 검토 안 한 탐지 모두 ${now.runtimeUnreviewed}건`,
+      screen: 'RUNTIME',
+    })
+  }
+  const keyParts = [
+    grew(now.validKeys, seen.validKeys) ? `살아 있는 키 대응 건 +${now.validKeys! - seen.validKeys!}` : '',
+    grew(now.crossAlerts, seen.crossAlerts) ? `실키 경고 +${now.crossAlerts! - seen.crossAlerts!}` : '',
+  ].filter(Boolean)
+  if (keyParts.length) signals.push({ kind: 'keys', text: `활발한 키: ${keyParts.join(', ')}`, screen: 'SECRET_CASES' })
+  if (now.sensorsHealthy !== null && seen.sensorsHealthy !== null && now.sensorsHealthy < seen.sensorsHealthy) {
+    signals.push({
+      kind: 'sensors',
+      text: `정상 런타임 센서가 ${seen.sensorsHealthy}개에서 ${now.sensorsHealthy}개로 줄었어요. 그동안 침해 흔적을 볼 수 없어요`,
+      screen: 'RUNTIME',
+    })
+  }
+  const exposureParts = [
+    grew(now.severeReachable, seen.severeReachable) ? `실행 중+도달 가능 Critical·High +${now.severeReachable! - seen.severeReachable!}` : '',
+    grew(now.tier1Paths, seen.tier1Paths) ? `1순위 공격 경로 +${now.tier1Paths! - seen.tier1Paths!}` : '',
+    grew(now.drifts, seen.drifts) ? `드리프트 +${now.drifts! - seen.drifts!}` : '',
+  ].filter(Boolean)
+  if (exposureParts.length) {
+    signals.push({
+      kind: 'exposure',
+      text: `위험한 노출 증가: ${exposureParts.join(', ')}`,
+      screen: grew(now.severeReachable, seen.severeReachable) ? 'VULN_FINDINGS' : 'IAC',
+    })
+  }
+  return signals
+}
+
+const SIGNAL_SITUATIONS: Record<IncidentSignal['kind'], string> = {
+  runtime: '이상한 접속이나 프로그램 실행 같은 런타임 탐지',
+  keys: '살아 있는 키가 새어 나간 것 같은 신호',
+  sensors: '런타임 센서가 꺼진 것',
+  exposure: '바깥에서 닿는 위험한 노출이 늘어난 것',
+}
+
+/** "대응 순서 물어보기"로 보낼 질문. 신호 종류만 말로 쓰고 숫자는 넣지 않는다 (숫자는 AI에 보내지 않는다) */
+export function signalQuestion(signals: IncidentSignal[]): string {
+  const situations = [...new Set(signals.map((signal) => SIGNAL_SITUATIONS[signal.kind]))]
+  return `보안 사고 신호가 떴어요: ${situations.join(', ')}. 무엇부터 봐야 해요?`
+}
+
+const SNAPSHOT_FIELDS: Array<keyof SignalSnapshot> = [
+  'runtimeUnreviewed', 'sensorsHealthy', 'sensorsTotal', 'validKeys', 'crossAlerts', 'severeReachable', 'tier1Paths', 'drifts',
+]
+
+export function loadSeenSignals(): SignalSnapshot | null {
+  try {
+    const raw = sessionStorage.getItem(SIGNALS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    if (parsed === null || typeof parsed !== 'object') return null
+    const snapshot = {} as SignalSnapshot
+    for (const field of SNAPSHOT_FIELDS) {
+      const value = parsed[field]
+      snapshot[field] = typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+    }
+    return snapshot
+  } catch {
+    return null
+  }
+}
+
+export function saveSeenSignals(snapshot: SignalSnapshot): void {
+  try {
+    sessionStorage.setItem(SIGNALS_KEY, JSON.stringify(snapshot))
+  } catch {
+    // 저장소를 쓸 수 없으면 이번 화면에서만 유지한다
   }
 }

@@ -388,6 +388,79 @@ test('incident boxes do not talk to the help API or the stored conversation', as
   assert.deepEqual(help.buildHistory(messages), [{ role: 'user', text: '서버 뚫렸어' }, { role: 'assistant', text: '답' }])
 })
 
+const snap = (over = {}) => ({
+  runtimeUnreviewed: 0, sensorsHealthy: 3, sensorsTotal: 3, validKeys: 0, crossAlerts: 0, severeReachable: 2, tier1Paths: 5, drifts: 1, ...over,
+})
+
+test('new signals fire only for the four chosen kinds when things get worse', () => {
+  assert.deepEqual(help.incidentSignals(snap(), snap()), [])
+  const worse = help.incidentSignals(snap(), snap({ runtimeUnreviewed: 2, validKeys: 1, crossAlerts: 1, sensorsHealthy: 1, tier1Paths: 7 }))
+  assert.deepEqual(worse.map((s) => s.kind), ['runtime', 'keys', 'sensors', 'exposure'])
+  assert.ok(worse[0].text.includes('2건'))
+  assert.ok(worse[1].text.includes('살아 있는 키 대응 건 +1') && worse[1].text.includes('실키 경고 +1'))
+  assert.ok(worse[2].text.includes('3개에서 1개로'))
+  assert.equal(worse[3].screen, 'IAC')
+  assert.equal(help.incidentSignals(snap(), snap({ severeReachable: 3 }))[0].screen, 'VULN_FINDINGS')
+  // getting better never alerts, and unknown sources are skipped
+  assert.deepEqual(help.incidentSignals(snap({ runtimeUnreviewed: 5 }), snap({ runtimeUnreviewed: 1, drifts: 0 })), [])
+  assert.deepEqual(help.incidentSignals(snap(), snap({ validKeys: null, crossAlerts: null, runtimeUnreviewed: null })), [])
+  for (const s of worse) assert.ok(s.screen in help.HELP_SCREEN_ROUTES, s.screen)
+})
+
+test('a fresh tab alerts on open runtime detections and live keys, not on old backlog', () => {
+  const now = snap({ runtimeUnreviewed: 4, validKeys: 2, crossAlerts: 0 })
+  const signals = help.incidentSignals(help.firstSeenBaseline(now), now)
+  assert.deepEqual(signals.map((s) => s.kind), ['runtime', 'keys'])
+  const quiet = snap()
+  assert.deepEqual(help.incidentSignals(help.firstSeenBaseline(quiet), quiet), [])
+})
+
+test('signal snapshot follows the incident status and the question carries no numbers', () => {
+  const status = {
+    runtime: { unreviewedFindings: 4, affectedWorkloads: 2, topRules: [], sensors: { healthy: 1, degraded: 1, offline: 0, unknown: 1 } },
+    keys: null,
+    exposure: { openPaths: 9, tier1OpenPaths: 3, drifts: 2, stateSecrets: 0 },
+    vuln: { runningReachableSevere: 1, runningReachable: 2, unscannedRunning: 0 },
+    unavailable: [{ source: 'keys', denied: true }],
+  }
+  assert.deepEqual(help.signalSnapshot(status), {
+    runtimeUnreviewed: 4, sensorsHealthy: 1, sensorsTotal: 3, validKeys: null, crossAlerts: null, severeReachable: 1, tier1Paths: 3, drifts: 2,
+  })
+  const question = help.signalQuestion(help.incidentSignals(snap(), snap({ runtimeUnreviewed: 12, validKeys: 3, tier1Paths: 9 })))
+  assert.ok(!/\d/.test(question), question)
+  assert.ok(help.looksLikeIncident(question))
+  assert.ok(question.length <= help.HELP_QUESTION_MAX)
+})
+
+test('seen signals are stored per tab, checked on load and cleared on logout', () => {
+  const store = new Map()
+  const originalStorage = globalThis.sessionStorage
+  globalThis.sessionStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) }
+  try {
+    assert.equal(help.loadSeenSignals(), null)
+    help.saveSeenSignals(snap({ drifts: 4 }))
+    assert.equal(help.loadSeenSignals().drifts, 4)
+    store.set('logssey.help.signals.seen', JSON.stringify({ runtimeUnreviewed: -1, drifts: 'x', tier1Paths: 2 }))
+    const loaded = help.loadSeenSignals()
+    assert.equal(loaded.runtimeUnreviewed, null)
+    assert.equal(loaded.drifts, null)
+    assert.equal(loaded.tier1Paths, 2)
+    help.clearHelpMessages()
+    assert.equal(help.loadSeenSignals(), null)
+  } finally {
+    globalThis.sessionStorage = originalStorage
+  }
+})
+
+test('signal polling uses the shared incident status query and never the help API', async () => {
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  const block = source.slice(source.indexOf('// 새 보안 신호'), source.indexOf('const acknowledgeSignals'))
+  assert.ok(block.includes('queryFn: fetchIncidentStatus'))
+  assert.ok(block.includes('refetchIntervalInBackground: false'))
+  assert.ok(!/askHelp/.test(block))
+  assert.ok(source.includes('send(signalQuestion(signals))'))
+})
+
 async function filesUnder(dir) {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true })
   return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath ?? entry.path, entry.name))

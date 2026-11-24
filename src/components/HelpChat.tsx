@@ -14,6 +14,13 @@ import {
   incidentRows,
   incidentTypeLabel,
   incidentTypes,
+  firstSeenBaseline,
+  incidentSignals,
+  loadSeenSignals,
+  saveSeenSignals,
+  signalQuestion,
+  signalSnapshot,
+  type SignalSnapshot,
   looksLikeIncident,
   usableCve,
   usableCards,
@@ -28,6 +35,9 @@ import {
 } from '@/lib/helpChat'
 import { Icon } from './Icon'
 import './help-chat.css'
+
+/** 새 보안 신호를 확인하는 주기. 탭이 보일 때만 읽는다 */
+const SIGNAL_POLL_MS = 5 * 60_000
 
 /**
  * 질문 속 CVE의 우리 환경 영향 (설계 문서 14장). 기존 취약점 API를 내 권한으로 직접 부른다.
@@ -151,6 +161,31 @@ export function HelpChat({ page }: { page: string }) {
   const status = useQuery({ queryKey: ['help', 'status'], queryFn: fetchHelpStatus, enabled: open, staleTime: 60_000 })
   const ready = status.data?.ready === true
 
+  // 새 보안 신호 (설계 문서 16장): 탭이 보이는 동안 5분마다 기존 API를 읽어 기준과 비교한다. AI는 쓰지 않는다.
+  const signalStatus = useQuery({
+    queryKey: ['help', 'incident-status'],
+    queryFn: fetchIncidentStatus,
+    refetchInterval: SIGNAL_POLL_MS,
+    refetchIntervalInBackground: false,
+    staleTime: 60_000,
+    retry: false,
+  })
+  const [seenSignals, setSeenSignals] = useState<SignalSnapshot | null>(() => loadSeenSignals())
+  const currentSignals = signalStatus.data ? signalSnapshot(signalStatus.data) : null
+  useEffect(() => {
+    if (currentSignals && seenSignals === null) {
+      const baseline = firstSeenBaseline(currentSignals)
+      setSeenSignals(baseline)
+      saveSeenSignals(baseline)
+    }
+  }, [currentSignals, seenSignals])
+  const signals = currentSignals && seenSignals ? incidentSignals(seenSignals, currentSignals) : []
+  const acknowledgeSignals = () => {
+    if (!currentSignals) return
+    setSeenSignals(currentSignals)
+    saveSeenSignals(currentSignals)
+  }
+
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
@@ -239,13 +274,13 @@ export function HelpChat({ page }: { page: string }) {
     <>
       <button
         type="button"
-        className="icon-btn help-trigger"
+        className={`icon-btn help-trigger${signals.length ? ' has-signal' : ''}`}
         onClick={() => setOpen(true)}
-        aria-label="도움말 열기"
+        aria-label={signals.length ? `도움말 열기 (새 보안 신호 ${signals.length}개)` : '도움말 열기'}
         aria-haspopup="dialog"
-        title="사용법 도우미"
+        title={signals.length ? `새 보안 신호 ${signals.length}개` : '사용법 도우미'}
       >
-        ?
+        ?{signals.length > 0 && <span className="help-signal-dot" aria-hidden="true" />}
       </button>
       <dialog
         ref={dialogRef}
@@ -268,6 +303,40 @@ export function HelpChat({ page }: { page: string }) {
             </p>
 
             <div className="help-messages" ref={listRef} aria-live="polite">
+              {signals.length > 0 && (
+                <section className="help-signals" aria-label="새 보안 신호">
+                  <strong className="help-card-title">새 보안 신호</strong>
+                  <p className="caption">마지막으로 확인한 뒤 새로 생긴 것이에요. 5분마다 내 권한으로 확인하고, AI가 만든 값이 아니에요.</p>
+                  <ul>
+                    {signals.map((signal) => {
+                      const route = helpScreenRoute(signal.screen)
+                      return (
+                        <li key={signal.kind}>
+                          <span>{signal.text}</span>
+                          {route && (
+                            <button type="button" className="btn outline small" onClick={() => openKey(signal.screen)}>
+                              {route.title} 열기
+                            </button>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  <div className="row help-form-actions">
+                    <button
+                      type="button"
+                      className="btn primary small"
+                      disabled={!ready || ask.isPending}
+                      onClick={() => send(signalQuestion(signals))}
+                    >
+                      대응 순서 물어보기
+                    </button>
+                    <button type="button" className="btn outline small" onClick={acknowledgeSignals}>
+                      확인했어요
+                    </button>
+                  </div>
+                </section>
+              )}
               {messages.length === 0 && (
                 <div className="help-suggestions">
                   <p className="caption">이 화면에서 자주 묻는 질문</p>

@@ -48,3 +48,10 @@
 }
 .help-incident-group { display: grid; gap: 2px; padding-top: 6px; border-top: 1px solid var(--divider); }
 .help-incident-group-title { font-size: 12px; color: var(--text-muted); }
+.help-trigger { position: relative; }
+.help-trigger.has-signal { color: var(--critical); border-color: var(--critical); }
+.help-signal-dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 999px; background: var(--critical); border: 2px solid var(--surface, #fff); }
+.help-signals { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--critical); border-radius: var(--radius-md); background: var(--critical-soft); color: var(--text); font-size: 13px; }
+.help-signals .caption { margin: 0; font-size: 12px; }
+.help-signals ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.help-signals li { display: grid; gap: 4px; justify-items: start; }
