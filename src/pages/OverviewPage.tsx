@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { fetchAssets, fetchPriorityFindings, fetchRiskTrend, fetchSummary } from '@/api/overview'
-import type { PriorityFinding } from '@/api/types'
+import type { OverviewPartSummary, PriorityFinding } from '@/api/types'
 import { Badge } from '@/components/Badge'
 import { DetailDrawer } from '@/components/DetailDrawer'
 import { EmptyState } from '@/components/EmptyState'
@@ -146,7 +146,7 @@ export function OverviewPage() {
                 <ScoreRing score={summary.data.securityScore} />
               </div>
             )}
-            <p className="caption">Critical −4점 · High −1점. 미평가·미검사 항목의 안전을 보장하지 않아요.</p>
+            <p className="caption">Critical −4점 · High −1점. 같은 원인은 한 건으로 세요. 미평가·미검사 항목의 안전을 보장하지 않아요.</p>
           </article>
 
           <article className="card">
@@ -154,7 +154,7 @@ export function OverviewPage() {
               <h2>위험은 어떻게 변했을까요?</h2>
               <span className="caption">최근 {trendDays.length || 7}일</span>
             </div>
-            <p className="caption">일별 탐지와 현재 시크릿 대응 건의 최초 생성 추이예요. 미평가·평가 대상 외도 전체 건수에 포함해요.</p>
+            <p className="caption">지금 열린 위험을 처음 발견한 날짜로 나눈 추이예요. 미평가·평가 대상 외도 전체 건수에 포함해요.</p>
             {trend.isPending ? (
               <Loading />
             ) : trend.isError ? (
@@ -195,9 +195,11 @@ export function OverviewPage() {
                 </div>
               ))
             )}
-            <p className="caption">등록된 자산 정보 기준이에요. 키 발견 위치 수와는 달라요.</p>
+            <p className="caption">각 보안 기능이 실제로 점검한 자산 기준이에요. 키 발견 위치 수와는 달라요.</p>
           </article>
         </div>
+
+        {summary.isSuccess && summary.data.parts && <PartTable parts={summary.data.parts} />}
 
         {summary.isSuccess && summary.data.secretIntegration && <section className="notice" aria-label="시크릿 통합 집계 범위">{summary.data.secretIntegration.status === 'AVAILABLE' ? <>통합 조회 범위의 시크릿 대응 {summary.data.secretIntegration.total ?? '—'}건을 포함해요.{summary.data.secretIntegration.unassessedCount != null && summary.data.secretIntegration.unassessedCount > 0 ? ` 미평가 ${summary.data.secretIntegration.unassessedCount}건은 등급 점수에서 제외해요.` : ''}{summary.data.secretIntegration.notApplicableCount != null && summary.data.secretIntegration.notApplicableCount > 0 ? ` 평가 대상 외 ${summary.data.secretIntegration.notApplicableCount}건은 등급 점수에서 제외해요.` : ''}{summary.data.secretIntegration.restrictedCoverage ? ' 열람 가능한 위치 기준이에요.' : ''} <Link to="/secrets">시크릿 현황</Link></> : <>시크릿 대응 건은 조회 권한이 없어 집계에 포함하지 않았어요.</>}</section>}
 
@@ -222,11 +224,72 @@ export function OverviewPage() {
           ) : (
             <EmptyState title="검토할 항목이 없어요" description="선택한 환경의 항목을 모두 검토했어요." />
           )}
-          <div className="table-foot">탐지 내용을 누르면 근거와 권장 대응을 확인할 수 있어요.</div>
+          <div className="table-foot">탐지 내용을 누르면 해당 보안 기능 화면에서 근거와 대응을 확인할 수 있어요.</div>
         </section>
       </div>
 
       <DetailDrawer finding={selected} onClose={() => setSelected(null)} />
     </>
+  )
+}
+
+const PART_STATUS: Record<OverviewPartSummary['status'], { label: string; tone: string }> = {
+  CONNECTED: { label: '연결됨', tone: 'success' },
+  NO_DATA: { label: '결과 없음', tone: '' },
+  NOT_AUTHORIZED: { label: '권한 없음', tone: '' },
+  ERROR: { label: '불러오기 실패', tone: 'critical' },
+}
+
+const NUM = { textAlign: 'right' } as const
+
+/** 보안 기능별로 몇 건이 점수에 반영됐는지 (같은 원인을 묶은 건수) */
+function PartTable({ parts }: { parts: OverviewPartSummary[] }) {
+  return (
+    <section className="card list-card" aria-labelledby="overview-parts-title">
+      <div className="card-head">
+        <div>
+          <h2 id="overview-parts-title">보안 기능별 반영 현황</h2>
+          <p className="section-intro">각 기능에서 지금 열린 위험을 같은 원인끼리 묶어 셌어요. 감점이 점수에서 깎인 값이에요.</p>
+        </div>
+      </div>
+      <div className="table-scroll" tabIndex={0} role="region" aria-label="보안 기능별 반영 현황 표. 좁은 화면에서는 가로로 스크롤하세요.">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">보안 기능</th>
+              <th scope="col">상태</th>
+              <th scope="col" style={NUM}>Critical</th>
+              <th scope="col" style={NUM}>High</th>
+              <th scope="col" style={NUM}>Medium</th>
+              <th scope="col" style={NUM}>Low</th>
+              <th scope="col" style={NUM}>미평가</th>
+              <th scope="col" style={NUM}>합계</th>
+              <th scope="col" style={NUM}>감점</th>
+              <th scope="col">기준 시각</th>
+            </tr>
+          </thead>
+          <tbody>
+            {parts.map((part) => {
+              const status = PART_STATUS[part.status] ?? PART_STATUS.ERROR
+              const counted = part.status === 'CONNECTED'
+              return (
+                <tr key={part.part}>
+                  <td>{part.link ? <Link className="finding-link" to={part.link}>{part.label}</Link> : part.label}</td>
+                  <td><Badge label={status.label} tone={status.tone} /></td>
+                  <td style={NUM}>{counted ? part.critical : '—'}</td>
+                  <td style={NUM}>{counted ? part.high : '—'}</td>
+                  <td style={NUM}>{counted ? part.medium : '—'}</td>
+                  <td style={NUM}>{counted ? part.low : '—'}</td>
+                  <td style={NUM}>{counted ? part.unassessed : '—'}</td>
+                  <td style={NUM}><strong>{counted ? part.total : '—'}</strong></td>
+                  <td style={NUM}>{counted ? `−${part.penalty}` : '—'}</td>
+                  <td className="caption">{part.dataAsOf ? scanDate(part.dataAsOf) : '—'}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }
