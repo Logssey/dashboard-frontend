@@ -34,7 +34,8 @@ export interface SecurityScoreAsset {
   score: number | null
   deduction: number
   lastEvaluatedAt: string | null
-  worst: { part: string; title: string; grade: string; deduction: number } | null
+  /** link: 그 위험을 볼 화면(이미지는 Finding 상세, 시크릿은 대응 건 상세, 그 밖은 기능 화면). 옛 서버는 보내지 않는다 */
+  worst: { part: string; title: string; grade: string; deduction: number; link?: string | null } | null
   openCount: number
 }
 
