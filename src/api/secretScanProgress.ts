@@ -52,6 +52,7 @@ export interface SecretScanProgressResponse {
   runId: number
   connectionId: number
   provider: string
+  scanKind?: 'METADATA' | 'CONTENT' | 'UNKNOWN'
   status: string
   attemptNo: number
   maxAttempts: number

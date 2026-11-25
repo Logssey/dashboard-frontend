@@ -101,6 +101,25 @@ test('unknown quantities stay absent and a legacy run explains missing detailed 
   assert.doesNotMatch(html, /HTTP 200|항목 0개 처리/)
 })
 
+test('metadata scans describe resource lookup and distinguish excluded value checks', () => {
+  const html = render({ ...value, provider: 'AWS', scanKind: 'METADATA',
+    stages: [stage('QUEUE', 'SUCCEEDED'), stage('COLLECTION', 'RUNNING'),
+      stage('DETECTION', 'SKIPPED'), stage('VALIDATION', 'SKIPPED'), stage('RESULT', 'PENDING')],
+  })
+  assert.match(html, /AWS 메타데이터 조회/)
+  assert.match(html, /리소스 정보 조회/)
+  assert.match(html, /키 값 탐지 · 적용 제외/)
+  assert.match(html, /인증 확인 · 적용 제외/)
+})
+
+test('truncated detail logs still expose current counters and the last worker activity', () => {
+  const html = render({ ...value, truncated: true, suppressedEventCount: 14, collectedObjectCount: 2089 })
+  assert.match(html, /현재 처리량<\/dt><dd>2089개/)
+  assert.match(html, /대기 시간<\/dt><dd>30초/)
+  assert.match(html, /최근 활동/)
+  assert.match(html, /위의 현재 처리량과 최근 활동에서 진행 상태/)
+})
+
 test('expiry, omitted details, skip reasons and final navigation are independently rendered', () => {
   const skipped = { ...stage('VALIDATION', 'SKIPPED'), reasonCode: 'SYNTHETIC_FIXTURE', processedCount: 0, totalCount: 0, unit: 'ATTEMPT' }
   const data = { ...value, status: 'PARTIAL', eventsStatus: 'EXPIRED', events: [], truncated: true, suppressedEventCount: 9,

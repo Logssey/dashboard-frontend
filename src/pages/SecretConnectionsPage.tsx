@@ -45,14 +45,12 @@ function ConnectionCard({ connection, selected, result, testing, error, onTest, 
       <span className={`secret-connection-state ${connection.connectionStatus === 'ACTIVE' ? '' : 'inactive'}`}>{connection.connectionStatus === 'ACTIVE' ? '사용 중' : connection.connectionStatus === 'PAUSED' ? '일시중지' : '확인 필요'}</span>
     </button>
     <p className="secret-connection-target-count">검사 대상 {connection.approvedScopeCount}개{connection.activeJob && <span> · {scanStatus(connection.activeJob.status)}</span>}</p>
-    {selected && <>
-      {!!connection.targetSummary?.length && <ul className="secret-connection-targets">{connection.targetSummary.slice(0, 2).map((target) => <li key={target}>{target}</li>)}</ul>}
+    {selected && !!connection.targetSummary?.length && <ul className="secret-connection-targets">{connection.targetSummary.slice(0, 2).map((target) => <li key={target}>{target}</li>)}</ul>}
       <div className={`secret-connection-probe ${probe?.status.toLowerCase() ?? 'unavailable'}`} role="status">
         <strong>{probeLabel(probe?.status)}</strong>
         {probe?.checkedAt && <span>{scanDate(probe.checkedAt)}</span>}
         {probe?.reasonCode && <p>{scanReason(probe.reasonCode)}</p>}
       </div>
-    </>}
     {error && <p className="secret-connection-test-error" role="alert">{error}</p>}
     <div className="secret-connection-actions">
       <button className="btn secret-connection-test-button" disabled={testing || !connection.capabilities?.canTest} onClick={() => onTest(connection.connectionId)}>{testing ? '연결 확인 중…' : '연결 테스트'}</button>
@@ -89,7 +87,10 @@ export function SecretConnectionsPage() {
   const [results, setResults] = useState<Record<number, SecretConnectionTestResult>>({})
   const [errors, setErrors] = useState<Record<number, string>>({})
   const [confirmConnection, setConfirmConnection] = useState<ManagedSecretConnection | null>(null)
-  const [manager, setManager] = useState<{ connectionId: number | null } | null>(null)
+  const [manager, setManager] = useState<{ connectionId: number | null } | null>(() => valid && params.get('settings') === 'policy' && requestedConnection ? { connectionId: requestedConnection } : null)
+  useEffect(() => {
+    if (valid && params.get('settings') === 'policy' && requestedConnection) setManager({ connectionId: requestedConnection })
+  }, [valid, requestedConnection, params.get('settings')])
   const [showOperations, setShowOperations] = useState(false)
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1000px)').matches)
   const progressPanel = useRef<HTMLElement>(null)
@@ -252,7 +253,7 @@ export function SecretConnectionsPage() {
     <SecretDetailPanel open={validationConnectionId != null} title="키 검증 설정" closeLabel="키 검증 설정 닫기" className="secret-connection-validation-dialog" onClose={closeValidationSettings}>
       {validationConnectionId != null && <SecretConnectionValidationSettings key={validationConnectionId} connectionId={validationConnectionId} />}
     </SecretDetailPanel>
-    {manager && <SecretConnectionManager connectionId={manager.connectionId} onClose={() => setManager(null)} onChanged={() => { void client.invalidateQueries({ queryKey: ['secret-connections-manage'] }); completed() }} onReady={showManagedConnection} />}
+    {manager && <SecretConnectionManager connectionId={manager.connectionId} onClose={() => { setManager(null); if (params.get('settings') === 'policy') { const next = new URLSearchParams(params); next.delete('settings'); setParams(next, { replace: true }) } }} onChanged={() => { void client.invalidateQueries({ queryKey: ['secret-connections-manage'] }); completed() }} onReady={showManagedConnection} />}
     <details className="secret-connection-operations" onToggle={(event) => setShowOperations(event.currentTarget.open)}><summary>워커 운영 상태</summary>{showOperations && <SecretOperationsHealth />}</details>
   </>
 }

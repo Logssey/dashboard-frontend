@@ -50,6 +50,7 @@ export interface ManagedSecretConnection {
   capabilities: { canTest: boolean; canRun: boolean }
 }
 export interface ManagedScope {
+  githubTarget?: GitHubScanTarget | null
   scopeId: number
   scopeRevision: number | null
   origin: string
@@ -109,11 +110,24 @@ export interface SecretConnectionSetupOptions {
   aws: { accountId: string; regions: string[]; targetKinds: AwsMetadataKind[] }
 }
 export interface SecretConnectionSettings {
+  defaultStoragePolicy?: {
+    selectedPolicyId: number | null; selectedPolicyVersion: number | null
+    status: 'NOT_SELECTED' | 'APPLIED' | 'APPLICATION_REQUIRED' | 'PENDING_REVIEW' | 'RULE_UPDATE_REQUIRED' | 'POLICY_EXPIRED'
+    applicableScopeCount: number; appliedScopeCount: number; pendingReviewScopeCount: number; ruleUpdateRequiredScopeCount: number
+  }
+  capabilities?: { activateTargets?: boolean; retryFailedScopes?: boolean; validationReadiness?: boolean; scanLimits?: boolean }
+  scanLimits?: { maxFiles: number; maxFileBytes: number; maxTotalBytes: number; maxTreeEntries?: number; maxDepth?: number }
+  validationReadiness?: {
+    ready: boolean
+    reasonCodes: string[]
+    validators: { issuer: string; serverEnabled: boolean; connectionAllowed: boolean; scopeCount: number; allowedScopeCount: number }[]
+  }
   connectionId: number
   provider: EditableSecretProvider
   displayName: string
   status: 'ACTIVE' | 'PAUSED' | 'ERROR'
   scopeVersion: number
+  settingsVersion?: number
   credentialConfigured: boolean
   credentialVersion: number | null
   credentialDeletionPending: boolean
@@ -132,12 +146,15 @@ export interface CreateSecretConnectionRequest {
 }
 export interface UpdateSecretConnectionRequest {
   expectedScopeVersion: number
+  expectedSettingsVersion?: number
   displayName: string
   status: SecretConnectionSettings['status']
   githubCredential?: GitHubAppCredential
 }
 export interface UpdateSecretTargetsRequest {
   expectedScopeVersion: number
+  expectedSettingsVersion?: number
+  activate?: boolean
   githubTargets?: GitHubScanTarget[]
   awsTargets?: AwsScanTarget[]
 }
@@ -153,3 +170,26 @@ export const deleteGitHubCredential = (connectionId: number, expectedScopeVersio
 export const restoreGitHubCredential = (connectionId: number, expectedScopeVersion: number) => apiRequest<SecretConnectionSettings>(`/api/v1/secrets/connections/${connectionId}/credential/restore`, { method: 'POST', body: JSON.stringify({ expectedScopeVersion }) })
 export const fetchGitHubRepositories = (connectionId: number, page = 1) => apiRequest<{ items: GitHubRepositoryOption[] }>(`/api/v1/secrets/connections/${connectionId}/github/repositories?${new URLSearchParams({ page: String(page) })}`)
 export const fetchGitHubBranches = (connectionId: number, repository: string, page = 1) => apiRequest<{ items: GitHubBranchOption[] }>(`/api/v1/secrets/connections/${connectionId}/github/branches?${new URLSearchParams({ repository, page: String(page) })}`)
+
+export interface ConnectionStoragePolicy {
+  selectedPolicyId: number | null
+  selectedPolicyVersion: number | null
+  settingsVersion: number
+  policyOptions: { policyId: number; version: number; label?: string; name?: string }[]
+  applicableScopeCount: number
+  ruleUpdateRequiredScopeCount: number
+  canManage: boolean
+  items?: { scopeId: number; status: string; errorCode?: string }[]
+  succeededCount?: number
+  failedCount?: number
+}
+export const fetchConnectionStoragePolicy = (connectionId: number) =>
+  apiRequest<ConnectionStoragePolicy>(`/api/v1/secrets/connections/${connectionId}/default-storage-policy`)
+export interface ConnectionStoragePolicyApplyResult {
+  succeededCount?: number
+  failedCount?: number
+  items?: { scopeId: number; status: string; errorCode?: string }[]
+}
+export const updateConnectionStoragePolicy = (connectionId: number, request: {
+  policyId: number; policyVersion: number; expectedSettingsVersion: number; idempotencyKey: string; applyMatchingScopes: true
+}) => apiRequest<ConnectionStoragePolicyApplyResult>(`/api/v1/secrets/connections/${connectionId}/default-storage-policy`, { method: 'PUT', body: JSON.stringify(request) })

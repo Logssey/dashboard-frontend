@@ -100,6 +100,8 @@ export function scanProgressStatusLabel(data: SecretScanProgressResponse): strin
 }
 
 export function scanIsMetadataOnly(data: SecretScanProgressResponse): boolean {
+  if (data.scanKind === 'METADATA') return true
+  if (data.scanKind === 'CONTENT') return false
   return ['DETECTION', 'VALIDATION'].every((key) => data.stages.some((item) =>
     item.key === key && item.status === 'SKIPPED' && item.reasonCode === 'NOT_APPLICABLE_METADATA'))
 }

@@ -100,7 +100,7 @@ const validationReasons: Record<string, string> = {
   SIGNATURE_AMBIGUOUS: '서명 오류의 원인 확인 필요',
   EXPIRED_SESSION: '임시 세션 만료',
   DISABLED: '검증 기능이 꺼져 있음',
-  INCOMPLETE_PAIR: '키 구성 요소가 부족함',
+  INCOMPLETE_PAIR: '키 ID·Secret 한 쌍 미확인',
   MISSING_SESSION_TOKEN: '임시 키의 세션 토큰이 없음',
   ACCESS_AMBIGUOUS: '접근 오류의 원인 확인 필요',
   RATE_LIMITED: '공급자 호출 제한',

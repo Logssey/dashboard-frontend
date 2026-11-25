@@ -50,7 +50,7 @@ test('actual work rows and their destination retain every filter and the exact s
 })
 test('reason-based setup stays after actual security work and separates paused connections', () => {
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], summary]])
-  assert.ok(html.indexOf('지금 처리할 업무') < html.indexOf('<summary>검사 대상 설정'))
+  assert.ok(html.indexOf('팀의 할 일') < html.indexOf('<summary>검사 대상 설정'))
   assert.match(html, /검사 대상 설정 보완/); assert.match(html, /추가 설정 검토/); assert.match(html, /중지된 연결의 설정 보완/)
   assert.match(html, /보관 정책 미설정 1/)
   assert.doesNotMatch(html, /setup-title|분류·보관 규칙을 확인할 검사 대상/)
@@ -208,4 +208,42 @@ test('review queue return paths preserve the union bucket and original location 
   assert.equal(url.searchParams.get('bucket'), 'REVIEW_REQUIRED')
   assert.equal(url.searchParams.get('page'), '2')
   assert.equal(url.searchParams.get('focus'), '11:21')
+})
+
+
+test('common causes use server-wide counts and start a fresh snapshot when narrowing the connection', () => {
+  const value = { ...summary, commonCauseGroups: [
+    { code: 'EXPOSURE_REVIEW_REQUIRED', connectionId: 7, connectionLabel: '개발 저장소', count: 37, unit: 'Occurrence', nextAction: 'REVIEW_LOCATION', canExecute: true, target: { type: 'OCCURRENCE', id: 12, connectionId: 7 } },
+    { code: 'POLICY_MISSING', connectionId: 8, count: 4, unit: 'Scope', nextAction: 'CONFIGURE_STORAGE_POLICY', canExecute: false, target: { type: 'SCOPE', id: 13, connectionId: 8 } },
+  ] }
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], value]])
+  assert.match(html, /연결별 공통 원인 2개/)
+  assert.match(html, /개발 저장소 · 37곳의 발견 위치/)
+  const narrowed = decodeLinks(html).find((url) => url.pathname === '/secrets/triage' && url.searchParams.get('connectionId') === '7')
+  assert.ok(narrowed)
+  assert.equal(narrowed.searchParams.has('snapshotId'), false)
+  assert.match(html, /href="\/secrets\/connections\/8\/scopes"/)
+})
+
+
+test('team work distinguishes a permitted next action from a read-only task without presenting both as personal work', () => {
+  const item = summary.workPreviews.response.items[0]
+  const rows = [
+    { ...item, caseId: 7, taskGuidance: { nextActionCode: 'REQUEST_REVALIDATION', canExecute: true, priorityReasonCodes: [] } },
+    { ...item, caseId: 8, taskGuidance: { nextActionCode: 'REQUEST_REVALIDATION', canExecute: false, blockedReasonCode: 'LOCATION_ASSIGNEE_REQUIRED', priorityReasonCodes: [] } },
+  ]
+  const value = { ...summary, workPreviews: { ...summary.workPreviews, response: { ...summary.workPreviews.response, items: rows } } }
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}&view=response`, [[['secret-summary', filters], value]])
+  assert.match(html, /팀의 할 일/)
+  assert.equal((html.match(/현재 계정으로 처리 가능/g) ?? []).length, 1)
+  assert.match(html, />내용 확인<\/a>/)
+})
+
+
+test('one connection default-policy cause opens its actual shared configuration instead of creating occurrence work', () => {
+  const value = { ...summary, commonCauseGroups: [{ code: 'DEFAULT_POLICY_UPDATE_REQUIRED', connectionId: 7, connectionLabel: '개발 저장소', count: 1, unit: 'Connection', nextAction: 'CONFIGURE_STORAGE_POLICY', canExecute: true, target: { type: 'CONNECTION', id: 7 } }] }
+  const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], value]])
+  assert.match(html, /1개 연결/)
+  const url = decodeLinks(html).find((link) => link.pathname === '/secrets/connections' && link.searchParams.get('settings') === 'policy')
+  assert.equal(url.searchParams.get('connectionId'), '7')
 })

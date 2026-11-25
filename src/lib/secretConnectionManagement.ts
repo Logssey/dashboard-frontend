@@ -99,7 +99,7 @@ function encodeApprovedRefSegment(value: string): string {
 export function githubTargetsError(targets: GitHubScanTarget[]): string | null {
   if (targets.length > 100)
     return '검사 대상은 한 연결에 최대 100개까지 등록할 수 있어요.'
-  const repositoryPaths = new Map<string, string[]>()
+  const branchPaths = new Map<string, string[]>()
   for (const target of targets) {
     if (
       !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9_.-]{1,100}$/.test(
@@ -139,8 +139,8 @@ export function githubTargetsError(targets: GitHubScanTarget[]): string | null {
     }
     if (approvedRef.length > 500)
       return '저장소·브랜치·폴더 경로가 너무 길어요.'
-    const repository = target.repository.toLowerCase()
-    const paths = repositoryPaths.get(repository) ?? []
+    const branchKey = JSON.stringify([target.repository.toLowerCase(), target.branch])
+    const paths = branchPaths.get(branchKey) ?? []
     if (
       paths.some(
         (existing) =>
@@ -148,8 +148,8 @@ export function githubTargetsError(targets: GitHubScanTarget[]): string | null {
           canonicalPath.startsWith(existing)
       )
     )
-      return '같은 저장소의 겹치는 경로는 연결을 나눠 등록하세요.'
-    repositoryPaths.set(repository, [...paths, canonicalPath])
+      return '같은 저장소·브랜치의 폴더가 겹쳐요. 중복 대상을 정리하세요.'
+    branchPaths.set(branchKey, [...paths, canonicalPath])
   }
   return null
 }

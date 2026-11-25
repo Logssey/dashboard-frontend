@@ -7,9 +7,10 @@ import type { WorkbenchQueueItem } from '@/api/secretWorkbenchQueue'
 import { useSecretListParams } from '@/lib/useSecretListParams'
 import { PageHeader } from '@/components/PageHeader'
 import { SecretRiskDistribution } from '@/components/SecretRiskDistribution'
+import { SecretCommonCauses } from '@/components/SecretCommonCauses'
 import { withSecretOrigin } from '@/lib/secretNavigation'
 import { availableMetric, filterLabel, parseWorkbenchFilters, summaryReason, workbenchQueuePath, workbenchSearch, workbenchWhyLabel } from '@/lib/secretWorkbench'
-import { actionLabels, blockerLabels, priorityLabels } from '@/lib/secretTaskGuidance'
+import { actionLabels, blockerLabels, guidanceTargetPath, priorityLabels } from '@/lib/secretTaskGuidance'
 import { setupReasonLabels } from '@/lib/secretScopeSetup'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
 import { secretSummaryKey, useSecretWorkbench } from '@/lib/useSecretWorkbench'
@@ -57,6 +58,10 @@ function workPath(item: WorkbenchQueueItem, filters: WorkbenchFilters, view: Wor
   const context = new URLSearchParams({ origin: filters.origin, return: 'workbench', returnQuery: back })
   if (item.occurrenceId) context.set('occurrence', String(item.occurrenceId))
   const key = item.secretId ?? item.credentialSetId
+  if (item.taskGuidance?.nextActionCode === 'WAIT_FOR_REVALIDATION' && item.taskGuidance.canExecute) {
+    const runPath = guidanceTargetPath(item.taskGuidance)
+    if (runPath?.startsWith('/secrets/history/')) return `${runPath}?${new URLSearchParams({ return: 'workbench', returnQuery: back, ...(item.caseId ? { returnCaseId: String(item.caseId) } : {}) })}`
+  }
   if (view === 'review' && key && item.occurrenceId) return `/secrets/triage/${key}?${context}`
   if (item.caseId) return `/secrets/cases/${item.caseId}?${context}`
   return key && item.occurrenceId ? `/secrets/triage/${key}?${context}` : null
@@ -116,7 +121,7 @@ function WorkList({ preview, summary, view, filters }: { preview?: WorkPreview; 
         const reasons = guidance?.priorityReasonCodes?.map((code) => priorityLabels[code]).filter(Boolean) ?? []
         const caseLinkRequired = (item.whyHereCode ?? item.whyHere) === 'CASE_LINK_REQUIRED'
         const title = item.maskedLabel ?? (item.caseId ? `대응 #${item.caseId}` : `키 #${item.secretId ?? item.credentialSetId ?? '—'}`)
-        const action = view === 'review' ? caseLinkRequired ? '대응 생성' : '발견 검토' : guidance ? actionLabels[guidance.nextActionCode] ?? '내용 확인' : '내용 확인'
+        const action = guidance?.canExecute === false ? '내용 확인' : view === 'review' ? caseLinkRequired ? '대응 생성' : '발견 검토' : guidance ? actionLabels[guidance.nextActionCode] ?? '내용 확인' : '내용 확인'
         return <tr key={view === 'review' ? item.occurrenceId ?? index : item.caseId ?? item.occurrenceId ?? index}>
           <td>
             {path ? <Link to={path}>{title}</Link> : title}
@@ -128,7 +133,7 @@ function WorkList({ preview, summary, view, filters }: { preview?: WorkPreview; 
             {guidance && !guidance.canExecute && <span className="asset">{blockerLabels[guidance.blockedReasonCode ?? ''] ?? '담당자의 확인이 필요해요.'}</span>}
           </td>
           <td>{item.assigneeDisplayName ?? item.assigneeTeam ?? (item.assigneeUserId ? `담당자 #${item.assigneeUserId}` : '미지정')}<span className="asset">{scanDate(guidance?.evidenceObservedAt ?? item.evidenceObservedAt ?? item.lastSeenAt ?? item.updatedAt)}</span></td>
-          <td>{path ? <Link className="secret-overview-action" to={path}>{action}</Link> : '연결 정보 확인 필요'}</td>
+          <td>{path ? <Link className="secret-overview-action" to={path}>{action}</Link> : '연결 정보 확인 필요'}{guidance?.canExecute && <span className="asset">현재 계정으로 처리 가능</span>}</td>
         </tr>
       })}</tbody>
     </table>
@@ -200,14 +205,22 @@ function CollectionHealth({ summary, filters }: { summary: WorkbenchSummary; fil
   </section>
 }
 
+function overviewErrorMessage(error: unknown) {
+  if (error instanceof ApiError && error.status === 403) return '시크릿을 조회할 권한이 없어요'
+  if (error instanceof ApiError && [404, 409].includes(error.status)) return '조회 기준을 다시 확인해 주세요'
+  return '현황을 불러오지 못했어요'
+}
+
 export function SecretOverviewPage() {
   const [params, setParams] = useSecretListParams(true)
   const client = useQueryClient()
   const { filters, valid } = parseWorkbenchFilters(params)
+  const selectionKey = workbenchSearch(filters).toString()
   const rawView = params.get('view')
   const requestedView = rawView && Object.hasOwn(views, rawView) ? rawView as WorkView : null
   const [refreshing, setRefreshing] = useState(false)
-  const [refreshError, setRefreshError] = useState(false)
+  const [refreshError, setRefreshError] = useState<{ selectionKey: string; message: string } | null>(null)
+  const refreshMessage = refreshError?.selectionKey === selectionKey ? refreshError.message : null
   const legacyRun = params.get('run')
   const invalidated = isSecretSnapshotInvalidated(filters.snapshotId)
   const query = useSecretWorkbench(filters, valid && !legacyRun)
@@ -225,15 +238,15 @@ export function SecretOverviewPage() {
 
   const refresh = async () => {
     setRefreshing(true)
-    setRefreshError(false)
+    setRefreshError(null)
     const clean = { ...filters, snapshotId: '' }
     try {
       const data = await client.fetchQuery({ queryKey: secretSummaryKey(clean), queryFn: () => fetchSecretSummary(clean), staleTime: 0 })
       const next = { ...clean, snapshotId: data.snapshotId }
       client.setQueryData(secretSummaryKey(next), data)
       setParams(overviewSearch(next, view), { replace: true })
-    } catch {
-      setRefreshError(true)
+    } catch (error) {
+      setRefreshError({ selectionKey, message: overviewErrorMessage(error) })
     } finally {
       setRefreshing(false)
     }
@@ -248,18 +261,19 @@ export function SecretOverviewPage() {
 
   return <>
     <PageHeader title="시크릿 현황" description="발견한 키를 확인하고 조치 결과까지 추적하세요." actions={<><button className="btn outline" disabled={refreshing || !valid} onClick={() => void refresh()}>{refreshing ? '갱신 중…' : '새로고침'}</button><Link className="btn outline" to={inventoryPath(filters)}>키·발견 위치</Link><Link className="btn primary" to={withSecretOrigin('/secrets/history?request=scan', filters.origin)}>스캔 요청</Link></>} />
-    {refreshError && <p className="notice error" role="alert">새 현황을 불러오지 못했어요. 기준시각을 확인하고 다시 조회하세요.</p>}
+    {refreshMessage && !query.isError && <p className="notice error" role="alert">{refreshMessage}</p>}
     {!valid ? <p className="notice error" role="alert">현황 조회 조건을 확인해 주세요. <Link to="/secrets">조건 초기화</Link></p>
       : invalidated ? <section className="card secret-overview-empty"><h2>조회 기준이 변경됐어요</h2><button className="btn primary" onClick={() => void refresh()}>최신 현황 조회</button></section>
       : query.isPending ? <p className="card secret-scan-message" role="status">현황을 불러오는 중이에요.</p>
-      : query.isError ? <section className="card secret-overview-empty" role="alert"><h2>{query.error instanceof ApiError && [404, 409].includes(query.error.status) ? '조회 기준을 다시 확인해 주세요' : '현황을 불러오지 못했어요'}</h2><button className="btn outline" onClick={() => void refresh()}>다시 조회</button></section>
+      : query.isError ? <section className="card secret-overview-empty" role="alert"><h2>{refreshMessage ?? overviewErrorMessage(query.error)}</h2><button className="btn outline" onClick={() => void refresh()}>다시 조회</button></section>
       : hasData && data ? <>
         <div className="secret-overview-asof"><span>기준 {scanDate(data.asOf)}</span><span>{data.restrictedCoverage ? '열람 가능한 범위' : '승인된 범위'}</span></div>
         <OverviewCards summary={data} view={view} onSelect={(next) => setParams(overviewSearch(filters, next))} />
+        <SecretCommonCauses summary={data} filters={filters} />
         <div className="secret-overview-layout">
           <section id="secret-overview-work-list" className="card secret-overview-work" aria-labelledby="secret-work-title">
             <div className="secret-overview-section-title">
-              <div><p className="secret-overview-work-label">지금 처리할 업무</p><h2 id="secret-work-title" aria-live="polite">{views[view].title}<span>{listCount}{views[view].unit}</span></h2></div>
+              <div><p className="secret-overview-work-label">팀의 할 일</p><h2 id="secret-work-title" aria-live="polite">{views[view].title}<span>{listCount}{views[view].unit}</span></h2></div>
               {canOpenList && <Link to={workbenchQueuePath(filters, views[view].bucket, data.snapshotId, views[view].stages)}>전체 목록</Link>}
             </div>
             {view === 'review' && filters.assignee && <p className="secret-overview-filter-note">확인 필요는 담당자 조건과 관계없이 열람 가능한 발견 위치를 집계해요.</p>}

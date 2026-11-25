@@ -45,3 +45,15 @@ export const addInvestigationEvidence = (taskId: number, request: { evidenceRef:
 export const closeInvestigation = (taskId: number, request: { expectedVersion: number; resolvingDecisionId: number | null; restoredRunScopeId: number | null; scopeOriginDecisionId?: number | null; policyBindingId?: number | null; acceptedEvidenceHistoryId?: number | null; idempotencyKey: string }) => apiRequest<EvidenceMutation>(`/api/v1/secrets/investigations/${taskId}/close`, { method: 'POST', body: JSON.stringify(request) })
 export const fetchFixtureAttestations = (credentialSetId: number) => apiRequest<FixtureAttestations>(`/api/v1/secrets/${credentialSetId}/fixture-attestations`)
 export const attestFixture = (credentialSetId: number, request: { scopeId: number; expectedScopeVersion: number; manifestId: number; manifestVersion: number; matchEvidenceId: number; idempotencyKey: string }) => apiRequest<EvidenceMutation>(`/api/v1/secrets/${credentialSetId}/fixture-attestations`, { method: 'POST', body: JSON.stringify(request) })
+export interface FixtureBatchItem {
+  credentialSetId: number
+  attestation: { scopeId: number; expectedScopeVersion: number; manifestId: number; manifestVersion: number; matchEvidenceId: number; idempotencyKey: string }
+}
+export interface FixtureBatchResult {
+  items: { credentialSetId: number; status: 'ATTESTED' | 'FAILED'; errorCode?: string; result?: EvidenceMutation }[]
+  succeededCount: number
+  failedCount: number
+  requiresSnapshotRefresh: boolean
+}
+export const attestFixtureBatch = (items: FixtureBatchItem[]) =>
+  apiRequest<FixtureBatchResult>('/api/v1/secrets/fixture-attestations/batch', { method: 'POST', body: JSON.stringify({ items }) })

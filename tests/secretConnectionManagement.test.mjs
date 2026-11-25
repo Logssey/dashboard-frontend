@@ -14,7 +14,7 @@ import { scanReason } from '../src/lib/secretScan.ts'
 const bundle = await build({
   stdin: {
     contents:
-      "export * from './src/api/secretConnections'; export * from './src/lib/secretConnectionManagement'; export { ApiError } from './src/api/client'; export { SecretConnectionManager, SecretConnectionCredentialForm } from './src/components/SecretConnectionManager'; export { SecretConnectionsPage } from './src/pages/SecretConnectionsPage'; export { SecretDetailPanel } from './src/components/SecretDetailPanel'",
+      "export * from './src/api/secretConnections'; export * from './src/lib/secretConnectionManagement'; export { ApiError } from './src/api/client'; export { SecretConnectionManager, SecretConnectionCredentialForm } from './src/components/SecretConnectionManager'; export { SecretConnectionReadiness } from './src/components/SecretConnectionReadiness'; export { SecretDefaultStoragePolicy } from './src/components/SecretDefaultStoragePolicy'; export { SecretConnectionsPage } from './src/pages/SecretConnectionsPage'; export { SecretDetailPanel } from './src/components/SecretDetailPanel'",
     resolveDir: resolve('.')
   },
   bundle: true,
@@ -272,7 +272,7 @@ test('repository root and slash branches are supported while traversal and dupli
       { ...target, path: 'fixtures' },
       { ...target, path: 'fixtures/' }
     ]),
-    /겹치는 경로/
+    /같은 저장소·브랜치의 폴더가 겹쳐요/
   )
   for (const path of ['a//b', 'a*/b', 'x'.repeat(250)])
     assert.ok(api.githubTargetsError([{ ...target, path }]))
@@ -291,54 +291,29 @@ test('repository root and slash branches are supported while traversal and dupli
   )
 })
 
-test('GitHub paths cannot overlap across branches in one connection while disjoint folders remain supported', () => {
-  const target = {
-    repository: 'Logssey/test-find-key',
-    branch: 'main',
-    path: 'fixtures/'
+test('one connection supports different branches while rejecting overlaps within the exact branch', () => {
+  const target = { repository: 'Logssey/test-find-key', branch: 'main', path: 'fixtures/' }
+  const overlapMessage = '같은 저장소·브랜치의 폴더가 겹쳐요. 중복 대상을 정리하세요.'
+  for (const other of [
+    { ...target, path: '' },
+    { ...target, path: 'fixtures/config' },
+    { ...target, repository: 'logssey/TEST-FIND-KEY', path: 'fixtures' },
+  ]) {
+    assert.equal(api.githubTargetsError([target, other]), overlapMessage)
+    assert.equal(api.githubTargetsError([other, target]), overlapMessage)
   }
   for (const other of [
     { ...target, branch: 'develop' },
     { ...target, branch: 'feat/secret', path: 'fixtures/config' },
-    { ...target, path: '' },
-    {
-      ...target,
-      repository: 'logssey/TEST-FIND-KEY',
-      branch: 'develop',
-      path: 'fixtures'
-    }
+    { ...target, branch: 'Main' },
+    { ...target, repository: 'logssey/TEST-FIND-KEY', branch: 'develop', path: 'fixtures' },
+    { ...target, path: 'fixtures-extra/' },
+    { ...target, repository: 'Logssey/another-repo' },
+    { ...target, path: 'Fixtures/' },
   ]) {
-    assert.equal(
-      api.githubTargetsError([target, other]),
-      '같은 저장소의 겹치는 경로는 연결을 나눠 등록하세요.'
-    )
-    assert.equal(
-      api.githubTargetsError([other, target]),
-      '같은 저장소의 겹치는 경로는 연결을 나눠 등록하세요.'
-    )
+    assert.equal(api.githubTargetsError([target, other]), null)
+    assert.equal(api.githubTargetsError([other, target]), null)
   }
-  assert.equal(
-    api.githubTargetsError([
-      target,
-      { ...target, branch: 'develop', path: 'other/' }
-    ]),
-    null
-  )
-  assert.equal(
-    api.githubTargetsError([target, { ...target, path: 'fixtures-extra/' }]),
-    null
-  )
-  assert.equal(
-    api.githubTargetsError([
-      target,
-      { ...target, repository: 'Logssey/another-repo' }
-    ]),
-    null
-  )
-  assert.equal(
-    api.githubTargetsError([target, { ...target, path: 'Fixtures/' }]),
-    null
-  )
 })
 
 test('GitHub approved references honor the encoded 500-character storage boundary', () => {
@@ -509,6 +484,8 @@ test('GitHub settings use live repository/branch options and retain configured r
   assert.match(html, /Logssey\/test-find-key · 비공개/)
   assert.match(html, /feat\/secret/)
   assert.match(html, /value="fixtures\/"/)
+  assert.match(html, /다른 브랜치 추가/)
+  assert.match(html, /같은 저장소의 여러 브랜치/)
   assert.match(html, /연결 활성화/)
   assert.doesNotMatch(html, /<textarea/)
 })
@@ -860,4 +837,46 @@ test('legacy shared credentials use disconnect wording while managed credentials
   })
   assert.match(managed, />인증 정보 삭제<\/button>/)
   assert.doesNotMatch(managed, /<textarea|-----BEGIN/)
+})
+
+
+test('saved connection readiness exposes server and scope blockers without claiming authentication success', () => {
+  const html = renderToStaticMarkup(createElement(api.SecretConnectionReadiness, { settings: {
+    ...github, status: 'ACTIVE', validationReadiness: {
+      ready: false, reasonCodes: ['WORKER_CONFIGURATION_MISMATCH', 'SCOPES_NOT_APPROVED'],
+      validators: [
+        { issuer: 'GITHUB', serverEnabled: false, connectionAllowed: true, scopeCount: 6, allowedScopeCount: 6 },
+        { issuer: 'AWS', serverEnabled: true, connectionAllowed: true, scopeCount: 6, allowedScopeCount: 2 },
+      ],
+    },
+  } }))
+  assert.match(html, /검사 사용 중/)
+  assert.match(html, /서버 기능 꺼짐/)
+  assert.match(html, /2 \/ 6개 대상에서 허용/)
+  assert.match(html, /서버와 워커의 검증 기능 설정을 맞춰야/)
+  assert.doesNotMatch(html, /인증 확인을 실행할 수 있어요/)
+})
+
+
+test('default storage policy shows approved rules and keeps read-only users from applying changes', () => {
+  const html = render(api.SecretDefaultStoragePolicy, { connectionId: 7 }, [[['secret-default-storage-policy', 7], {
+    selectedPolicyId: 3, selectedPolicyVersion: 2, settingsVersion: 8, canManage: false,
+    applicableScopeCount: 4, ruleUpdateRequiredScopeCount: 2,
+    policyOptions: [{ policyId: 3, version: 2, label: '보관 허용 · 검사 대상 4개' }],
+  }]])
+  assert.match(html, /보관 허용 · 검사 대상 4개/)
+  assert.match(html, /규칙 보완 2개/)
+  assert.match(html, /disabled=""/)
+  assert.doesNotMatch(html, /모든 대상 정상|전체 안전/)
+})
+
+
+test('new targets show one default-policy review state while retaining pending approval semantics', () => {
+  const summary = { selectedPolicyId: 9, selectedPolicyVersion: 2, status: 'PENDING_REVIEW', applicableScopeCount: 2, appliedScopeCount: 0, pendingReviewScopeCount: 2, ruleUpdateRequiredScopeCount: 1 }
+  const data = { ...summary, settingsVersion: 3, policyOptions: [{ policyId: 9, version: 2 }], canManage: true }
+  const html = render(api.SecretDefaultStoragePolicy, { connectionId: 7, summary }, [[['secret-default-storage-policy', 7], data]])
+  assert.match(html, /<details[^>]* open=""/)
+  assert.match(html, /승인 대기 2개/)
+  assert.match(html, /대상별 정책 설정/)
+  assert.doesNotMatch(html, /적용 완료|정상 보관/)
 })

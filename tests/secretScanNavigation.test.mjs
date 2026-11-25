@@ -293,3 +293,19 @@ test('actual findings lead the result page, with success scopes collapsed and fa
   assert.match(partial, /<details class="secret-run-scope-details" open="">/)
   assert.match(partial, /접근 권한 확인 필요/)
 })
+
+
+test('branch-level result and current target labels use structured coordinates instead of raw references', () => {
+  const current = { scopeId: 5, origin: 'PRODUCTION', safeDisplayAlias: '개발 설정', contentType: 'GITHUB_REPOSITORY_FILES', scopeRevision: 3, githubTarget: { repository: 'Logssey/application', branch: 'develop', path: 'config/' } }
+  const currentHtml = renderPage(SecretConnectionScopesPage, '/secrets/connections/:connectionId/scopes', '/secrets/connections/3/scopes', [[['secret-connection-scopes', 3, 0, '', false], { items: [current], total: 1, page: 0, size: 20 }]])
+  assert.match(currentHtml, /브랜치 develop/)
+  assert.match(currentHtml, /폴더 config\//)
+  const old = { ...scope, contentType: 'GITHUB_REPOSITORY_FILES', safeDisplayAlias: '이전 검사', githubTarget: { repository: 'Logssey/application', branch: 'main', path: '' }, approvedRef: 'github://private-ref-must-not-render' }
+  const historyHtml = renderPage(SecretRunDetailPage, '/secrets/history/:runId', '/secrets/history/12', [[['secret-run', 12], { ...baseRun, provider: 'GITHUB', scopeResults: [old] }]])
+  assert.match(historyHtml, /브랜치 main/)
+  assert.match(historyHtml, /이 브랜치 전체/)
+  assert.doesNotMatch(historyHtml, /브랜치 develop|github:\/\/private-ref/)
+  const legacy = renderPage(SecretRunDetailPage, '/secrets/history/:runId', '/secrets/history/12', [[['secret-run', 12], { ...baseRun, provider: 'GITHUB', scopeResults: [{ ...old, githubTarget: null }] }]])
+  assert.match(legacy, /기록 당시 브랜치 미확인/)
+  assert.doesNotMatch(legacy, /브랜치 main|브랜치 develop/)
+})
