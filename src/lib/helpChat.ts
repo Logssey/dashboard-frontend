@@ -1,4 +1,4 @@
-import type { CveImpact, HelpCard, HelpSource, HelpTurn, IncidentSource, IncidentStatus } from '@/api/help'
+import type { CveImpact, HelpCard, HelpReportDraft, HelpSource, HelpTurn, IncidentSource, IncidentStatus } from '@/api/help'
 
 export const HELP_QUESTION_MAX = 500
 const HISTORY_MESSAGES = 6
@@ -21,6 +21,8 @@ export interface HelpMessage {
   incidentStatus?: boolean
   /** 정해진 낱말로 고른 사고 유형 키 (INCIDENT_TYPES) */
   incidentTypes?: string[]
+  /** 보내기 전에 고객 정보를 가렸다 (설계 문서 18.1) */
+  masked?: boolean
 }
 
 /**
@@ -394,7 +396,8 @@ export function buildHistory(messages: HelpMessage[]): HelpTurn[] {
     const user = messages[i]
     const assistant = messages[i + 1]
     if (user.role === 'user' && assistant.role === 'assistant' && !assistant.error) {
-      pairs.push({ role: 'user', text: user.text }, { role: 'assistant', text: assistant.text })
+      // 예전에 저장된 대화에 고객 정보가 남아 있어도 다시 보낼 때 가린다 (설계 문서 18.1)
+      pairs.push({ role: 'user', text: maskPrivate(user.text) }, { role: 'assistant', text: maskPrivate(assistant.text) })
       i++
     }
   }
@@ -429,6 +432,8 @@ export const helpErrorMessages: Record<string, string> = {
   DAILY_LIMIT: '오늘 질문 한도를 모두 썼어요. 내일 다시 이용해 주세요.',
   BUSY: '이전 질문에 답하는 중이에요. 잠시 후 다시 보내 주세요.',
   INVALID_INPUT: `질문은 1~${HELP_QUESTION_MAX}자로 입력해 주세요.`,
+  MEMO_INVALID: '조치 메모는 1~1500자로 입력해 주세요.',
+  REPORT_BLOCKED: '초안을 만들지 못했어요. 메모를 조금 고쳐 다시 시도해 주세요.',
 }
 
 export function loadHelpMessages(): HelpMessage[] {
@@ -438,7 +443,7 @@ export function loadHelpMessages(): HelpMessage[] {
     if (!Array.isArray(parsed)) return []
     return (parsed as HelpMessage[]).slice(-40).map((message) => {
       if (message === null || typeof message !== 'object') return message
-      const { impactCve, impactCves, incidentName, incidentStatus, incidentTypes: storedTypes, ...rest } = message
+      const { impactCve, impactCves, incidentName, incidentStatus, incidentTypes: storedTypes, masked, ...rest } = message
       const types = Array.isArray(storedTypes)
         ? [...new Set(storedTypes.filter((type) => INCIDENT_TYPES.some((entry) => entry.key === type)))]
         : []
@@ -453,6 +458,7 @@ export function loadHelpMessages(): HelpMessage[] {
         ...(name ? { incidentName: name } : {}),
         ...(incidentStatus === true ? { incidentStatus: true } : {}),
         ...(incidentStatus === true && types.length ? { incidentTypes: types } : {}),
+        ...(masked === true ? { masked: true } : {}),
       }
     })
   } catch {
@@ -609,4 +615,94 @@ export function saveSeenSignals(snapshot: SignalSnapshot): void {
   } catch {
     // 저장소를 쓸 수 없으면 이번 화면에서만 유지한다
   }
+}
+
+/**
+ * 고객 정보 가리기 (설계 문서 18.1). 서버(HelpPrivacyMask)와 같은 규칙을 브라우저에서 먼저 적용한다.
+ * 질문과 다시 보내는 최근 대화 모두에 쓴다.
+ */
+const PRIVACY_RULES: Array<[RegExp, string]> = [
+  [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[이메일]'],
+  [/(?<![0-9])\d{6}\s?-\s?[1-8]\d{6}(?![0-9])/g, '[주민번호]'],
+  [/(?<![0-9])(?:\d{4}[ -]?){3}\d{4}(?![0-9])/g, '[카드번호]'],
+  [/(?<![0-9.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\/\d{1,2})?(?![0-9.])/g, '[IP]'],
+  [/(?<![0-9a-z:])(?:(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|(?:[0-9a-f]{1,4}:){1,6}:(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,5})?)(?![0-9a-z:])/gi, '[IP]'],
+  [/(?<![0-9])(?:\+82[ -]?1\d|0\d{1,2})[ .-]?\d{3,4}[ .-]?\d{4}(?![0-9])/g, '[전화번호]'],
+]
+
+export function maskPrivate(text: string): string {
+  return PRIVACY_RULES.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text)
+}
+
+/**
+ * AI에 넘기는 예/아니오 신호 (설계 문서 18.3). 숫자·이름은 넘기지 않는다. 불러오지 못한 곳은 빼서 "모름"으로 둔다.
+ * 키 이름은 서버 HelpSignals.LABELS와 같다.
+ */
+export function signalsForAI(status: IncidentStatus | undefined | null): Record<string, boolean> {
+  const signals: Record<string, boolean> = {}
+  if (!status) return signals
+  if (status.runtime) {
+    signals.runtimeUnreviewed = status.runtime.unreviewedFindings > 0
+    signals.sensorsDown = status.runtime.sensors.healthy === 0
+  }
+  if (status.keys) {
+    signals.liveKeys = status.keys.validKeyCases > 0 || status.keys.crossEnvironmentAlerts > 0
+    signals.keyExposure = (status.keys.reviewRequiredLocations ?? 0) > 0 || (status.exposure?.stateSecrets ?? 0) > 0
+  }
+  if (status.exposure) {
+    signals.openPaths = status.exposure.tier1OpenPaths > 0
+    signals.drifts = status.exposure.drifts > 0
+  }
+  if (status.vuln) {
+    signals.severeReachable = status.vuln.runningReachableSevere > 0
+    if (status.vuln.unscannedRunning !== null) signals.unscanned = status.vuln.unscannedRunning > 0
+  }
+  return signals
+}
+
+export const REPORT_MEMO_MAX = 1500
+
+function reportTime(epochMs: number): string {
+  const t = new Date(epochMs)
+  const two = (n: number) => String(n).padStart(2, '0')
+  return `${t.getFullYear()}-${two(t.getMonth() + 1)}-${two(t.getDate())} ${two(t.getHours())}:${two(t.getMinutes())}`
+}
+
+/**
+ * 사고 보고서 초안 글 (설계 문서 18.4). 문장은 AI가 메모로 쓴 것, 시각과 숫자는 코드가 Logssey 조회 값으로 채운다.
+ * AI 응답에는 숫자를 넣을 자리가 없고, 서버가 메모에 없던 숫자를 막는다.
+ */
+export function reportText(
+  draft: Pick<HelpReportDraft, 'summary' | 'checked' | 'actions' | 'remaining'>,
+  status: IncidentStatus | null | undefined,
+  statusAt: number | null,
+  now: number,
+): string {
+  const lines = ['보안 사고 대응 기록 (초안)', `작성 시각: ${reportTime(now)} (자동)`, '']
+  if (status) {
+    lines.push(`Logssey 현황${statusAt ? ` (${reportTime(statusAt)} 조회, 자동)` : ' (자동)'}:`)
+    if (status.runtime) {
+      const total = status.runtime.sensors.healthy + status.runtime.sensors.degraded + status.runtime.sensors.offline + status.runtime.sensors.unknown
+      lines.push(`- 검토 안 한 런타임 탐지 ${status.runtime.unreviewedFindings}건, 정상 런타임 센서 ${status.runtime.sensors.healthy}/${total}`)
+    }
+    if (status.keys) {
+      lines.push(`- 살아 있는 키 대응 건 ${status.keys.validKeyCases}건, 실키 경고 ${status.keys.crossEnvironmentAlerts}건${status.keys.reviewRequiredLocations !== null ? `, 확인 필요 노출 위치 ${status.keys.reviewRequiredLocations}곳` : ''}`)
+    }
+    if (status.exposure) {
+      lines.push(`- 열린 공격 경로 ${status.exposure.openPaths}개(1순위 ${status.exposure.tier1OpenPaths}개), 드리프트 ${status.exposure.drifts}건`)
+    }
+    if (status.vuln) {
+      lines.push(`- 실행 중+도달 가능 Critical·High ${status.vuln.runningReachableSevere}건${status.vuln.unscannedRunning !== null ? `, 스캔 없는 실행 중 워크로드 ${status.vuln.unscannedRunning}개` : ''}`)
+    }
+    const sourceNames: Record<IncidentSource, string> = { runtime: '런타임', keys: '시크릿', exposure: 'IaC', vuln: '취약점' }
+    for (const missing of status.unavailable) lines.push(`- ${sourceNames[missing.source]}: ${missing.denied ? '볼 권한 없음' : '불러오지 못함'}`)
+    lines.push('')
+  }
+  lines.push(`요약: ${draft.summary}`, '')
+  for (const [title, items] of [['확인한 것', draft.checked], ['조치한 것', draft.actions], ['남은 일', draft.remaining]] as const) {
+    lines.push(`${title}:`, ...(items.length ? items.map((item) => `- ${item}`) : ['- (메모에 없음)']), '')
+  }
+  lines.push('외부 신고: 필요 여부와 기한, 방법은 담당 부서와 확인합니다.')
+  lines.push('※ 문장은 AI가 조치 메모로 쓴 초안이고, 시각과 숫자는 Logssey가 채웠습니다. 보내기 전에 꼭 확인하세요.')
+  return lines.join('\n')
 }
