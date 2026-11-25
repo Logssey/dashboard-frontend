@@ -16,7 +16,9 @@ import {
   buildHistory,
   maskPrivate,
   REPORT_MEMO_MAX,
+  reportPreview,
   reportText,
+  SEND_NOTICE,
   signalsForAI,
   CHECKLIST_DEFAULT_QUESTION,
   HELP_SCREEN_ROUTES,
@@ -211,6 +213,8 @@ export function HelpChat({ page }: { page: string }) {
   const [reportOut, setReportOut] = useState<string | null>(null)
   const [reportError, setReportError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  // 보내기 전에 보여 주는 "가린 뒤 실제로 전송될 내용". 확인을 눌러야 이 글이 그대로 전송된다.
+  const [reportPending, setReportPending] = useState<{ notes: string; changed: boolean } | null>(null)
   const report = useMutation({
     mutationFn: (notes: string) => draftReport(notes),
     onSuccess: (draft) => {
@@ -225,15 +229,19 @@ export function HelpChat({ page }: { page: string }) {
       )
     },
   })
-  const makeReport = () => {
-    const typed = memo.trim()
-    if (!typed || report.isPending) return
-    if (typed.length > REPORT_MEMO_MAX) return setReportError(helpErrorMessages.MEMO_INVALID)
-    const notes = maskPrivate(typed)
-    if (looksLikeSecret(notes)) return setReportError(helpErrorMessages.QUESTION_REJECTED)
+  const previewReport = () => {
+    if (report.isPending) return
+    const preview = reportPreview(memo)
+    if (preview.error) return setReportError(helpErrorMessages[preview.error])
+    setReportError(null)
+    setReportPending({ notes: preview.notes, changed: preview.changed })
+  }
+  const confirmReport = () => {
+    if (!reportPending || report.isPending) return
     setReportOut(null)
     setCopied(false)
-    report.mutate(notes)
+    report.mutate(reportPending.notes)
+    setReportPending(null)
   }
   const copyReport = async () => {
     if (!reportOut) return
@@ -410,8 +418,12 @@ export function HelpChat({ page }: { page: string }) {
                     maxLength={REPORT_MEMO_MAX}
                     rows={4}
                     placeholder="예: 14시 웹 서버 2대 격리. 런타임 탐지 확인했고 이상 없음. 서버 키 교체는 내일."
-                    onChange={(event) => setMemo(event.target.value)}
+                    onChange={(event) => {
+                      setMemo(event.target.value)
+                      setReportPending(null)
+                    }}
                   />
+                  <p className="help-send-notice">{SEND_NOTICE}</p>
                   {reportError && (
                     <p className="notice error" role="alert">
                       {reportError}
@@ -421,10 +433,30 @@ export function HelpChat({ page }: { page: string }) {
                     <span className="caption">
                       {memo.length}/{REPORT_MEMO_MAX}
                     </span>
-                    <button type="button" className="btn primary small" disabled={!ready || report.isPending || !memo.trim()} onClick={makeReport}>
-                      {report.isPending ? '초안 만드는 중…' : '초안 만들기'}
+                    <button
+                      type="button"
+                      className="btn primary small"
+                      disabled={!ready || report.isPending || !memo.trim() || reportPending !== null}
+                      onClick={previewReport}
+                    >
+                      {report.isPending ? '초안 만드는 중…' : '보낼 내용 확인'}
                     </button>
                   </div>
+                  {reportPending && (
+                    <div className="help-report-preview" aria-label="전송될 내용 미리보기">
+                      <strong className="help-incident-group-title">가린 뒤 실제로 전송될 내용</strong>
+                      <pre className="help-report-out">{reportPending.notes}</pre>
+                      {reportPending.changed && <p className="caption">이메일·IP·전화번호처럼 보이는 값을 가렸어요.</p>}
+                      <div className="row help-form-actions">
+                        <button type="button" className="btn outline small" onClick={() => setReportPending(null)}>
+                          고치기
+                        </button>
+                        <button type="button" className="btn primary small" disabled={!ready || report.isPending} onClick={confirmReport}>
+                          확인하고 보내기
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {reportOut && (
                     <>
                       <pre className="help-report-out">{reportOut}</pre>
@@ -592,6 +624,7 @@ export function HelpChat({ page }: { page: string }) {
                   }
                 }}
               />
+              <p className="help-send-notice">{SEND_NOTICE}</p>
               <div className="row between">
                 <span className="caption">
                   {draft.length}/{HELP_QUESTION_MAX}

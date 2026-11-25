@@ -668,6 +668,22 @@ export function signalsForAI(status: IncidentStatus | undefined | null): Record<
 
 export const REPORT_MEMO_MAX = 1500
 
+/** 입력칸 아래에 늘 보이는 전송 고지 (설계 문서 18.9). 질문과 보고서 메모 모두 */
+export const SEND_NOTICE =
+  '입력한 내용은 외부 AI(Anthropic)로 전송됩니다. 이름, 호스트 이름, 계정 ID는 자동으로 가려지지 않으니 직접 지우고 보내 주세요.'
+
+/**
+ * 보고서 메모를 보내기 전에 보여 줄 내용 (설계 문서 18.9). 실제로 전송될 글(가린 뒤)과, 보낼 수 없는 이유가 있으면 그 코드.
+ * 미리보기를 확인해야만 이 글이 그대로 전송된다.
+ */
+export function reportPreview(memo: string): { notes: string; changed: boolean; error?: 'MEMO_INVALID' | 'QUESTION_REJECTED' } {
+  const typed = memo.trim()
+  if (!typed || typed.length > REPORT_MEMO_MAX) return { notes: '', changed: false, error: 'MEMO_INVALID' }
+  const notes = maskPrivate(typed)
+  if (looksLikeSecret(typed) || looksLikeSecret(notes)) return { notes: '', changed: false, error: 'QUESTION_REJECTED' }
+  return { notes, changed: notes !== typed }
+}
+
 function reportTime(epochMs: number): string {
   const t = new Date(epochMs)
   const two = (n: number) => String(n).padStart(2, '0')
