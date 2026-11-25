@@ -103,7 +103,7 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
       <p>S3 파일, Secrets Manager 값, Parameter Store 값은 읽지 않았어요. 내용 탐지는 검사할 대상 등록과 서버의 내용 읽기 설정 및 해당 대상의 읽기 권한이 필요해요.</p>
       <Link to={`/secrets/connections/${data.connectionId}/scopes`}>등록된 검사 대상 확인</Link>
     </div>}
-    {needsValidationSetup && <div className="secret-scan-scope-note">
+    {needsValidationSetup && !scanValidationOnlyIssue(data) && <div className="secret-scan-scope-note">
       <strong>키를 발견했지만 인증 확인은 설정으로 제한됐어요.</strong>
       <p>연결의 검증 허용, 검사 대상별 승인, 서버의 검증 기능을 확인하세요. 설정을 바꾼 뒤 다시 검사해야 새 인증 결과가 남아요.</p>
       <Link to={`/secrets/connections?validationConnectionId=${data.connectionId}`}>이 연결의 키 검증 설정</Link>

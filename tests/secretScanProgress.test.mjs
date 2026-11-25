@@ -176,6 +176,18 @@ test('inconclusive key validity does not turn completed processing stages into w
   assert.equal(incompleteRun.validationSummary.reusedResultCount, 7)
 })
 
+test('completed runs keep setup reasons out of progress and normalize the final run summary', () => {
+  const data = { ...incompleteRun,
+    validationSummary: { ...validationSummary, uncheckedReasons: [{ reasonCode: 'NOT_APPROVED', count: 7 }] },
+    events: [{ ...event(10, 'RUN_FINISHED'), stage: 'RESULT', outcome: 'PARTIAL', reasonCode: 'VALIDATION_INCONCLUSIVE', httpStatus: null }],
+  }
+  const html = render(data)
+  assert.match(html, /검사 종료/)
+  assert.match(html, /class="event-completed"/)
+  assert.doesNotMatch(html, /인증 확인은 설정으로 제한|인증을 확인하지 못한 키|event-partial/)
+  assert.equal(data.validationSummary.uncheckedReasons[0].count, 7)
+})
+
 test('real collection, validation and result failures remain visible', () => {
   for (const [key, reasonCode] of [['COLLECTION', 'NETWORK_ERROR'], ['VALIDATION', 'VALIDATION_ATTEMPT_FAILED'], ['RESULT', 'RESULT_COMMIT_FAILED']]) {
     const data = { ...incompleteRun, stages: incompleteRun.stages.map((item) => item.key === key ? { ...item, status: 'PARTIAL', reasonCode } : item) }

@@ -93,7 +93,8 @@ export function scanProgressStageStatus(stage: ScanProgressStage, data: SecretSc
 
 export function scanCompletedValidationSummary(event: ScanProgressEvent, data: SecretScanProgressResponse): boolean {
   return data.status === 'PARTIAL'
-    && event.operationCode === 'STAGE_SUMMARY' && event.outcome === 'PARTIAL'
+    && (event.operationCode === 'STAGE_SUMMARY' || (event.operationCode === 'RUN_FINISHED' && event.stage === 'RESULT'))
+    && event.outcome === 'PARTIAL'
     && event.reasonCode === 'VALIDATION_INCONCLUSIVE'
     && ['VALIDATION', 'RESULT'].includes(event.stage) && scanValidationOnlyIssue(data)
 }
