@@ -66,7 +66,7 @@ test('manual review preserves observed partial coverage and requires deliberate 
   assert.match(html, /value="PARTIAL" selected/)
   assert.match(html, /직접 확인한 값 선택/)
   assert.doesNotMatch(html, /value="COMPLETE" selected|checked=""|secret-sentinel|textarea|type="file"/)
-  assert.match(html, /평가 근거로 확정/); assert.match(html, /외부 기록 번호/); assert.match(html, /외부 근거가 있으면 TICKET·CHANGE·POLICY 참조/)
+  assert.match(html, /평가 근거로 확정/); assert.doesNotMatch(html, /외부 기록 번호|placeholder="TICKET:/); assert.match(html, /내부 기록으로 저장/)
   assert.match(html, /disabled=""/)
 })
 test('missing independent proof links the exact existing investigation and the relevant asset form', () => {
@@ -192,7 +192,7 @@ test('only a currently restorable partial draft prefills reviewed facts without 
   const html = render(api.PermissionReviewForm, { occurrenceId: 8, preview: value, evidenceRevision: 3, onUpdated() {}, onStale() {} })
   assert.match(html, /저장한 부분 자료를 불러왔어요/)
   assert.match(html, /value="ASSET" selected/)
-  assert.match(html, /value="CHANGE:PERMISSION-31"/)
+  assert.doesNotMatch(html, /value="CHANGE:PERMISSION-31"/)
   assert.match(html, /value="COMPLETE" selected/)
   assert.doesNotMatch(html, /checked=""[^>]*\/>조회 자료와 연결 근거/)
   assert.equal(api.restorablePermissionDraft({ ...value, latestDraft: { ...latestDraft, canRestore: false } }), null)
@@ -201,4 +201,12 @@ test('only a currently restorable partial draft prefills reviewed facts without 
   const stale = render(api.PermissionReviewForm, { occurrenceId: 8, preview: { ...value, latestDraft: { ...latestDraft, canRestore: false } }, evidenceRevision: 3, onUpdated() {}, onStale() {} })
   assert.match(stale, /이전 부분 자료를 이력으로 보존/)
   assert.doesNotMatch(stale, /value="CHANGE:PERMISSION-31"|value="COMPLETE" selected/)
+})
+
+test('full permission confirmation needs real source coverage but no external ticket', () => {
+  const ready = api.permissionConfirmationFacts(preview, preview.evidenceRevision, { ...input, evidenceRef: '' }, now)
+  assert.ok(ready)
+  assert.equal(Object.hasOwn(ready, 'evidenceRef'), false)
+  assert.equal(api.permissionConfirmationFacts(preview, preview.evidenceRevision, { ...input, evidenceRef: '', attested: false }, now), null)
+  assert.equal(api.permissionConfirmationFacts(preview, preview.evidenceRevision, { ...input, evidenceRef: '', selectedSourceKeys: [] }, now), null)
 })

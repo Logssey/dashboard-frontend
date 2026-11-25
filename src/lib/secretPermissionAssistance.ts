@@ -136,13 +136,13 @@ export function permissionConfirmationFacts(preview: PermissionPreview, revision
   const observedAt = input.attestedAt, validUntil = riskInputUtc(input.until)
   const applicableFrom = riskInputUtc(input.applicableFrom ?? ''), applicableUntil = riskInputUtc(input.applicableUntil ?? '')
   const refs = riskSourcePayload(preview.availableSourceRefs, input.selectedSourceKeys)
-  if (!currentPermissionPreview(preview, preview.observationId, revision, now) || !preview.canConfirm || ['CONFIRMED', 'REJECTED'].includes(preview.decision ?? '') || !input.attested || !validEvidenceRef(input.evidenceRef)
+  if (!currentPermissionPreview(preview, preview.observationId, revision, now) || !preview.canConfirm || ['CONFIRMED', 'REJECTED'].includes(preview.decision ?? '') || !input.attested || (!!input.evidenceRef && !validEvidenceRef(input.evidenceRef))
     || !observedPermissionOptions(preview).includes(input.capability) || !Object.hasOwn(permissionTargetLabels, input.targetScope)
     || !refs || permissionSourceRequirements(refs).length || !validRiskEvidenceWindow('PERMISSION_MAPPING', observedAt, validUntil, now)
     || !observedAt || Date.parse(observedAt) < Date.parse(preview.observedAt)
     || !validRiskApplicability(applicableFrom, applicableUntil, preview.sourcePresenceObservedAt, observedAt, validUntil)
     || !validUntil || Date.parse(validUntil) > Date.parse(preview.expiresAt)
     || Object.keys(input.coverage).length !== 4 || !Object.keys(permissionCoverageLabels).every((field) => input.coverage[field] === 'COMPLETE')) return null
-  return { expectedContextVersion: preview.contextVersion, expectedEvidenceRevision: revision, attestation: true, evidenceRef: input.evidenceRef, observedAt: observedAt!, validUntil, applicableFrom, applicableUntil,
+  return { expectedContextVersion: preview.contextVersion, expectedEvidenceRevision: revision, attestation: true, ...(input.evidenceRef ? { evidenceRef: input.evidenceRef } : {}), observedAt: observedAt!, validUntil, applicableFrom, applicableUntil,
     facts: { capability: input.capability, targetScope: input.targetScope, permissionCoverage: input.coverage.permissionCoverage, targetCoverage: input.coverage.targetCoverage, restrictionCoverage: input.coverage.restrictionCoverage, classificationCoverage: input.coverage.classificationCoverage }, sourceRefs: refs }
 }
