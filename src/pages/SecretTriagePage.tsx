@@ -34,7 +34,7 @@ function reviewCasePath(context: ReviewContext, caseId: number, params: URLSearc
 function ReviewForm({ context, reload, onSaved }: { context: ReviewContext; reload: () => void; onSaved: (result: ReviewResult) => void }) {
   const [params] = useSearchParams()
   const [decision, setDecision] = useState<ReviewDecision | ''>('')
-  const [reason, setReason] = useState(''), [finding, setFinding] = useState(''), [evidence, setEvidence] = useState('')
+  const [reason, setReason] = useState(''), [finding, setFinding] = useState('')
   const [missing, setMissing] = useState(''), [owner, setOwner] = useState(''), [due, setDue] = useState('')
   const [confirm, setConfirm] = useState(false), [stale, setStale] = useState(false)
   const requestKey = useRef({ payload: '', key: '' }), repairKey = useRef({ payload: '', key: '' })
@@ -49,8 +49,8 @@ function ReviewForm({ context, reload, onSaved }: { context: ReviewContext; relo
   const onError = (error: Error) => { if (error instanceof ApiError && error.status === 409) { setStale(true); setConfirm(false) } }
   const submit = useMutation({ mutationFn: () => {
     if (!decision) throw new Error('NO_DECISION')
-    const request = { decision, reasonCode: reason, findingId: positiveId(finding), evidenceRefs: [evidence], expectedOccurrenceVersion: context.versions.occurrence, expectedScopeVersion: context.versions.scope, expectedPolicyVersion: context.versions.policy ?? null,
-      ...(decision === 'NEEDS_MORE_INFO' ? { missingReasonCode: missing, followUpOwnerUserId: positiveId(owner)!, dueAt: kstInputToUtc(due), evidenceRef: evidence } : {}),
+    const request = { decision, reasonCode: reason, findingId: positiveId(finding), evidenceRefs: [], expectedOccurrenceVersion: context.versions.occurrence, expectedScopeVersion: context.versions.scope, expectedPolicyVersion: context.versions.policy ?? null,
+      ...(decision === 'NEEDS_MORE_INFO' ? { missingReasonCode: missing, followUpOwnerUserId: positiveId(owner)!, dueAt: kstInputToUtc(due) } : {}),
     }
     return decideSecretOccurrence(context.occurrenceId, { ...request, idempotencyKey: idempotencyFor(requestKey, request) })
   }, onSuccess, onError })
@@ -61,7 +61,7 @@ function ReviewForm({ context, reload, onSaved }: { context: ReviewContext; relo
   }, onSuccess, onError })
   const choices = allowedReviewDecisions(context)
   const reasons = decision ? context.allowedReasonCodes?.[decision] ?? [] : []
-  const ready = reviewInputErrors(context, { decision, reasonCode: reason, findingId: positiveId(finding), evidenceRef: evidence, missingReasonCode: missing, followUpOwnerUserId: positiveId(owner), dueAt: due ? kstInputToUtc(due) : null }).length === 0 && confirm && !stale
+  const ready = reviewInputErrors(context, { decision, reasonCode: reason, findingId: positiveId(finding), evidenceRef: '', missingReasonCode: missing, followUpOwnerUserId: positiveId(owner), dueAt: due ? kstInputToUtc(due) : null }).length === 0 && confirm && !stale
   const busy = submit.isPending || repair.isPending
   const form = <>
     {stale && <p className="notice error" role="alert">판정 근거가 바뀌었어요.<button className="btn outline" onClick={reload}>현재 근거 다시 확인</button></p>}
@@ -73,7 +73,7 @@ function ReviewForm({ context, reload, onSaved }: { context: ReviewContext; relo
         {decision && <>
           <label>적용할 탐지 근거{decision === 'NEEDS_MORE_INFO' ? ' (선택)' : ''}<select className="select" value={finding} disabled={busy || stale} onChange={(e) => { setFinding(e.target.value); setConfirm(false) }}><option value="">탐지 근거 선택</option>{context.findings?.filter((entry) => entry.valid).map((entry) => <option key={entry.findingId} value={entry.findingId}>탐지 #{entry.findingId} · {entry.ruleId} · {scanDate(entry.detectedAt)}</option>)}</select></label>
           <label>결정 사유<select className="select" value={reason} disabled={busy || stale} onChange={(e) => { setReason(e.target.value); setConfirm(false) }}><option value="">근거에 맞는 사유 선택</option>{reasons.map((code) => <option key={code} value={code}>{reviewReasonLabel(code)}</option>)}</select></label>
-          <label>근거 참조<input className="input" value={evidence} maxLength={80} autoComplete="off" disabled={busy || stale} placeholder="TICKET:SEC-123" onChange={(e) => { setEvidence(e.target.value); setConfirm(false) }} /><small>티켓·변경·정책 참조만 입력하세요. 키나 원천 경로는 입력하지 마세요.</small></label>
+          <p className="caption">확인한 내용과 담당자, 시각은 내부 기록으로 저장해요.</p>
           {decision === 'NEEDS_MORE_INFO' && <>
             <label>부족한 근거<select className="select" value={missing} disabled={busy || stale} onChange={(e) => { setMissing(e.target.value); setConfirm(false) }}><option value="">확인할 근거 선택</option>{context.allowedMissingReasonCodes?.map((code) => <option key={code} value={code}>{missingEvidenceLabel(code)}</option>)}</select></label>
             <label>조사 담당자<select className="select" value={owner} disabled={busy || stale} onChange={(e) => { setOwner(e.target.value); setConfirm(false) }}><option value="">적격 담당자 선택</option>{context.eligibleInvestigationAssignees?.map((person) => <option key={person.userId} value={person.userId}>{person.displayName}</option>)}</select></label>

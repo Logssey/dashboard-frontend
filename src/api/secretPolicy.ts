@@ -79,7 +79,7 @@ export interface PolicyDraft {
   policyId: number | null
   expectedVersion: number | null
   reasonCode: 'AUTHORIZED_STORAGE' | 'PROHIBITED_STORAGE' | 'POLICY_UPDATE'
-  evidenceRef: string
+  evidenceRef?: string
   validFrom: string
   validUntil: string | null
   rules: (StorageRule & { branchCondition: null; protectedPathCondition: null })[]
@@ -89,7 +89,7 @@ export interface ProposeClassification {
   storagePolicyId: number | null
   storagePolicyVersion: number | null
   reasonCode: 'POLICY_PENDING' | 'SOURCE_CLASSIFICATION' | 'SOURCE_CORRECTION'
-  evidenceRef: string
+  evidenceRef?: string
   expectedScopeVersion: number
   expectedApprovalMode?: ApprovalMode
   reviewerUserId?: number | null
@@ -103,7 +103,7 @@ export const fetchStoragePolicies = (status: string, page = 0) => apiRequest<Pol
 export const fetchStoragePolicy = (policyId: number, version: number) => apiRequest<PolicySummary>(`/api/v1/secrets/storage-policies/${policyId}/versions/${version}`)
 export const createPolicyDraft = (request: PolicyDraft) => apiRequest<PolicySummary>('/api/v1/secrets/storage-policies/drafts', { method: 'POST', body: JSON.stringify(request) })
 export const approveStoragePolicy = (policy: PolicySummary) => apiRequest<PolicySummary>(`/api/v1/secrets/storage-policies/${policy.policyId}/versions/${policy.version}/approve`, { method: 'POST', body: JSON.stringify({ expectedVersion: policy.version }) })
-export const retireStoragePolicy = (policyId: number, request: { expectedVersion: number; reasonCode: string; evidenceRef: string }) => apiRequest<PolicySummary>(`/api/v1/secrets/storage-policies/${policyId}/retire`, { method: 'POST', body: JSON.stringify(request) })
+export const retireStoragePolicy = (policyId: number, request: { expectedVersion: number; reasonCode: string; evidenceRef?: string }) => apiRequest<PolicySummary>(`/api/v1/secrets/storage-policies/${policyId}/retire`, { method: 'POST', body: JSON.stringify(request) })
 export const proposeScopeClassification = (scopeId: number, request: ProposeClassification) => apiRequest<ScopeClassification>(`/api/v1/secrets/scopes/${scopeId}/classification-proposals`, { method: 'POST', body: JSON.stringify(request) })
 export const approveScopeClassification = (scopeId: number, proposalId: number, request: { expectedScopeVersion: number; expectedProposalVersion: number; idempotencyKey?: string }) => apiRequest<ScopeClassification>(`/api/v1/secrets/scopes/${scopeId}/classification-proposals/${proposalId}/approve`, { method: 'POST', body: JSON.stringify(request) })
 export const rejectScopeClassification = (scopeId: number, proposalId: number, request: { reasonCode: string; expectedProposalVersion: number; idempotencyKey?: string }) => apiRequest<ScopeClassification>(`/api/v1/secrets/scopes/${scopeId}/classification-proposals/${proposalId}/reject`, { method: 'POST', body: JSON.stringify(request) })

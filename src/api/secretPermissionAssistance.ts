@@ -39,7 +39,7 @@ export interface PermissionPreview extends PermissionObservation {
 }
 export interface PermissionConfirmation {
   expectedContextVersion: string; expectedEvidenceRevision: number; idempotencyKey: string; attestation: true
-  evidenceRef: string; observedAt: string; validUntil: string; facts: PermissionCoverage & { capability: string; targetScope: string }
+  evidenceRef?: string; observedAt: string; validUntil: string; facts: PermissionCoverage & { capability: string; targetScope: string }
   sourceRefs: Pick<RiskSourceRef, 'type' | 'id' | 'version' | 'role'>[]
   applicableFrom?: string | null; applicableUntil?: string | null
 }

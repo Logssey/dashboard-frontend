@@ -66,7 +66,7 @@ test('coordinator or case-wide rights do not reveal a location action form', () 
 test('a remediator records actual work without a duplicate review or empty start step', () => {
   const location = { ...occurrence, canRecordAction: true }
   const html = render(modules.workflow.SecretCaseWorkflow, { detail, occurrence: location })
-  assert.match(html, /수행한 조치 기록/); assert.match(html, /티켓·변경 참조를 입력/)
+  assert.match(html, /수행한 조치 기록/); assert.doesNotMatch(html, /placeholder="(?:TICKET|CHANGE):/)
   assert.doesNotMatch(html, /보안 검토|조치 시작|이 위치를 재검사 대기로/)
   assert.equal(locationNextAction({ ...location, assignedUserId: null, assignedTeam: null }), '담당자 지정')
 })
@@ -147,7 +147,7 @@ test('self assignment and internal action records are capability-gated and prese
   assert.match(self, /내가 담당하기/)
   assert.match(self, /미배정 조치 위치 1곳에도 적용/)
   const internal = render(modules.workflow.SecretCaseWorkflow, { detail, occurrence: { ...occurrence, canRecordAction: true, canRecordInternalAction: true, canRecordAndCompleteActions: true } })
-  assert.match(internal, /비워두면 내부 조치 기록 번호/)
+  assert.match(internal, /내부 기록으로 저장/); assert.doesNotMatch(internal, /placeholder="(?:TICKET|CHANGE):/)
   assert.match(internal, /저장하고 재검사로/)
   assert.match(internal, /기록만 저장/)
   const legacy = render(modules.workflow.SecretCaseWorkflow, { detail, occurrence: { ...occurrence, canRecordAction: true } })

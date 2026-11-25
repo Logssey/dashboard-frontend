@@ -1,3 +1,4 @@
+import { SecretRecordReference } from '@/components/SecretRecordReference'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -8,7 +9,7 @@ import { SecretInvestigationEvidenceReview } from '@/components/SecretInvestigat
 import { investigationClosureOptions, investigationClosureRequest } from '@/lib/secretInvestigationClosure'
 import { SecretFilterDisclosure } from '@/components/SecretFilterDisclosure'
 import { PageHeader } from '@/components/PageHeader'
-import { assignmentReasonLabel, evidenceKindLabel, futureEvidenceDeadline, idempotencyFor, missingEvidenceLabel, safeMutationMessage, validEvidenceRef } from '@/lib/secretEvidence'
+import { assignmentReasonLabel, evidenceKindLabel, futureEvidenceDeadline, idempotencyFor, missingEvidenceLabel, safeMutationMessage } from '@/lib/secretEvidence'
 import { kstInput, kstInputToUtc, positiveId, scanDate, scanDetailPath } from '@/lib/secretScan'
 import { useSecretReadRefresh } from '@/lib/useSecretReadRefresh'
 import './secret-governance.css'
@@ -31,7 +32,6 @@ function InvestigationForms({ task, onReload }: { task: InvestigationDetail; onR
   const [assignee, setAssignee] = useState(task.assigneeUserId ? String(task.assigneeUserId) : '')
   const [due, setDue] = useState(kstInput(task.dueAt))
   const [reason, setReason] = useState('')
-  const [evidence, setEvidence] = useState('')
   const [kind, setKind] = useState('')
   const [observedAt, setObservedAt] = useState(() => kstInput(new Date().toISOString()))
   const [closure, setClosure] = useState('')
@@ -42,21 +42,21 @@ function InvestigationForms({ task, onReload }: { task: InvestigationDetail; onR
   const success = () => { refresh(); onReload() }
   const error = (error: Error) => { if (error instanceof ApiError && error.status === 409) setStale(true) }
   const assign = useMutation({ mutationFn: () => { const request = { assigneeUserId: positiveId(assignee), dueAt: due ? kstInputToUtc(due) : null, reasonCode: reason, expectedVersion: task.version }; return assignInvestigation(task.taskId, { ...request, idempotencyKey: idempotencyFor(assignmentKey, request) }) }, onSuccess: success, onError: error })
-  const add = useMutation({ mutationFn: () => { const request = { evidenceRef: evidence, evidenceKind: kind, observedAt: kstInputToUtc(observedAt), expectedVersion: task.version }; return addInvestigationEvidence(task.taskId, { ...request, idempotencyKey: idempotencyFor(evidenceKey, request) }) }, onSuccess: success, onError: error })
+  const add = useMutation({ mutationFn: () => { const request = { evidenceKind: kind, observedAt: kstInputToUtc(observedAt), expectedVersion: task.version }; return addInvestigationEvidence(task.taskId, { ...request, idempotencyKey: idempotencyFor(evidenceKey, request) }) }, onSuccess: success, onError: error })
   const close = useMutation({ mutationFn: () => { const request = investigationClosureRequest(closure, task.version); return closeInvestigation(task.taskId, { ...request, idempotencyKey: idempotencyFor(closeKey, request) }) }, onSuccess: success, onError: error })
   const busy = assign.isPending || add.isPending || close.isPending
   const eligibleAssignee = task.eligibleAssignees?.some((person) => String(person.userId) === assignee)
   const requiredFollowUp = !task.allowedAssignmentReasonCodes?.includes('UNASSIGNED')
   const deadlineValid = due ? futureEvidenceDeadline(kstInputToUtc(due)) : !requiredFollowUp
   const assignmentReady = task.allowedAssignmentReasonCodes?.includes(reason) && deadlineValid && (reason === 'UNASSIGNED' || eligibleAssignee)
-  const evidenceReady = validEvidenceRef(evidence) && task.allowedEvidenceKinds?.includes(kind) && observedAt !== ''
+  const evidenceReady = task.allowedEvidenceKinds?.includes(kind) && observedAt !== ''
   const closureOptions = investigationClosureOptions(task)
   const closureReady = closureOptions.some((entry) => entry.value === closure)
   return <>
     {stale && <p className="notice error" role="alert">조사 근거가 바뀌었어요. <button className="btn outline" onClick={onReload}>최신 조사 근거 다시 확인</button></p>}
     {(assign.isError || add.isError || close.isError) && <p className="notice error" role="alert">{safeMutationMessage(assign.error ?? add.error ?? close.error)}</p>}
     {task.capabilities?.canAssign && <section className="card secret-governance-form"><h2>담당자·기한 지정</h2><label>조사 담당자<select className="select" value={assignee} onChange={(e) => setAssignee(e.target.value)}><option value="">담당자 선택</option>{task.eligibleAssignees?.map((person) => <option key={person.userId} value={person.userId}>{person.displayName}</option>)}</select></label><label>확인 기한 (KST)<input className="input" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} /></label><label>변경 사유<select className="select" value={reason} onChange={(e) => { setReason(e.target.value); if (e.target.value === 'UNASSIGNED') setAssignee('') }}><option value="">사유 선택</option>{task.allowedAssignmentReasonCodes?.map((code) => <option key={code} value={code}>{assignmentReasonLabel(code)}</option>)}</select></label><button className="btn primary" disabled={!assignmentReady || busy || stale} onClick={() => assign.mutate()}>담당·기한 저장</button></section>}
-    {task.capabilities?.canAddEvidence && <section className="card secret-governance-form"><h2>조사 근거 추가</h2><label>근거 종류<select className="select" value={kind} onChange={(e) => setKind(e.target.value)}><option value="">근거 종류 선택</option>{task.allowedEvidenceKinds?.map((code) => <option key={code} value={code}>{evidenceKindLabel(code)}</option>)}</select></label><label>안전한 근거 참조<input className="input" value={evidence} placeholder="TICKET:SEC-123" autoComplete="off" maxLength={80} onChange={(e) => setEvidence(e.target.value)} /><small>키·파일 경로·자유 URL은 입력하지 마세요.</small></label><label>근거 확인 시각 (KST)<input className="input" type="datetime-local" value={observedAt} onChange={(e) => setObservedAt(e.target.value)} /></label><button className="btn primary" disabled={!evidenceReady || busy || stale} onClick={() => add.mutate()}>근거 추가</button><p className="caption">자료를 추가해도 보관·노출 판단은 자동으로 바뀌지 않아요.</p></section>}
+    {task.capabilities?.canAddEvidence && <section className="card secret-governance-form"><h2>조사 근거 추가</h2><label>근거 종류<select className="select" value={kind} onChange={(e) => setKind(e.target.value)}><option value="">근거 종류 선택</option>{task.allowedEvidenceKinds?.map((code) => <option key={code} value={code}>{evidenceKindLabel(code)}</option>)}</select></label><p className="caption">확인한 내용과 담당자, 시각은 내부 기록으로 저장해요.</p><label>근거 확인 시각 (KST)<input className="input" type="datetime-local" value={observedAt} onChange={(e) => setObservedAt(e.target.value)} /></label><button className="btn primary" disabled={!evidenceReady || busy || stale} onClick={() => add.mutate()}>근거 추가</button><p className="caption">자료를 추가해도 보관·노출 판단은 자동으로 바뀌지 않아요.</p></section>}
     {task.capabilities?.canClose && <section className="card secret-governance-form"><h2>조사 종료</h2><label>확인된 후속 결과<select className="select" value={closure} onChange={(e) => { setClosure(e.target.value); setConfirmClose(false) }}><option value="">종료 근거 선택</option>{closureOptions.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select></label><label className="secret-check-label"><input type="checkbox" checked={confirmClose} onChange={(e) => setConfirmClose(e.target.checked)} /> 선택한 결과가 이 조사 과제의 부족 근거를 해소함을 확인했어요.</label><button className="btn outline" disabled={!closureReady || !confirmClose || stale || busy} onClick={() => close.mutate()}>조사 종료</button><p className="caption">조사 종료는 대응 건의 해결을 의미하지 않아요.</p></section>}
   </>
 }
@@ -74,7 +74,7 @@ export function SecretInvestigationDetailPage() {
       <SecretTaskGuidance guidance={task.data.taskGuidance} />
       <SecretInvestigationEvidenceReview key={`review:${task.data.version}`} task={task.data} onUpdated={reload} />
       <InvestigationForms key={`${task.data.version}:${refreshVersion}`} task={task.data} onReload={reload} />
-      <details className="card secret-scan-technical"><summary>조사 활동 기록</summary>{task.data.activities?.length ? <ol className="secret-investigation-history">{task.data.activities.map((activity) => <li key={activity.historyId}><strong>{activity.eventType === 'CLOSED' ? '조사 종료' : activity.eventType === 'EVIDENCE_ADDED' ? '근거 추가' : activity.eventType === 'ASSIGNED' ? '담당·기한 변경' : '조사 기록'}</strong><span>{scanDate(activity.createdAt)} · {activity.actorDisplayName ?? '담당자 정보 없음'}</span>{activity.evidenceRef && <span>{activity.evidenceRef}</span>}</li>)}</ol> : <p className="caption">표시할 활동 기록이 없어요.</p>}</details>
+      <details className="card secret-scan-technical"><summary>조사 활동 기록</summary>{task.data.activities?.length ? <ol className="secret-investigation-history">{task.data.activities.map((activity) => <li key={activity.historyId}><strong>{activity.eventType === 'CLOSED' ? '조사 종료' : activity.eventType === 'EVIDENCE_ADDED' ? '근거 추가' : activity.eventType === 'ASSIGNED' ? '담당·기한 변경' : '조사 기록'}</strong><span>{scanDate(activity.createdAt)} · {activity.actorDisplayName ?? '담당자 정보 없음'}</span>{activity.evidenceRef && <SecretRecordReference value={activity.evidenceRef} />}</li>)}</ol> : <p className="caption">표시할 활동 기록이 없어요.</p>}</details>
       {task.data.eligibleClosureEvidence?.runScopes?.length > 0 && <p className="caption">복구 실행: {task.data.eligibleClosureEvidence.runScopes.map((run) => <Link key={run.runScopeId} to={scanDetailPath(run.runId)}>SCAN-{run.runId} </Link>)}</p>}
     </>}
   </>
