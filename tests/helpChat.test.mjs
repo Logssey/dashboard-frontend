@@ -570,6 +570,41 @@ test('report draft: AI sentences plus code-filled time and Logssey numbers, note
   assert.ok(!/sessionStorage|saveHelpMessages|setMessages/.test(block), 'notes stay on this screen only')
 })
 
+test('digests and commit hashes are not treated as keys, other long tokens still are', () => {
+  const digest = 'sha256:' + '4f9e2c1a7b3d5e6f'.repeat(4)
+  const commit = '9c1e4b7a2d5f8e3c6b9a1d4e7f2a5c8b3e6d9f1a'
+  assert.equal(help.looksLikeSecret(`이미지 ${digest} 스캔 결과는?`), false)
+  assert.equal(help.looksLikeSecret(`커밋 ${commit} 기준으로 스캔`), false)
+  assert.equal(help.maskPrivate(digest), digest)
+  assert.equal(help.maskPrivate(commit), commit)
+  assert.equal(help.looksLikeSecret('값 ' + '4f9e2c1a7b3d5e6f'.repeat(4)), true)
+  assert.equal(help.looksLikeSecret(`값 ${commit}a`), true)
+  assert.equal(help.looksLikeSecret(`sha256:${randomText(48)}`), true)
+})
+
+test('digits glued to letters are not masked as phone or card numbers', () => {
+  assert.equal(help.maskPrivate('build a01012345678b'), 'build a01012345678b')
+  assert.equal(help.maskPrivate('id x4111111111111111y'), 'id x4111111111111111y')
+  assert.equal(help.maskPrivate('전화 010-1234-5678로'), '전화 [전화번호]로')
+})
+
+test('playbook-only answers are labelled as not written by AI', async () => {
+  const store = new Map()
+  const originalStorage = globalThis.sessionStorage
+  globalThis.sessionStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) }
+  try {
+    store.set('logssey.help.chat', JSON.stringify([{ role: 'assistant', text: '고정 10단계', withoutAi: true }, { role: 'assistant', text: 'x', withoutAi: 'yes' }]))
+    const [fixed, odd] = help.loadHelpMessages()
+    assert.equal(fixed.withoutAi, true)
+    assert.ok(!('withoutAi' in odd))
+  } finally {
+    globalThis.sessionStorage = originalStorage
+  }
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  assert.ok(source.includes("...(response.withoutAi === true ? { withoutAi: true } : {})"))
+  assert.ok(source.includes('AI가 만든 답이 아니에요'))
+})
+
 async function filesUnder(dir) {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true })
   return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath ?? entry.path, entry.name))

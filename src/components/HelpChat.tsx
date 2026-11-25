@@ -278,6 +278,7 @@ export function HelpChat({ page }: { page: string }) {
           grounded: response.grounded,
           sources: response.sources,
           cards: usableCards(response.cards),
+          ...(response.withoutAi === true ? { withoutAi: true } : {}),
         },
       ]),
     onError: (error) => {
@@ -518,6 +519,9 @@ export function HelpChat({ page }: { page: string }) {
                     </ol>
                   ) : (
                     <p>{message.text}</p>
+                  )}
+                  {message.role === 'assistant' && message.withoutAi === true && (
+                    <p className="help-masked-note">AI 연결이 안 돼 대응 절차 문서의 고정 10단계로 보여 드려요(AI가 만든 답이 아니에요).</p>
                   )}
                   {message.role === 'user' && message.masked === true && (
                     <p className="help-masked-note">이메일·IP·전화번호처럼 보이는 값은 가려서 보냈어요.</p>

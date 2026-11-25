@@ -29,6 +29,8 @@ export interface HelpChatResponse {
   cached: boolean
   /** 체크리스트 카드. 일반 답이거나 카드 형식이 틀려 글로 대체됐으면 null */
   cards?: HelpCard[] | null
+  /** AI 답이 아니라 대응 절차 문서의 고정 10단계 (AI 호출 실패·형식 오류) */
+  withoutAi?: boolean
 }
 
 export type HelpMode = 'checklist'

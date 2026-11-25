@@ -23,6 +23,8 @@ export interface HelpMessage {
   incidentTypes?: string[]
   /** 보내기 전에 고객 정보를 가렸다 (설계 문서 18.1) */
   masked?: boolean
+  /** AI 연결이 안 돼 대응 절차 문서의 고정 10단계로 만든 답 (설계 문서 18.7) */
+  withoutAi?: boolean
 }
 
 /**
@@ -368,6 +370,8 @@ export function usableCards(cards: unknown): HelpCard[] | undefined {
 const KNOWN_FORMATS =
   /sk-ant-[A-Za-z0-9_-]{8,}|\bgh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|\b(?:ntn|secret)_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|-----BEGIN [A-Z ]*PRIVATE KEY-----|\bxox[abposr]-[A-Za-z0-9-]{10,}|\bAIza[0-9A-Za-z_-]{35}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./
 const LONG_TOKEN = /[A-Za-z0-9+/_=-]{32,}/g
+// 이미지 다이제스트(sha256: + 64자 16진수)와 커밋 해시(40자 16진수)는 공개 식별자라 키로 보지 않는다 (서버와 같은 규칙)
+const PUBLIC_HASHES = /(?<![A-Za-z0-9+/_=-])(?:sha256:[0-9a-fA-F]{64}|[0-9a-fA-F]{40})(?![A-Za-z0-9+/_=-])/g
 
 function entropy(value: string): number {
   const counts = new Map<string, number>()
@@ -382,7 +386,7 @@ function entropy(value: string): number {
 
 export function looksLikeSecret(text: string): boolean {
   if (KNOWN_FORMATS.test(text)) return true
-  for (const match of text.matchAll(LONG_TOKEN)) {
+  for (const match of text.replace(PUBLIC_HASHES, ' ').matchAll(LONG_TOKEN)) {
     const token = match[0]
     if (/\d/.test(token) && /[A-Za-z]/.test(token) && entropy(token) >= 3.5) return true
   }
@@ -443,7 +447,7 @@ export function loadHelpMessages(): HelpMessage[] {
     if (!Array.isArray(parsed)) return []
     return (parsed as HelpMessage[]).slice(-40).map((message) => {
       if (message === null || typeof message !== 'object') return message
-      const { impactCve, impactCves, incidentName, incidentStatus, incidentTypes: storedTypes, masked, ...rest } = message
+      const { impactCve, impactCves, incidentName, incidentStatus, incidentTypes: storedTypes, masked, withoutAi, ...rest } = message
       const types = Array.isArray(storedTypes)
         ? [...new Set(storedTypes.filter((type) => INCIDENT_TYPES.some((entry) => entry.key === type)))]
         : []
@@ -459,6 +463,7 @@ export function loadHelpMessages(): HelpMessage[] {
         ...(incidentStatus === true ? { incidentStatus: true } : {}),
         ...(incidentStatus === true && types.length ? { incidentTypes: types } : {}),
         ...(masked === true ? { masked: true } : {}),
+        ...(withoutAi === true ? { withoutAi: true } : {}),
       }
     })
   } catch {
@@ -623,11 +628,12 @@ export function saveSeenSignals(snapshot: SignalSnapshot): void {
  */
 const PRIVACY_RULES: Array<[RegExp, string]> = [
   [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[이메일]'],
-  [/(?<![0-9])\d{6}\s?-\s?[1-8]\d{6}(?![0-9])/g, '[주민번호]'],
-  [/(?<![0-9])(?:\d{4}[ -]?){3}\d{4}(?![0-9])/g, '[카드번호]'],
+  // 글자에 붙은 숫자(해시·토큰·다이제스트 안)는 가리지 않는다
+  [/(?<![0-9A-Za-z])\d{6}\s?-\s?[1-8]\d{6}(?![0-9A-Za-z])/g, '[주민번호]'],
+  [/(?<![0-9A-Za-z])(?:\d{4}[ -]?){3}\d{4}(?![0-9A-Za-z])/g, '[카드번호]'],
   [/(?<![0-9.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\/\d{1,2})?(?![0-9.])/g, '[IP]'],
   [/(?<![0-9a-z:])(?:(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|(?:[0-9a-f]{1,4}:){1,6}:(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,5})?)(?![0-9a-z:])/gi, '[IP]'],
-  [/(?<![0-9])(?:\+82[ -]?1\d|0\d{1,2})[ .-]?\d{3,4}[ .-]?\d{4}(?![0-9])/g, '[전화번호]'],
+  [/(?<![0-9A-Za-z])(?:\+82[ -]?1\d|0\d{1,2})[ .-]?\d{3,4}[ .-]?\d{4}(?![0-9A-Za-z])/g, '[전화번호]'],
 ]
 
 export function maskPrivate(text: string): string {
