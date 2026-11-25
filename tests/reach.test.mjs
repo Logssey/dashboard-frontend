@@ -112,6 +112,25 @@ test('summary view shows fractions and reasons and never calls results safe', ()
   assert.match(html, /모두 도달 불가/)
   assert.doesNotMatch(html, /안전|해결됨/)
   assert.doesNotMatch(html, /%/)
+  assert.doesNotMatch(html, /아직 연결되지 않았어요/)
+  const withBasis = renderToStaticMarkup(createElement(reach.ReachSummaryView, {
+    summary: {
+      ...reach.sampleReachSummary(),
+      scope: { targetId: null, scanId: null },
+      basis: {
+        requested: 'RUNNING', applied: 'RUNNING', unscannedRunning: [],
+        scans: [
+          { app: 'API', targetType: 'IMAGE', targetId: 2, scanId: 9, imageDigest: 'sha256:' + 'a'.repeat(64), running: true },
+          { app: 'API', targetType: 'REPO', targetId: 3, scanId: 4, imageDigest: null, running: false },
+        ],
+      },
+    },
+    onOpen: () => {},
+  }))
+  assert.match(withBasis, /스캔 #9.*운영에서 실행 중/s)
+  assert.match(withBasis, /스캔 #4.*최신 커밋/s)
+  const summary = reach.sampleReachSummary()
+  assert.match(html, new RegExp(`실행 중</span><strong>${summary.byDeployment.RUNNING}건`))
 })
 
 test('copy rows show the pending proposal next to the reason', () => {
@@ -132,7 +151,7 @@ test('detail view lists facts used for the verdict before informational facts', 
 /** 요약·목록 응답을 캐시에 넣어 둔 QueryClient. sample은 "예시 값으로 대신 그렸는지" */
 function seededClient({ summarySample, listSample }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
-  client.setQueryData(['reach-summary'], { data: reach.sampleReachSummary(), sample: summarySample })
+  client.setQueryData(['reach-summary', 'RUNNING'], { data: reach.sampleReachSummary(), sample: summarySample })
   client.setQueryData(['reach-findings', noFilter], {
     pages: [{ data: reach.sampleReachFindings(noFilter, null, 50), sample: listSample }],
     pageParams: [null],

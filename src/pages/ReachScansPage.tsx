@@ -14,15 +14,19 @@ import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
 import { ReachScanStatusBadge } from '@/components/ReachBadges'
 import { ReachNewScanDialog } from '@/components/ReachNewScanDialog'
-import { emptyNewScanForm, formatKst, hasActiveScan, type NewScanForm, scanCountsText, scanTargetRef } from '@/lib/reach'
+import { ReachRescanButton } from '@/components/ReachRescanButton'
+import { canRescan, emptyNewScanForm, formatKst, hasActiveScan, type NewScanForm, scanCountsText, scanTargetRef } from '@/lib/reach'
 import {
   labelOf,
   reachScanStatusLabel,
   reachScanStatusOrder,
+  reachL3Label,
+  reachL3Order,
   reachStageLabel,
   reachStageStatusLabel,
   reachStatusLabel,
   reachStatusOrder,
+  reachRefLink,
   reachToolLabel,
   reachTriggerLabel,
   reachTriggerOrder,
@@ -166,8 +170,27 @@ export function ReachScanTable({ items, selectedId, onSelect }: { items: ReachSc
   )
 }
 
-/** SCR-05-05~08 스캔 상세 */
-export function ReachScanDetail({ scan, onRerun }: { scan: ReachScan; onRerun: () => void }) {
+/** SCR-05-07 도구·DB 버전 한 줄의 값. 판정 데이터 커밋(reachRef)은 GitHub 커밋 링크로 */
+function toolValue(name: string, value: string | null) {
+  if (name === 'reachRef' && value) {
+    const ref = reachRefLink(value)
+    return ref.href ? (
+      <a href={ref.href} target="_blank" rel="noopener noreferrer" title={value}>
+        {ref.text}
+      </a>
+    ) : (
+      ref.text
+    )
+  }
+  return name.endsWith('At') ? formatKst(value) : value
+}
+
+/** SCR-05-05~08 스캔 상세. onRescanned를 주면 성공한 스캔에 [다시 대조]가 보인다 */
+export function ReachScanDetail({ scan, onRerun, onRescanned }: {
+  scan: ReachScan
+  onRerun: () => void
+  onRescanned?: (created: ReachScan) => void
+}) {
   const tools = Object.entries(scan.tools ?? {}).filter(([, value]) => value)
   const stages = scan.stages ?? []
   return (
@@ -238,6 +261,29 @@ export function ReachScanDetail({ scan, onRerun }: { scan: ReachScan; onRerun: (
         </p>
       )}
 
+      {scan.l3 && (
+        <section className="reach-section">
+          <h3>실제 실행 (L3)</h3>
+          {scan.l3.runStatus === 'FAILED' ? (
+            <p className="notice">
+              이 스캔에서 앱을 띄워 보는 단계가 실패했어요. 스캔 결과에는 영향이 없어요.
+              {scan.l3.error && <span className="asset">{scan.l3.error}</span>}
+            </p>
+          ) : (
+            <p>
+              {reachL3Order.map((level) => (
+                <span key={level} className="reach-l3-count">
+                  <span className="caption">{reachL3Label[level]}</span> <strong>{scan.l3?.counts?.[level] ?? 0}</strong>
+                </span>
+              ))}
+              <span className="asset">
+                시나리오 {scan.l3.scenario} · {formatKst(scan.l3.observedAt)}
+              </span>
+            </p>
+          )}
+        </section>
+      )}
+
       {scan.failure && (
         <p className="notice error" role="status">
           실패: {scan.failure.code}
@@ -253,7 +299,7 @@ export function ReachScanDetail({ scan, onRerun }: { scan: ReachScan; onRerun: (
             {tools.map(([name, value]) => (
               <div key={name} className="reach-kv-row">
                 <dt>{labelOf(reachToolLabel, name)}</dt>
-                <dd>{name.endsWith('At') ? formatKst(value) : value}</dd>
+                <dd>{toolValue(name, value)}</dd>
               </div>
             ))}
           </dl>
@@ -284,6 +330,7 @@ export function ReachScanDetail({ scan, onRerun }: { scan: ReachScan; onRerun: (
               결과 보기
             </Link>
           )}
+          {onRescanned && canRescan(scan) && <ReachRescanButton key={scan.id} scanId={scan.id} onCreated={onRescanned} />}
           {scan.scanStatus === 'FAILED' && (
             <button type="button" className="btn outline small" onClick={onRerun}>
               다시 실행
@@ -295,7 +342,12 @@ export function ReachScanDetail({ scan, onRerun }: { scan: ReachScan; onRerun: (
   )
 }
 
-function ScanDetailPanel({ scanId, onRerun, onClose }: { scanId: number; onRerun: (scan: ReachScan) => void; onClose: () => void }) {
+function ScanDetailPanel({ scanId, onRerun, onRescanned, onClose }: {
+  scanId: number
+  onRerun: (scan: ReachScan) => void
+  onRescanned: (created: ReachScan) => void
+  onClose: () => void
+}) {
   const detail = useQuery({
     queryKey: ['reach-scan', scanId],
     queryFn: () => fetchReachScan(scanId),
@@ -316,7 +368,7 @@ function ScanDetailPanel({ scanId, onRerun, onClose }: { scanId: number; onRerun
       </div>
       {detail.isPending && <div className="skeleton" />}
       {detail.isError && <p className="notice error">스캔 #{scanId}을 불러오지 못했어요. 지워졌거나 없는 스캔일 수 있어요.</p>}
-      {scan && <ReachScanDetail scan={scan} onRerun={() => onRerun(scan)} />}
+      {scan && <ReachScanDetail scan={scan} onRerun={() => onRerun(scan)} onRescanned={onRescanned} />}
     </aside>
   )
 }
@@ -452,7 +504,7 @@ export function VulnerabilityScansPage() {
               (filtered ? (
                 <EmptyState title="조건에 맞는 스캔이 없어요" description="필터를 바꾸거나 초기화해 보세요." />
               ) : (
-                <EmptyState title="아직 스캔이 없어요" description="[새 스캔]으로 이미지 digest나 레포 커밋을 스캔해 보세요." />
+                <EmptyState title="아직 스캔이 없어요" description="[새 스캔]에서 실행 중인 이미지를 골라 스캔해 보세요." />
               ))}
             {items.length > 0 && (
               <ReachScanTable items={items} selectedId={selectedId} onSelect={(id) => update({ scan: String(id) }, { replace: true })} />
@@ -477,6 +529,7 @@ export function VulnerabilityScansPage() {
               scanId={selectedId}
               onClose={() => update({ scan: null }, { replace: true })}
               onRerun={(scan) => update(rerunParams(scan))}
+              onRescanned={(created) => update({ scan: String(created.id) }, { replace: true })}
             />
           )}
         </div>

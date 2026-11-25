@@ -10,6 +10,7 @@ import {
   type ReachVulnFunction,
 } from '@/api/reach'
 import { findingVulnFunctions, formatKst, nearestFixedVersion, safeExternalUrl } from '@/lib/reach'
+import { l3DiffersFromL2, l3Raise, l3RaiseOutdated } from '@/lib/reachL3'
 import {
   labelOf,
   reachHistoryKindLabel,
@@ -22,7 +23,8 @@ import {
 } from '@/lib/reachLabels'
 import { EmptyState } from './EmptyState'
 import { Icon } from './Icon'
-import { ReachDeploymentBadge, ReachMethodTag, ReachReviewBadge, ReachSeverityChip, ReachStatusBadge } from './ReachBadges'
+import { ReachDeploymentBadge, ReachL3Badge, ReachMethodTag, ReachReviewBadge, ReachSeverityChip, ReachStatusBadge } from './ReachBadges'
+import { ReachL3Section } from './ReachL3Section'
 import { ReachReviewForm } from './ReachReviewForm'
 
 function yesNo(value: boolean | undefined): string {
@@ -295,6 +297,9 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
   reviewForm?: React.ReactNode
 }) {
   const { verdict, review, vulnerability, component } = detail
+  const raised = l3Raise(verdict.evidence)
+  // 규칙 데이터의 L3 한도가 생기기 전에 올린 판정: 다음 스캔·재대조에서 바뀐다
+  const outdated = l3RaiseOutdated(verdict.status, detail.l3, raised)
   const fix = nearestFixedVersion(component.version, vulnerability.fixedVersions)
   const humanDiffers = review.disagreesWithTool
 
@@ -341,12 +346,31 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
               <ReachDeploymentBadge deployment={detail.deployment} />
             </dd>
           </div>
+          <div>
+            <dt>실행(L3)</dt>
+            <dd>
+              <ReachL3Badge l3={detail.l3} />
+              {(l3DiffersFromL2(verdict.status, detail.l3) || outdated) && <span className="badge reach-flag differs">≠ 판정</span>}
+              {raised && <span className="badge reach-flag">L3로 올림</span>}
+            </dd>
+          </div>
         </dl>
         <p className="reach-conclusion">
           {verdict.status === 'NOT_ANALYZED' && verdict.notAnalyzedReason
             ? `${labelOf(reachNotAnalyzedReasonLabel, verdict.notAnalyzedReason)} · ${verdict.summary}`
             : verdict.summary}
         </p>
+        {raised?.l2Status && (outdated ? (
+          <p className="notice">
+            이전 규칙으로 L3가 올린 판정이에요. 이 실행은 이 취약점의 조건을 그만큼 보여 주지 않아, 지금 규칙으로는{' '}
+            {labelOf(reachStatusLabel, outdated)}이에요. 이 이미지를 다시 스캔하거나 재대조하면 바뀌어요(실행 중인 이미지는 매일 재대조, 그 밖은 [스캔 요청]. 코드 분석 L2 판정:{' '}
+            {labelOf(reachStatusLabel, raised.l2Status)}).
+          </p>
+        ) : (
+          <p className="notice">
+            L3가 실제 실행을 확인해 판정을 올렸어요(코드 분석 L2 판정: {labelOf(reachStatusLabel, raised.l2Status)}).
+          </p>
+        ))}
         <p className="caption">
           판정 {formatKst(verdict.analyzedAt)} · 스캔 #{detail.scanId}
           {verdict.engine?.reach ? ` · reach ${verdict.engine.reach}` : ''}
@@ -360,6 +384,8 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
       </section>
 
       <EvidenceSection detail={detail} />
+
+      <ReachL3Section l3={detail.l3} />
 
       <VulnFunctionSection detail={detail} vulnFunctionData={vulnFunctionData} onOpenVulnFunctions={onOpenVulnFunctions} />
 

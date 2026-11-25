@@ -48,9 +48,24 @@
 .compliance-framework-stats b { margin-right: 2px; color: var(--text-body); font-size: 11px; }
 .compliance-selected-row { background: var(--primary-soft); }
 .compliance-fail-count { color: var(--critical); font-weight: 700; }
+.compliance-results { scroll-margin-top: 24px; }
 .compliance-results .card-head { margin-bottom: 20px; }
+.compliance-assessment-context { display: grid; grid-template-columns: .8fr 1fr 1.4fr; gap: 1px; margin: 0 24px 20px; overflow: hidden; border: 1px solid var(--divider); border-radius: 14px; background: var(--divider); }
+.compliance-assessment-context > div { min-width: 0; padding: 15px 17px; background: var(--canvas); }
+.compliance-assessment-context span { display: block; margin-bottom: 6px; color: var(--text-muted); font-size: 10px; font-weight: 700; }
+.compliance-assessment-context strong { display: block; overflow: hidden; color: var(--text-body); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .compliance-results td strong { display: block; max-width: 480px; color: var(--text-body); font-size: 12px; }
 .compliance-results .asset { max-width: 520px; overflow-wrap: anywhere; }
+.compliance-guide { margin: 18px 24px 24px; padding: 22px; border: 1px solid var(--divider); border-radius: 16px; background: var(--canvas); }
+.compliance-guide-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--divider); }
+.compliance-guide-head span { color: var(--primary-text); font-size: 10px; font-weight: 700; }
+.compliance-guide-head h3 { margin-top: 5px; font-size: 15px; }
+.compliance-guide-head a { flex: 0 0 auto; color: var(--primary-text); font-size: 11px; font-weight: 700; text-decoration: none; }
+.compliance-guide-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: 1px; overflow: hidden; border-radius: 12px; background: var(--divider); }
+.compliance-guide-grid section { min-height: 108px; padding: 17px; background: var(--surface); }
+.compliance-guide-grid section.wide { grid-column: 1 / -1; min-height: 0; }
+.compliance-guide-grid span { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 10px; font-weight: 700; }
+.compliance-guide-grid p { color: var(--text-body); font-size: 11px; line-height: 1.7; }
 .compliance-loading { padding: 0 28px 28px; color: var(--text-muted); font-size: 13px; }
 .compliance-job-card { margin-bottom: 20px; }
 .compliance-job-card td > strong { display: block; font-size: 12px; }
@@ -59,6 +74,41 @@
 .compliance-job-error { color: var(--critical); font-size: 10px; font-weight: 650; }
 .compliance-cancel-link { color: var(--critical); }
 @keyframes compliance-pulse { 50% { opacity: .35; } }
+
+.compliance-target-card { margin-bottom: 20px; padding: 24px 28px; }
+.compliance-target-head { margin-bottom: 20px; }
+.compliance-target-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--divider); border-radius: 14px; }
+.compliance-target-summary > div { display: grid; align-content: start; gap: 5px; min-height: 92px; padding: 18px; }
+.compliance-target-summary > div + div { border-left: 1px solid var(--divider); }
+.compliance-target-summary span, .compliance-target-summary small { color: var(--text-muted); font-size: 10px; }
+.compliance-target-summary strong { overflow-wrap: anywhere; font-size: 14px; }
+.compliance-target-summary .badge { justify-self: start; }
+.compliance-target-trust { margin-top: 12px; padding: 14px 16px; border-radius: 12px; background: var(--canvas); }
+.compliance-target-trust summary { cursor: pointer; font-size: 11px; font-weight: 700; }
+.compliance-target-trust dl { display: grid; gap: 9px; margin: 14px 0 0; }
+.compliance-target-trust dl > div { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 12px; }
+.compliance-target-trust dt, .compliance-target-trust p { color: var(--text-muted); font-size: 10px; }
+.compliance-target-trust dd { min-width: 0; margin: 0; }
+.compliance-target-trust code { overflow-wrap: anywhere; font-size: 10px; }
+.compliance-target-trust p { margin-top: 12px; }
+.compliance-target-profile { margin-top: 12px; padding: 16px; border: 1px solid var(--divider); border-radius: 12px; background: var(--canvas); }
+.compliance-target-profile summary { cursor: pointer; font-size: 11px; font-weight: 700; }
+.compliance-target-profile > p { margin: 12px 0 20px; color: var(--text-muted); font-size: 10px; line-height: 1.6; }
+.compliance-target-profile h3 { margin: 18px 0 10px; font-size: 11px; }
+.compliance-profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.compliance-profile-grid label { display: grid; gap: 6px; min-width: 0; }
+.compliance-profile-grid label > span { overflow: hidden; color: var(--text-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.compliance-profile-grid .select { width: 100%; min-width: 0; }
+.compliance-profile-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--divider); }
+.compliance-profile-actions span { color: var(--text-muted); font-size: 9px; }
+.compliance-target-actions { display: flex; gap: 8px; margin-top: 14px; }
+.compliance-target-empty { padding: 26px; text-align: center; border: 1px dashed var(--divider); border-radius: 14px; color: var(--text-muted); font-size: 12px; }
+.compliance-target-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; padding: 20px; border-radius: 14px; background: var(--canvas); }
+.compliance-target-form label { display: grid; gap: 7px; color: var(--text-muted); font-size: 10px; font-weight: 650; }
+.compliance-target-form .wide, .compliance-target-submit { grid-column: 1 / -1; }
+.compliance-target-submit { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.compliance-target-submit span { color: var(--text-muted); font-size: 10px; }
+.compliance-target-error { margin-top: 14px; }
 
 .compliance-scan-dialog { width: min(720px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; overflow: hidden; border: 0; border-radius: 20px; background: var(--surface); color: var(--text-body); box-shadow: 0 28px 90px #11182735; }
 .compliance-scan-dialog::backdrop { background: #11182766; backdrop-filter: blur(2px); }
@@ -122,4 +172,14 @@
   .compliance-scope-options { grid-template-columns: 1fr; }
   .compliance-scan-foot { align-items: stretch; flex-direction: column; }
   .compliance-scan-foot > div .btn { flex: 1; }
+  .compliance-target-summary, .compliance-target-form { grid-template-columns: 1fr; }
+  .compliance-target-summary > div + div { border-top: 1px solid var(--divider); border-left: 0; }
+  .compliance-target-form .wide, .compliance-target-submit { grid-column: auto; }
+  .compliance-target-submit, .compliance-target-actions { align-items: stretch; flex-direction: column; }
+  .compliance-profile-grid { grid-template-columns: 1fr; }
+  .compliance-profile-actions { align-items: stretch; flex-direction: column; }
+  .compliance-guide { margin-inline: 14px; }
+  .compliance-assessment-context { grid-template-columns: 1fr; margin-inline: 14px; }
+  .compliance-guide-grid { grid-template-columns: 1fr; }
+  .compliance-guide-grid section.wide { grid-column: auto; }
 }

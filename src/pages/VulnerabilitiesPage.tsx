@@ -1,30 +1,33 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { fetchReachFindings, fetchReachSummary, type ReachFindingFilter, type ReachSummary } from '@/api/reach'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { fetchReachFindings, fetchReachSummary, type ReachBasis, type ReachFindingFilter, type ReachSummary } from '@/api/reach'
 import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
 import { ReachFindingDrawer } from '@/components/ReachFindingDrawer'
 import { ReachFindingTable } from '@/components/ReachFindingTable'
+import { ReachRescanButton } from '@/components/ReachRescanButton'
 import { ReachStatusBadge } from '@/components/ReachBadges'
 import { type ReachSummaryLink, ReachSummaryView } from '@/components/ReachSummaryView'
 import { formatKst } from '@/lib/reach'
 import {
   reachDeploymentLabel,
   reachDeploymentOrder,
+  reachL3Label,
+  reachL3Order,
   reachReviewLabel,
   reachReviewOrder,
   reachSeverityOrder,
   reachStatusLabel,
   reachStatusOrder,
 } from '@/lib/reachLabels'
-import { VULNERABILITY_FINDINGS_PATH, VULNERABILITY_RULES_PATH } from '@/lib/reachRoutes'
+import { VULNERABILITY_FINDINGS_PATH, VULNERABILITY_RULES_PATH, VULNERABILITY_SCANS_PATH, VULNERABILITY_WORKLOADS_PATH } from '@/lib/reachRoutes'
 import './reach.css'
 
 // 취약점 관리(Reach). 사이드바 하위 메뉴로 요약(/vulnerabilities)과 Finding 목록(/vulnerabilities/findings)을 나눈다.
 // 목록의 필터와 열린 Finding은 주소 쿼리에 둔다 (SCR-02-03 "고른 값은 주소 쿼리에 남는다")
 
-const FILTER_KEYS = ['status', 'severity', 'review', 'deployment', 'cve', 'scan'] as const
+const FILTER_KEYS = ['status', 'severity', 'review', 'deployment', 'l3', 'cve', 'scan'] as const
 const SUMMARY_QUERY_KEY = ['reach-summary']
 
 type UrlChanges = Record<string, string | null>
@@ -39,23 +42,31 @@ function parseId(value: string | null): number | null {
   return Number.isSafeInteger(id) && id > 0 ? id : null
 }
 
+/** 기본 범위의 기준. 주소 쿼리 basis=latest면 최신 빌드, 없으면 운영 중(실행 중 이미지) */
+function readBasis(params: URLSearchParams): ReachBasis {
+  return params.get('basis') === 'latest' ? 'LATEST' : 'RUNNING'
+}
+
 function readFilter(params: URLSearchParams): ReachFindingFilter {
   const scan = parseId(params.get('scan'))
+  const basis = readBasis(params)
   return {
     status: parseList(params.get('status'), reachStatusOrder),
     severity: parseList(params.get('severity'), reachSeverityOrder),
     reviewState: parseList(params.get('review'), reachReviewOrder),
     deployment: parseList(params.get('deployment'), reachDeploymentOrder),
     cveContains: params.get('cve') ?? '',
-    // 스캔을 고른 때만 넣는다. 늘 넣으면 기존 목록의 캐시 키가 바뀐다
+    // 고른 때만 넣는다. 늘 넣으면 기존 목록의 캐시 키가 바뀐다
+    ...(parseList(params.get('l3'), reachL3Order).length ? { l3: parseList(params.get('l3'), reachL3Order) } : {}),
     ...(scan ? { scanId: scan } : {}),
+    ...(basis === 'LATEST' ? { basis } : {}),
   }
 }
 
 function hasFilter(filter: ReachFindingFilter): boolean {
   return Boolean(
     filter.status.length || filter.severity.length || filter.reviewState.length || filter.deployment.length || filter.cveContains.trim() ||
-      filter.scanId,
+      filter.l3?.length || filter.scanId,
   )
 }
 
@@ -73,12 +84,67 @@ function SampleNotice({ parts }: { parts: Array<string | null> }) {
 
 function ScopeLine({ summary }: { summary: ReachSummary | undefined }) {
   if (!summary) return null
+  const basis = summary.basis
+  const text = summary.scope.scanId
+    ? `기준 스캔 #${summary.scope.scanId}`
+    : basis?.applied === 'RUNNING'
+      ? '기준: 앱마다 운영에서 실행 중인 이미지의 스캔(없으면 최신 완료 스캔, PR 검사 제외)'
+      : '기준: 앱마다 최신 완료 스캔(PR 검사 제외)'
   return (
     <p className="caption reach-scope">
-      {/* 대상을 고르지 않으면 앱·대상 종류마다 최신 스캔을 써서 기준 스캔이 하나가 아니다 (API 명세 3-9 scope) */}
-      {summary.scope.scanId ? `기준 스캔 #${summary.scope.scanId}` : '기준: 앱마다 최신 완료 스캔(PR 검사 제외)'} · 집계{' '}
-      {formatKst(summary.generatedAt)}
+      {/* 대상을 고르지 않으면 앱·대상 종류마다 기준 스캔이 있어 하나가 아니다 (API 명세 3-9 scope, basis) */}
+      {text} · 집계 {formatKst(summary.generatedAt)}
     </p>
+  )
+}
+
+/** 운영 중(실행 중 이미지 먼저) / 최신 빌드 기준 고르기. 주소 쿼리 basis에 남긴다 */
+function BasisToggle({ basis, onChange }: { basis: ReachBasis; onChange: (basis: ReachBasis) => void }) {
+  return (
+    <div className="reach-basis-toggle" role="group" aria-label="집계 기준">
+      {(['RUNNING', 'LATEST'] as const).map((value) => (
+        <button
+          key={value}
+          type="button"
+          className={`btn small ${basis === value ? 'primary' : 'outline'}`}
+          aria-pressed={basis === value}
+          onClick={() => onChange(value)}
+        >
+          {value === 'RUNNING' ? '운영 중 이미지 기준' : '최신 빌드 기준'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** 운영 중 기준을 고를 수 없을 때, 실행 중인데 스캔되지 않은 이미지가 있을 때 알린다 */
+function BasisNotice({ summary, onOpenWorkloads }: { summary: ReachSummary | undefined; onOpenWorkloads: () => void }) {
+  const basis = summary?.basis
+  if (!basis || basis.requested !== 'RUNNING') return null
+  if (basis.applied === 'LATEST') {
+    return (
+      <p className="notice" role="status">
+        실행 중인 이미지를 아직 몰라서(클러스터 수집이 없거나 48시간이 지남) 최신 빌드 기준으로 보여요.
+      </p>
+    )
+  }
+  if (!basis.unscannedRunning.length) return null
+  return (
+    <div className="notice reach-unscanned" role="status">
+      <p>
+        운영에서 실행 중인데 스캔되지 않은 이미지가 {basis.unscannedRunning.length}개 있어요. 그 앱은 최신 빌드의 스캔으로 대신 집계했어요.
+      </p>
+      <ul>
+        {basis.unscannedRunning.map((w) => (
+          <li key={`${w.namespace}/${w.name}/${w.container}/${w.imageDigest}`}>
+            <strong>{w.app ?? '앱 모름'}</strong> {w.namespace}/{w.name} · {w.imageRepository} @ <code>{w.imageDigest.slice(7, 19)}</code>
+          </li>
+        ))}
+      </ul>
+      <button type="button" className="btn outline small" onClick={onOpenWorkloads}>
+        워크로드에서 스캔 요청
+      </button>
+    </div>
   )
 }
 
@@ -127,23 +193,42 @@ function FilterSelect<T extends string>({ label, values, options, optionLabel, o
 /** SCR-01 요약 (/vulnerabilities). 카드·표 칸을 누르면 그 조건으로 Finding 목록을 연다 */
 export function VulnerabilitySummaryPage() {
   const navigate = useNavigate()
-  const summary = useQuery({ queryKey: SUMMARY_QUERY_KEY, queryFn: fetchReachSummary })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const basis = readBasis(searchParams)
+  const summary = useQuery({ queryKey: [...SUMMARY_QUERY_KEY, basis], queryFn: () => fetchReachSummary(basis) })
   const summaryData = summary.data?.data
+  const setBasis = (next: ReachBasis) =>
+    setSearchParams((previous) => {
+      const params = new URLSearchParams(previous)
+      if (next === 'LATEST') params.set('basis', 'latest')
+      else params.delete('basis')
+      return params
+    })
 
   const openFindings = (link: ReachSummaryLink) => {
     const params = new URLSearchParams()
+    if (basis === 'LATEST') params.set('basis', 'latest')
     if (link.status?.length) params.set('status', link.status.join(','))
     if (link.severity?.length) params.set('severity', link.severity.join(','))
     if (link.reviewState?.length) params.set('review', link.reviewState.join(','))
+    if (link.deployment?.length) params.set('deployment', link.deployment.join(','))
     const query = params.toString()
     navigate(query ? `${VULNERABILITY_FINDINGS_PATH}?${query}` : VULNERABILITY_FINDINGS_PATH)
   }
 
   return (
     <>
-      <PageHeader title="취약점 관리" description="스캐너가 찾은 취약점이 실제로 우리 코드에 닿는지, 판정 근거와 함께 확인하세요." />
+      <PageHeader
+        title="취약점 관리"
+        description="스캐너가 찾은 취약점이 실제로 우리 코드에 닿는지, 판정 근거와 함께 확인하세요."
+        actions={<Link className="btn outline" to="/reports?new=1&part=VULNERABILITY">리포트 만들기</Link>}
+      />
       <SampleNotice parts={[summary.data?.sample ? '요약' : null]} />
-      <ScopeLine summary={summaryData} />
+      <div className="reach-scope-row">
+        <ScopeLine summary={summaryData} />
+        <BasisToggle basis={basis} onChange={setBasis} />
+      </div>
+      <BasisNotice summary={summaryData} onOpenWorkloads={() => navigate(VULNERABILITY_WORKLOADS_PATH)} />
       {summary.isPending && <Loading />}
       {summary.isError && (
         <p className="notice error" role="alert">
@@ -153,7 +238,17 @@ export function VulnerabilitySummaryPage() {
           </button>
         </p>
       )}
-      {summaryData && <ReachSummaryView summary={summaryData} onOpen={openFindings} />}
+      {summaryData && (
+        <ReachSummaryView
+          summary={summaryData}
+          onOpen={openFindings}
+          onNavigate={navigate}
+          scanAction={(scanId) => (
+            // 요청한 뒤에는 새 스캔의 상세로 옮긴다. 거기서 진행 상태가 10초마다 갱신된다
+            <ReachRescanButton key={scanId} scanId={scanId} onCreated={(scan) => navigate(`${VULNERABILITY_SCANS_PATH}?scan=${scan.id}`)} />
+          )}
+        />
+      )}
     </>
   )
 }
@@ -165,8 +260,9 @@ export function VulnerabilityFindingsPage() {
   const findingId = parseId(searchParams.get('finding'))
   const filter = readFilter(searchParams)
   const filtered = hasFilter(filter)
+  const basis = readBasis(searchParams)
 
-  const summary = useQuery({ queryKey: SUMMARY_QUERY_KEY, queryFn: fetchReachSummary })
+  const summary = useQuery({ queryKey: [...SUMMARY_QUERY_KEY, basis], queryFn: () => fetchReachSummary(basis) })
   const findings = useInfiniteQuery({
     queryKey: ['reach-findings', filter],
     queryFn: ({ pageParam }) => fetchReachFindings(filter, pageParam),
@@ -211,10 +307,14 @@ export function VulnerabilityFindingsPage() {
           findings.data?.pages.some((page) => page.sample) ? 'Finding 목록' : null,
         ]}
       />
-      <ScopeLine summary={summaryData} />
+      <div className="reach-scope-row">
+        <ScopeLine summary={summaryData} />
+        {!filter.scanId && <BasisToggle basis={basis} onChange={(next) => update({ basis: next === 'LATEST' ? 'latest' : null })} />}
+      </div>
+      {!filter.scanId && <BasisNotice summary={summaryData} onOpenWorkloads={() => navigate(VULNERABILITY_WORKLOADS_PATH)} />}
       {filter.scanId && (
         <p className="notice reach-scan-scope" role="status">
-          스캔 #{filter.scanId}의 결과만 보고 있어요. 위 상태별 개수는 기본 범위(앱마다 최신 스캔) 기준이에요.{' '}
+          스캔 #{filter.scanId}의 결과만 보고 있어요. 위 상태별 개수는 기본 범위 기준이에요.{' '}
           <button type="button" className="btn outline small" onClick={() => update({ scan: null })}>
             기본 범위로
           </button>
@@ -249,6 +349,7 @@ export function VulnerabilityFindingsPage() {
               <FilterSelect label="심각도" values={filter.severity} options={reachSeverityOrder} optionLabel={(v) => v} onChange={setOne('severity')} />
               <FilterSelect label="검토 상태" values={filter.reviewState} options={reachReviewOrder} optionLabel={(v) => reachReviewLabel[v]} onChange={setOne('review')} />
               <FilterSelect label="배포 상태" values={filter.deployment} options={reachDeploymentOrder} optionLabel={(v) => reachDeploymentLabel[v]} onChange={setOne('deployment')} />
+              <FilterSelect label="실행(L3)" values={filter.l3 ?? []} options={reachL3Order} optionLabel={(v) => reachL3Label[v]} onChange={setOne('l3')} />
               <input
                 className="input reach-cve-input"
                 type="search"
@@ -280,6 +381,13 @@ export function VulnerabilityFindingsPage() {
             ) : (
               <EmptyState title="이 대상에서 찾은 취약점이 없어요" description="스캔 결과가 들어오면 여기에 보여줘요." />
             )
+          )}
+
+          {items.length > 0 && (
+            <p className="caption reach-sort-note">
+              운영에서 실행 중인 이미지의 Finding부터 보여 줘요(실행 중 → 확인 못 함 → 실행 안 함). 같은 배포 상태 안에서는
+              도달 가능 → 미확인 → 도달 불가 → 분석 대상 아님, 그다음 심각도·CVE 순이에요.
+            </p>
           )}
 
           {items.length > 0 && (

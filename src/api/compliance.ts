@@ -57,6 +57,16 @@ export interface ComplianceResultItem {
   region: string
   severity: string
   assetType: string
+  guide?: {
+    disposition: string
+    expectedState: string
+    applicability: string
+    changeImpact: string
+    verification: string
+    rollback: string
+    sourceUrl: string
+    sourceVersion: string
+  }
 }
 
 export interface ComplianceRunDetail {
@@ -64,6 +74,11 @@ export interface ComplianceRunDetail {
   frameworks: FrameworkSummary[]
   results: ComplianceResultItem[]
   resultsTruncated: boolean
+  assessmentContext: {
+    profile: ComplianceAssessmentProfile
+    policyVersion: string
+    inferredServices: string[]
+  }
 }
 
 export interface ComplianceCatalog {
@@ -90,6 +105,7 @@ export interface ComplianceScanScope {
 export interface ComplianceScopeCatalog {
   provider: 'aws'
   executionEnabled: boolean
+  connectionTestsEnabled: boolean
   prowlerVersion: string
   commit: string
   services: string[]
@@ -100,6 +116,9 @@ export type ComplianceJobStatus = 'QUEUED' | 'LEASED' | 'SUCCEEDED' | 'FAILED' |
 
 export interface ComplianceScanJob {
   jobId: number
+  targetKey: string
+  targetName: string
+  jobKind: 'ASSESSMENT' | 'CONNECTION_TEST'
   environment: 'prod' | 'dev'
   provider: 'aws'
   status: ComplianceJobStatus
@@ -114,14 +133,72 @@ export interface ComplianceScanJob {
   finishedAt: string | null
 }
 
-export const fetchComplianceOverview = (environment: ComplianceEnvironment) =>
-  apiRequest<ComplianceOverview>(`/api/v1/compliance/overview?environment=${environment}`)
+export type ComplianceConnectionStatus = 'NOT_TESTED' | 'VERIFYING' | 'VERIFIED' | 'FAILED'
+export type ComplianceServiceUsage = 'USED' | 'NOT_USED' | 'UNKNOWN'
+export type ComplianceRequirement = 'REQUIRED' | 'NOT_REQUIRED' | 'UNKNOWN'
 
-export const fetchComplianceRuns = (environment: ComplianceEnvironment) =>
-  apiRequest<{ items: ComplianceRun[] }>(`/api/v1/compliance/runs?environment=${environment}&limit=20`)
+export interface ComplianceAssessmentProfile {
+  schemaVersion: 1
+  serviceUsage: Record<string, ComplianceServiceUsage>
+  requirements: Record<string, ComplianceRequirement>
+}
 
-export const fetchComplianceRun = (runId: number) =>
-  apiRequest<ComplianceRunDetail>(`/api/v1/compliance/runs/${runId}`)
+export interface ComplianceTarget {
+  targetKey: string
+  displayName: string
+  provider: 'aws'
+  awsAccountId: string
+  roleArn: string
+  externalId: string
+  defaultRegions: string[]
+  enabled: boolean
+  assessmentProfile: ComplianceAssessmentProfile
+  connectionStatus: ComplianceConnectionStatus
+  connectionErrorCode: string | null
+  connectionCheckedAt: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+const targetQuery = (targetKey: string) => `targetKey=${encodeURIComponent(targetKey)}`
+
+export const fetchComplianceTargets = () =>
+  apiRequest<{ items: ComplianceTarget[] }>('/api/v1/compliance/targets')
+
+export const createComplianceTarget = (request: {
+  targetKey: string; displayName: string; awsAccountId: string; roleArn: string; defaultRegions: string[]
+}) => apiRequest<ComplianceTarget>('/api/v1/compliance/targets', {
+  method: 'POST', body: JSON.stringify(request),
+})
+
+export const updateComplianceTarget = (target: ComplianceTarget, changes: Partial<Pick<ComplianceTarget,
+  'displayName' | 'awsAccountId' | 'roleArn' | 'defaultRegions' | 'enabled' | 'assessmentProfile'>>) =>
+  apiRequest<ComplianceTarget>(`/api/v1/compliance/targets/${encodeURIComponent(target.targetKey)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      expectedVersion: target.version,
+      displayName: changes.displayName ?? target.displayName,
+      awsAccountId: changes.awsAccountId ?? target.awsAccountId,
+      roleArn: changes.roleArn ?? target.roleArn,
+      defaultRegions: changes.defaultRegions ?? target.defaultRegions,
+      enabled: changes.enabled ?? target.enabled,
+      assessmentProfile: changes.assessmentProfile ?? target.assessmentProfile,
+    }),
+  })
+
+export const verifyComplianceTarget = (targetKey: string) =>
+  apiRequest<{ jobId: number; status: 'QUEUED' }>(
+    `/api/v1/compliance/targets/${encodeURIComponent(targetKey)}/connection-tests`, { method: 'POST' })
+
+export const fetchComplianceOverview = (targetKey: string, environment: ComplianceEnvironment) =>
+  apiRequest<ComplianceOverview>(`/api/v1/compliance/overview?${targetQuery(targetKey)}&environment=${environment}`)
+
+export const fetchComplianceRuns = (targetKey: string, environment: ComplianceEnvironment) =>
+  apiRequest<{ items: ComplianceRun[] }>(`/api/v1/compliance/runs?${targetQuery(targetKey)}&environment=${environment}&limit=20`)
+
+export const fetchComplianceRun = (targetKey: string, runId: number) =>
+  apiRequest<ComplianceRunDetail>(`/api/v1/compliance/runs/${runId}?${targetQuery(targetKey)}`)
 
 export const fetchComplianceCatalog = () =>
   apiRequest<ComplianceCatalog>('/api/v1/compliance/catalog')
@@ -129,28 +206,28 @@ export const fetchComplianceCatalog = () =>
 export const fetchComplianceScopeCatalog = () =>
   apiRequest<ComplianceScopeCatalog>('/api/v1/compliance/scope-catalog')
 
-export const fetchComplianceJobs = () =>
-  apiRequest<{ items: ComplianceScanJob[] }>('/api/v1/compliance/jobs?limit=20')
+export const fetchComplianceJobs = (targetKey: string) =>
+  apiRequest<{ items: ComplianceScanJob[] }>(`/api/v1/compliance/jobs?${targetQuery(targetKey)}&limit=20`)
 
-export const createComplianceJob = (environment: 'prod' | 'dev', scope: ComplianceScanScope) =>
+export const createComplianceJob = (targetKey: string, environment: 'prod' | 'dev', scope: ComplianceScanScope) =>
   apiRequest<{ jobId: number; status: 'QUEUED' }>('/api/v1/compliance/jobs', {
     method: 'POST',
-    body: JSON.stringify({ environment, scope }),
+    body: JSON.stringify({ targetKey, environment, scope }),
   })
 
-export const cancelComplianceJob = (jobId: number) =>
-  apiRequest<{ jobId: number; status: 'CANCELLED' }>(`/api/v1/compliance/jobs/${jobId}/cancel`, {
+export const cancelComplianceJob = (targetKey: string, jobId: number) =>
+  apiRequest<{ jobId: number; status: 'CANCELLED' }>(`/api/v1/compliance/jobs/${jobId}/cancel?${targetQuery(targetKey)}`, {
     method: 'POST',
   })
 
-export const importProwlerResults = (file: File, environment: 'prod' | 'dev') => {
+export const importProwlerResults = (targetKey: string, file: File, environment: 'prod' | 'dev') => {
   const body = new FormData()
   body.append('file', file)
-  return apiRequest<{ runId: number }>(`/api/v1/compliance/imports?environment=${environment}`, {
+  return apiRequest<{ runId: number }>(`/api/v1/compliance/imports?${targetQuery(targetKey)}&environment=${environment}`, {
     method: 'POST',
     body,
   })
 }
 
-export const complianceReportUrl = (runId: number, framework: ComplianceReportFramework) =>
-  `/api/v1/compliance/runs/${runId}/report?framework=${framework}`
+export const complianceReportUrl = (targetKey: string, runId: number, framework: ComplianceReportFramework) =>
+  `/api/v1/compliance/runs/${runId}/report?${targetQuery(targetKey)}&framework=${framework}`

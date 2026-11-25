@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
@@ -69,6 +70,7 @@ export function IacPage() {
         <span className="caption">그래프 기준 {formatDateTime(summary.data?.graphAsOf ?? null)}</span>
         <div className="iac-status-actions">
           <a className="btn outline" href={IAC_POLICY_URL} target="_blank" rel="noopener noreferrer">규칙 보기</a>
+          <Link className="btn outline" to="/reports?new=1&part=IAC">리포트 만들기</Link>
           <button className="btn primary" onClick={() => checkNow.mutate()} disabled={checkNow.isPending}>
             {checkNow.isPending ? '등록 중…' : '지금 점검'}
           </button>
@@ -105,7 +107,7 @@ export function IacPage() {
               <span className="caption">tfstate 에 평문으로 남은 값</span>
             </a>
             <a className="card iac-metric" href="#iac-gates-title" onClick={(e) => goToSection(e, 'iac-gates-title')}>
-              <span className="caption">② 위반 (main 기준)</span>
+              <span className="caption">plan 전 검사 위반 (main 기준)</span>
               <strong>{metricValue(summary.data?.metrics.gateViolations)}<small>건</small></strong>
               <span className="caption">plan 전 검사에서 걸린 규칙</span>
             </a>
@@ -145,7 +147,7 @@ export function IacPage() {
           )}
         </section>
 
-        {/* D ① PR 경로 미리보기 */}
+        {/* D PR 경로 미리보기 */}
         <section className="card list-card" aria-labelledby="iac-prs-title">
           <div className="card-head">
             <h2 id="iac-prs-title">PR 검사 결과</h2>
@@ -162,10 +164,10 @@ export function IacPage() {
           )}
         </section>
 
-        {/* E ② plan 전 검사 */}
+        {/* E plan 전 검사 */}
         <GateSection />
 
-        {/* F ③ State·드리프트 */}
+        {/* F State·드리프트 */}
         <StateSection />
 
         {/* G 할 수 있는 조치 */}
@@ -260,6 +262,7 @@ function PullRequestTable({ items, onSelect }: { items: IacPullRequestSummary[];
                 </td>
                 <td>
                   <strong>#{pr.number}</strong> <span className="caption"><code>{shortSha(pr.headSha)}</code></span>
+                  {pr.title && <span className="iac-pr-title" title={pr.title}>{pr.title}</span>}
                 </td>
                 <td>{changes.length > 0 ? changes.join(' · ') : <span className="muted">변화 없음</span>}</td>
                 <td>{pr.reason ? ruleTitle[pr.reason] ?? pr.reason : <span className="muted">—</span>}</td>

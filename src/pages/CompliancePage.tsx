@@ -16,12 +16,14 @@ import {
   type FrameworkSummary,
   fetchComplianceJobs,
   fetchComplianceScopeCatalog,
+  fetchComplianceTargets,
 } from '@/api/compliance'
 import { ApiError } from '@/api/client'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
 import { ComplianceScanDialog } from '@/components/ComplianceScanDialog'
+import { ComplianceTargetPanel } from '@/components/ComplianceTargetPanel'
 import { PageHeader } from '@/components/PageHeader'
 import { useMe } from '@/layout/useMe'
 import './compliance.css'
@@ -63,6 +65,17 @@ const scopeLabel = (scope: { regions: string[]; services: string[]; checks: stri
   return '전체 Check'
 }
 
+const assessmentProfileSummary = (profile: {
+  serviceUsage: Record<string, string>
+  requirements: Record<string, string>
+}) => {
+  const used = Object.values(profile.serviceUsage).filter((status) => status === 'USED').length
+  const notUsed = Object.values(profile.serviceUsage).filter((status) => status === 'NOT_USED').length
+  const required = Object.values(profile.requirements).filter((status) => status === 'REQUIRED').length
+  const notRequired = Object.values(profile.requirements).filter((status) => status === 'NOT_REQUIRED').length
+  return `사용 ${used} · 미사용 ${notUsed} · 정책 요구 ${required} · 비요구 ${notRequired}`
+}
+
 function FrameworkCard({ framework }: { framework: FrameworkSummary }) {
   const assessed = framework.totalControls - framework.notAssessed
   const coverage = framework.totalControls ? Math.round((assessed / framework.totalControls) * 100) : 0
@@ -93,37 +106,78 @@ export function CompliancePage() {
   const [importEnvironment, setImportEnvironment] = useState<'prod' | 'dev'>('prod')
   const [reportFramework, setReportFramework] = useState<ComplianceReportFramework>('all')
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
+  const [selectedResultId, setSelectedResultId] = useState<number | null>(null)
+  const [runNavigationRequest, setRunNavigationRequest] = useState(0)
   const [scanOpen, setScanOpen] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [jobActionError, setJobActionError] = useState<string | null>(null)
+  const [selectedTargetKey, setSelectedTargetKey] = useState('reused')
   const fileInput = useRef<HTMLInputElement>(null)
-  const completedJobRef = useRef<number | null>(null)
+  const resultSection = useRef<HTMLElement>(null)
+  const terminalJobRef = useRef<number | null>(null)
   const queryClient = useQueryClient()
   const me = useMe()
 
+  const targets = useQuery({
+    queryKey: ['compliance', 'targets'],
+    queryFn: fetchComplianceTargets,
+    refetchInterval: (query) => query.state.data?.items.some((target) => target.connectionStatus === 'VERIFYING') ? 5000 : false,
+  })
+  const selectedTarget = targets.data?.items.find((target) => target.targetKey === selectedTargetKey)
+  const activeTargetKey = selectedTarget?.targetKey ?? selectedTargetKey
+
+  useEffect(() => {
+    const items = targets.data?.items
+    if (!items?.length || items.some((target) => target.targetKey === selectedTargetKey)) return
+    setSelectedTargetKey(items[0].targetKey)
+  }, [selectedTargetKey, targets.data])
+
+  useEffect(() => setSelectedRunId(null), [activeTargetKey])
+  useEffect(() => setSelectedResultId(null), [selectedRunId])
+
+  useEffect(() => {
+    if (selectedRunId === null || runNavigationRequest === 0) return
+    const frame = requestAnimationFrame(() => {
+      const section = resultSection.current
+      if (!section) return
+      section.focus({ preventScroll: true })
+      section.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [runNavigationRequest, selectedRunId])
+
   const overview = useQuery({
-    queryKey: ['compliance', 'overview', environment],
-    queryFn: () => fetchComplianceOverview(environment),
+    queryKey: ['compliance', 'overview', activeTargetKey, environment],
+    queryFn: () => fetchComplianceOverview(activeTargetKey, environment),
   })
   const runs = useQuery({
-    queryKey: ['compliance', 'runs', environment],
-    queryFn: () => fetchComplianceRuns(environment),
+    queryKey: ['compliance', 'runs', activeTargetKey, environment],
+    queryFn: () => fetchComplianceRuns(activeTargetKey, environment),
   })
   const catalog = useQuery({ queryKey: ['compliance', 'catalog'], queryFn: fetchComplianceCatalog, staleTime: Infinity })
   const scopeCatalog = useQuery({ queryKey: ['compliance', 'scope-catalog'], queryFn: fetchComplianceScopeCatalog, staleTime: Infinity })
-  const jobs = useQuery({ queryKey: ['compliance', 'jobs'], queryFn: fetchComplianceJobs, refetchInterval: 5000 })
+  const jobs = useQuery({ queryKey: ['compliance', 'jobs', activeTargetKey], queryFn: () => fetchComplianceJobs(activeTargetKey), refetchInterval: 5000 })
   const selectedRun = useQuery({
-    queryKey: ['compliance', 'run', selectedRunId],
-    queryFn: () => fetchComplianceRun(selectedRunId as number),
+    queryKey: ['compliance', 'run', activeTargetKey, selectedRunId],
+    queryFn: () => fetchComplianceRun(activeTargetKey, selectedRunId as number),
     enabled: selectedRunId !== null,
   })
 
+  const openRun = (runId: number | null) => {
+    if (runId === null) return
+    setSelectedRunId(runId)
+    setRunNavigationRequest((request) => request + 1)
+  }
+
   const importer = useMutation({
-    mutationFn: (file: File) => importProwlerResults(file, importEnvironment),
+    mutationFn: (file: File) => importProwlerResults(activeTargetKey, file, importEnvironment),
     onSuccess: async ({ runId }) => {
       setUploadError(null)
-      setSelectedRunId(runId)
+      openRun(runId)
       await queryClient.invalidateQueries({ queryKey: ['compliance'] })
     },
     onError: (error) => setUploadError(error instanceof ApiError ? error.message : '파일을 가져오지 못했어요.'),
@@ -131,7 +185,7 @@ export function CompliancePage() {
 
   const scanner = useMutation({
     mutationFn: ({ selectedEnvironment, scope }: { selectedEnvironment: 'prod' | 'dev'; scope: { regions: string[]; services: string[]; checks: string[] } }) =>
-      createComplianceJob(selectedEnvironment, scope),
+      createComplianceJob(activeTargetKey, selectedEnvironment, scope),
     onSuccess: async () => {
       setScanError(null)
       setScanOpen(false)
@@ -141,7 +195,7 @@ export function CompliancePage() {
   })
 
   const canceller = useMutation({
-    mutationFn: cancelComplianceJob,
+    mutationFn: (jobId: number) => cancelComplianceJob(activeTargetKey, jobId),
     onSuccess: async () => {
       setJobActionError(null)
       await queryClient.invalidateQueries({ queryKey: ['compliance', 'jobs'] })
@@ -150,11 +204,17 @@ export function CompliancePage() {
   })
 
   useEffect(() => {
-    const completed = jobs.data?.items.find((job) => job.status === 'SUCCEEDED')
-    if (!completed || completed.jobId === completedJobRef.current) return
-    completedJobRef.current = completed.jobId
-    void queryClient.invalidateQueries({ queryKey: ['compliance', 'overview'] })
-    void queryClient.invalidateQueries({ queryKey: ['compliance', 'runs'] })
+    const terminal = jobs.data?.items.find((job) => ['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(job.status))
+    if (!terminal || terminal.jobId === terminalJobRef.current) return
+    terminalJobRef.current = terminal.jobId
+    if (terminal.jobKind === 'CONNECTION_TEST') {
+      void queryClient.invalidateQueries({ queryKey: ['compliance', 'targets'] })
+      return
+    }
+    if (terminal.status === 'SUCCEEDED') {
+      void queryClient.invalidateQueries({ queryKey: ['compliance', 'overview'] })
+      void queryClient.invalidateQueries({ queryKey: ['compliance', 'runs'] })
+    }
   }, [jobs.data, queryClient])
 
   const onFile = (event: ChangeEvent<HTMLInputElement>) => {
@@ -162,7 +222,7 @@ export function CompliancePage() {
     event.target.value = ''
     if (!file) return
     if (file.size > 8 * 1024 * 1024) {
-      setUploadError('Prowler JSON 파일은 최대 8MB까지 가져올 수 있어요.')
+      setUploadError('점검 결과 JSON 파일은 최대 8MB까지 가져올 수 있어요.')
       return
     }
     setUploadError(null)
@@ -171,8 +231,12 @@ export function CompliancePage() {
 
   const latest = overview.data?.latestRun
   const displayed = selectedRun.data
+  const selectedResult = displayed?.results.find((result) => result.resultId === selectedResultId)
   const isAdmin = me.data?.role === 'ADMIN'
   const executionEnabled = scopeCatalog.data?.executionEnabled === true
+  const canScan = executionEnabled
+    && selectedTarget?.enabled === true
+    && selectedTarget.connectionStatus === 'VERIFIED'
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['compliance'] })
 
   return (
@@ -183,14 +247,14 @@ export function CompliancePage() {
         actions={
           <>
             <button className="btn outline" onClick={refresh}><Icon name="activity" />새로고침</button>
-            {latest && <a className="btn soft" href={complianceReportUrl(latest.runId, reportFramework)} target="_blank" rel="noreferrer">
+            {latest && <a className="btn soft" href={complianceReportUrl(activeTargetKey, latest.runId, reportFramework)} target="_blank" rel="noreferrer">
               <Icon name="download" />감사 보고서
             </a>}
             {isAdmin && <button className="btn outline" onClick={() => fileInput.current?.click()} disabled={importer.isPending}>
               <Icon name="download" />{importer.isPending ? '가져오는 중' : '결과 가져오기'}
             </button>}
-            {isAdmin && <button className="btn primary" disabled={!executionEnabled}
-              title={executionEnabled ? undefined : 'AWS 운영 연결을 완료한 뒤 활성화됩니다.'}
+            {isAdmin && <button className="btn primary" disabled={!canScan}
+              title={canScan ? undefined : '연결 확인과 대상 활성화를 완료한 뒤 사용할 수 있어요.'}
               onClick={() => { setScanError(null); setScanOpen(true) }}>
               <Icon name="plus" />새 점검
             </button>}
@@ -200,6 +264,7 @@ export function CompliancePage() {
 
       <input ref={fileInput} className="compliance-file" type="file" accept="application/json,.json" onChange={onFile} />
       <ComplianceScanDialog open={scanOpen} catalog={scopeCatalog.data} busy={scanner.isPending} error={scanError}
+        defaultRegions={selectedTarget?.defaultRegions}
         onClose={() => { if (!scanner.isPending) setScanOpen(false) }}
         onSubmit={(selectedEnvironment, scope) => scanner.mutate({ selectedEnvironment, scope })} />
 
@@ -209,6 +274,15 @@ export function CompliancePage() {
           <span>이 화면은 인증 합격 여부가 아니라 자동 수집 가능한 기술 근거를 보여줘요.</span>
         </div>
         <div className="row">
+          <label className="compliance-import-environment">
+            <span>점검 대상</span>
+            <select className="select" value={activeTargetKey}
+              onChange={(event) => setSelectedTargetKey(event.target.value)}>
+              {targets.data?.items.length
+                ? targets.data.items.map((target) => <option key={target.targetKey} value={target.targetKey}>{target.displayName}</option>)
+                : <option value="reused">등록된 대상 없음</option>}
+            </select>
+          </label>
           {latest && <label className="compliance-import-environment">
             <span>보고서</span>
             <select className="select" value={reportFramework} onChange={(event) => setReportFramework(event.target.value as ComplianceReportFramework)}>
@@ -240,6 +314,11 @@ export function CompliancePage() {
         자동 점검은 AWS 운영 연결을 준비 중이에요. 기존 결과 조회, JSON 가져오기와 보고서 생성은 사용할 수 있어요.
       </p>}
 
+      <ComplianceTargetPanel isAdmin={isAdmin} targets={targets.data?.items ?? []}
+        selected={selectedTarget} selectedKey={activeTargetKey}
+        connectionTestsEnabled={scopeCatalog.data?.connectionTestsEnabled === true}
+        onSelect={setSelectedTargetKey} />
+
       {!!jobs.data?.items.length && <section className="card list-card compliance-job-card">
         <div className="card-head">
           <div><h2>자동 점검</h2><p className="section-intro">요청한 범위와 현재 실행 상태를 확인하세요.</p></div>
@@ -248,12 +327,13 @@ export function CompliancePage() {
         <div className="table-scroll"><table>
           <thead><tr><th>작업</th><th>환경</th><th>범위</th><th>상태</th><th>요청 시각</th><th>결과</th></tr></thead>
           <tbody>{jobs.data.items.map((job) => <tr key={job.jobId}>
-            <td><strong>#{job.jobId}</strong><span className="asset">AWS · Prowler</span></td>
+            <td><strong>#{job.jobId}</strong><span className="asset">{job.jobKind === 'CONNECTION_TEST' ? 'AWS 연결 확인' : 'AWS 기술 점검'}</span></td>
             <td><Badge label={job.environment === 'prod' ? '운영' : '개발'} tone="primary" /></td>
-            <td>{scopeLabel(job.scope)}<span className="asset">{job.scope.regions.join(', ') || '전체 리전'}</span></td>
+            <td>{job.jobKind === 'CONNECTION_TEST' ? '역할·계정 확인' : scopeLabel(job.scope)}<span className="asset">{job.jobKind === 'CONNECTION_TEST' ? job.targetName : (job.scope.regions.join(', ') || '전체 리전')}</span></td>
             <td><Badge label={jobStatus[job.status].label} tone={jobStatus[job.status].tone} />{job.status === 'LEASED' && <span className="asset">시도 {job.attemptCount}/{job.maxAttempts}</span>}</td>
             <td>{timeFormat.format(new Date(job.createdAt))}</td>
-            <td>{job.runId ? <button className="finding-link" onClick={() => setSelectedRunId(job.runId)}>결과 보기</button>
+            <td>{job.runId ? <button className="finding-link" aria-controls="compliance-run-detail"
+              aria-expanded={selectedRunId === job.runId} onClick={() => openRun(job.runId)}>결과 보기</button>
               : isAdmin && (job.status === 'QUEUED' || job.status === 'LEASED')
                 ? <button className="finding-link compliance-cancel-link" disabled={canceller.isPending}
                     onClick={() => { setJobActionError(null); canceller.mutate(job.jobId) }}>취소</button>
@@ -262,31 +342,34 @@ export function CompliancePage() {
         </table></div>
       </section>}
 
-      {!latest && !overview.isLoading ? (
-        <section className="card compliance-empty-state">
+      <div className="stack">
+        {!latest && !overview.isLoading ? (
+          <section className="card compliance-empty-state">
           <div className="compliance-empty-icon"><Icon name="shield" /></div>
           <div>
             <p className="compliance-eyebrow">첫 점검 준비 완료</p>
-            <h2>Prowler JSON-OCSF 결과를 가져오면 바로 시작돼요.</h2>
-            <p>원본 파일은 저장하지 않고, 화면과 규제 평가에 필요한 정규화된 근거와 파일 해시만 보관합니다.</p>
+            <h2>{canScan ? '첫 AWS 점검을 시작할 수 있어요.' : 'AWS 점검 대상을 먼저 연결해 주세요.'}</h2>
+            <p>{canScan
+              ? '전용 읽기 역할로 AWS 설정을 수집하고 세 규제 기준을 한 번에 평가합니다.'
+              : '연결 확인이 끝나기 전에는 AWS 호출이 발생하지 않으며, 기존 점검 결과 JSON은 별도로 가져올 수 있습니다.'}</p>
           </div>
           <div className="compliance-catalog-summary">
             {catalog.data?.frameworks.map((framework) => (
               <div key={framework.id}><strong>{framework.controls}</strong><span>{framework.shortName} 통제</span></div>
             ))}
           </div>
-          {isAdmin && <button className="btn primary" disabled={!executionEnabled}
-            title={executionEnabled ? undefined : 'AWS 운영 연결을 완료한 뒤 활성화됩니다.'}
+          {isAdmin && <button className="btn primary" disabled={!canScan}
+            title={canScan ? undefined : '연결 확인과 대상 활성화를 완료한 뒤 사용할 수 있어요.'}
             onClick={() => setScanOpen(true)}><Icon name="plus" />첫 점검 시작</button>}
-        </section>
-      ) : (
-        <div className="stack">
+          </section>
+        ) : (
+          <>
           <section className="compliance-summary-grid">
             <article className="card compliance-primary-metric">
               <p className="muted">최근 점검 결과</p>
               <div className="compliance-primary-number">{latest?.counts.fail ?? '—'}<span>개 실패</span></div>
               <p>{latest ? `${latest.counts.total.toLocaleString()}개 결과 중 즉시 확인할 기술 항목` : '결과를 불러오는 중이에요.'}</p>
-              {latest && <div className="compliance-run-meta"><Badge label={latest.environment === 'prod' ? '운영' : '개발'} tone="primary" /><span>{timeFormat.format(new Date(latest.finishedAt))}</span><span>Prowler {latest.scannerVersion}</span></div>}
+              {latest && <div className="compliance-run-meta"><Badge label={latest.environment === 'prod' ? '운영' : '개발'} tone="primary" /><span>{timeFormat.format(new Date(latest.finishedAt))}</span><span>AWS 기술 점검</span></div>}
             </article>
             <article className="card compliance-result-breakdown">
               <div><span className="compliance-dot fail" /><p>실패</p><strong>{latest?.counts.fail ?? '—'}</strong></div>
@@ -308,32 +391,62 @@ export function CompliancePage() {
             {runs.data?.items.length ? <div className="table-scroll"><table>
               <thead><tr><th>점검</th><th>환경</th><th>결과</th><th>실패</th><th>확인 필요</th><th>완료 시각</th></tr></thead>
               <tbody>{runs.data.items.map((run) => <tr key={run.runId} className={selectedRunId === run.runId ? 'compliance-selected-row' : ''}>
-                <td><button className="finding-link" onClick={() => setSelectedRunId(run.runId)}>#{run.runId} · {run.product} {run.scannerVersion}</button></td>
+                <td><button className="finding-link" aria-controls="compliance-run-detail"
+                  aria-expanded={selectedRunId === run.runId} onClick={() => openRun(run.runId)}>#{run.runId} · AWS 기술 점검</button></td>
                 <td><Badge label={run.environment === 'prod' ? '운영' : '개발'} tone="primary" /></td>
                 <td>{run.counts.total.toLocaleString()}건</td><td className="compliance-fail-count">{run.counts.fail}</td><td>{run.counts.needsReview}</td>
                 <td>{timeFormat.format(new Date(run.finishedAt))}</td>
               </tr>)}</tbody>
-            </table></div> : <EmptyState title="점검 이력이 없어요" description="Prowler 결과를 가져오면 이곳에 실행 이력이 쌓여요." />}
+            </table></div> : <EmptyState title="점검 이력이 없어요" description="자동 점검을 실행하거나 점검 결과를 가져오면 이곳에 이력이 쌓여요." />}
           </section>
 
-          {selectedRunId !== null && <section className="card list-card compliance-results">
+          </>
+        )}
+
+        {selectedRunId !== null && <section id="compliance-run-detail" ref={resultSection} tabIndex={-1}
+          aria-busy={selectedRun.isLoading} className="card list-card compliance-results">
             <div className="card-head">
               <div><h2>#{selectedRunId} 기술 점검 결과</h2><p className="section-intro">실패와 수집 오류를 먼저 보여줘요.</p></div>
               <button className="icon-btn" aria-label="상세 닫기" onClick={() => setSelectedRunId(null)}><Icon name="close" /></button>
             </div>
-            {selectedRun.isLoading ? <p className="compliance-loading">결과를 불러오는 중이에요.</p> : displayed?.results.length ? <>
-              <div className="table-scroll"><table><thead><tr><th>Check</th><th>판정</th><th>Provider</th><th>자산</th><th>Region</th></tr></thead>
+            {displayed?.assessmentContext && <div className="compliance-assessment-context">
+              <div><span>Run 판정 정책</span><strong>{displayed.assessmentContext.policyVersion === 'legacy'
+                ? '레거시 판정 · 프로필 미적용'
+                : `정책 ${displayed.assessmentContext.policyVersion}`}</strong></div>
+              <div><span>자산으로 확인한 서비스</span><strong>{displayed.assessmentContext.inferredServices.length
+                ? displayed.assessmentContext.inferredServices.map((service) => service.toUpperCase()).join(', ')
+                : '식별 없음'}</strong></div>
+              <div><span>저장된 적용성 프로필</span><strong>{assessmentProfileSummary(displayed.assessmentContext.profile)}</strong></div>
+            </div>}
+            {selectedRun.isError ? <p className="notice error compliance-notice" role="alert">점검 결과를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
+              : selectedRun.isLoading ? <p className="compliance-loading">결과를 불러오는 중이에요.</p> : displayed?.results.length ? <>
+              <div className="table-scroll"><table><thead><tr><th>Check</th><th>판정</th><th>Provider</th><th>자산</th><th>Region</th><th>가이드</th></tr></thead>
                 <tbody>{displayed.results.map((result) => <tr key={result.resultId}>
                   <td><strong>{result.title}</strong><span className="asset">{result.checkId}</span></td>
                   <td><Badge label={resultLabel[result.result]} tone={resultTone[result.result]} /></td>
                   <td>{result.provider.toUpperCase()}</td><td>{result.asset}</td><td>{result.region}</td>
+                  <td><button className="finding-link" onClick={() => setSelectedResultId(
+                    selectedResultId === result.resultId ? null : result.resultId
+                  )}>{selectedResultId === result.resultId ? '닫기' : '보기'}</button></td>
                 </tr>)}</tbody>
               </table></div>
+              {selectedResult?.guide && <article className="compliance-guide" aria-live="polite">
+                <div className="compliance-guide-head">
+                  <div><span>개선 가이드 · 점검 기준</span><h3>{selectedResult.title}</h3></div>
+                  <a href={selectedResult.guide.sourceUrl} target="_blank" rel="noreferrer">원문 보기</a>
+                </div>
+                <div className="compliance-guide-grid">
+                  <section><span>목표 상태</span><p>{selectedResult.guide.expectedState}</p></section>
+                  <section><span>적용 조건</span><p>{selectedResult.guide.applicability}</p></section>
+                  <section><span>변경 영향</span><p>{selectedResult.guide.changeImpact}</p></section>
+                  <section><span>검증 방법</span><p>{selectedResult.guide.verification}</p></section>
+                  <section className="wide"><span>롤백</span><p>{selectedResult.guide.rollback}</p></section>
+                </div>
+              </article>}
               {displayed.resultsTruncated && <p className="table-foot">우선순위가 높은 결과 300건만 표시하고 있어요.</p>}
             </> : <EmptyState title="표시할 결과가 없어요" description="이 실행의 정규화 결과를 찾지 못했어요." />}
-          </section>}
-        </div>
-      )}
+        </section>}
+      </div>
     </>
   )
 }

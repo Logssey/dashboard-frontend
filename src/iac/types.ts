@@ -59,6 +59,8 @@ export type IacRunStatus = 'QUEUED' | 'GATE_FAILED' | 'PLANNING' | 'ANALYZING' |
 /** S-01 D. PR 별 최신 판정 */
 export interface IacPullRequestSummary {
   number: number
+  /** iac-report 가 보낸 PR 제목 (PR 작성자가 쓴 글, 텍스트로만 표시) */
+  title: string | null
   runId: number
   headSha: string
   status: IacRunStatus
@@ -109,7 +111,7 @@ export interface IacPullRequest {
   checkedAt: string | null
   gate: { status: 'BLOCK' | 'PASS'; findings: IacGateFinding[] }
   paths: IacPathChange[]
-  /** 경로 없이 리소스 하나에 걸리는 ① 발견 건 (path.imds_v1_added) */
+  /** 경로 없이 리소스 하나에 걸리는 경로 분석 발견 건 (path.imds_v1_added) */
   resourceFindings: IacResourceFinding[]
   resources: { add: number; change: number; delete: number } | null
   state: { ruleId: string | null; severity: IacSeverity | null; readersBefore: number; readersAfter: number; secretsAdded: number } | null
@@ -172,7 +174,7 @@ export interface IacRemediation {
   templateKey: string
 }
 
-/** S-01 H. 주기는 gitops CronJob·CI 가 정하고 여기서는 보여주기만 한다 */
+/** S-01 H. 주기는 대시보드 호스트 타이머·CI 가 정하고 여기서는 보여주기만 한다 */
 export interface IacJobStatus {
   job: string
   schedule: string

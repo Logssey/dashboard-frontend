@@ -9,13 +9,14 @@ interface Props {
   catalog?: ComplianceScopeCatalog
   busy: boolean
   error: string | null
+  defaultRegions?: string[]
   onClose: () => void
   onSubmit: (environment: 'prod' | 'dev', scope: ComplianceScanScope) => void
 }
 
 const suggestedRegions = ['ap-northeast-2', 'us-east-1', 'us-west-2', 'ap-northeast-1']
 
-export function ComplianceScanDialog({ open, catalog, busy, error, onClose, onSubmit }: Props) {
+export function ComplianceScanDialog({ open, catalog, busy, error, defaultRegions, onClose, onSubmit }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [environment, setEnvironment] = useState<'prod' | 'dev'>('prod')
   const [mode, setMode] = useState<ScopeMode>('all')
@@ -33,10 +34,10 @@ export function ComplianceScanDialog({ open, catalog, busy, error, onClose, onSu
     if (!open) return
     setEnvironment('prod')
     setMode('all')
-    setRegions(['ap-northeast-2'])
+    setRegions(defaultRegions?.length ? defaultRegions : ['ap-northeast-2'])
     setSelected([])
     setSearch('')
-  }, [open])
+  }, [defaultRegions, open])
 
   const options = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -71,7 +72,7 @@ export function ComplianceScanDialog({ open, catalog, busy, error, onClose, onSu
       onClose={() => { if (open && !busy) onClose() }}>
       <form onSubmit={submit} className="compliance-scan-form">
         <header className="compliance-scan-head">
-          <div><span>PROWLER {catalog?.prowlerVersion ?? '5.46.0'}</span><h2 id="compliance-scan-title">AWS 컴플라이언스 점검</h2></div>
+          <div><span>AWS READ-ONLY</span><h2 id="compliance-scan-title">AWS 컴플라이언스 점검</h2></div>
           <button type="button" className="icon-btn" aria-label="점검 설정 닫기" disabled={busy} onClick={onClose}><Icon name="close" /></button>
         </header>
 
@@ -115,7 +116,7 @@ export function ComplianceScanDialog({ open, catalog, busy, error, onClose, onSu
           </section>
 
           <section className="compliance-form-section">
-            <div className="compliance-form-title"><b>3</b><div><h3>AWS 리전</h3><p>선택한 리전과 Prowler의 글로벌 리소스 처리 기준으로 실행해요.</p></div></div>
+            <div className="compliance-form-title"><b>3</b><div><h3>AWS 리전</h3><p>선택한 리전과 글로벌 리소스를 함께 점검해요.</p></div></div>
             <div className="compliance-region-list">
               {suggestedRegions.map((region) => <label key={region}><input type="checkbox" checked={regions.includes(region)}
                 onChange={(event) => setRegions((current) => event.target.checked ? [...current, region] : current.filter((item) => item !== region))} />{region}</label>)}

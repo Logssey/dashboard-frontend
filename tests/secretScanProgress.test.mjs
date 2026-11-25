@@ -52,6 +52,36 @@ function render(data, expectedConnectionId) {
     createElement(modules.component.SecretScanProgress, { runId: 91, expectedConnectionId }))))
 }
 
+test('metadata inventory is distinguished from secret detection and hides irrelevant validation zeros', () => {
+  const data = { ...value, provider: 'AWS', status: 'SUCCEEDED', validationSummary,
+    stages: [stage('QUEUE', 'SUCCEEDED'), stage('COLLECTION', 'SUCCEEDED'),
+      { ...stage('DETECTION', 'SKIPPED'), reasonCode: 'NOT_APPLICABLE_METADATA' },
+      { ...stage('VALIDATION', 'SKIPPED'), reasonCode: 'NOT_APPLICABLE_METADATA' }, stage('RESULT', 'SUCCEEDED')] }
+  const html = render(data)
+  assert.match(html, /목록 조회 완료/)
+  assert.match(html, /S3 파일, Secrets Manager 값, Parameter Store 값은 읽지 않았어요/)
+  assert.match(html, /\/secrets\/connections\/3\/scopes/)
+  assert.doesNotMatch(html, /인증 확인 결과 요약|구성 부족/)
+  assert.equal(modules.lib.scanIsMetadataOnly({ ...data, stages: [stage('DETECTION', 'SUCCEEDED'), data.stages[3]] }), false)
+  assert.notEqual(modules.lib.scanProgressStatusLabel({ ...data, status: 'FAILED' }), '목록 조회 완료')
+})
+
+test('blocked credentials show actual reason counts and the matching connection settings', () => {
+  const data = { ...value, status: 'SUCCEEDED', validationSummary: { ...validationSummary, uncheckedCount: 4,
+    incompleteCount: 0, reusedResultCount: 0, reusedResults: [], uncheckedReasons: [{ reasonCode: 'VALIDATOR_NOT_ALLOWED', count: 4 }] },
+    stages: [stage('DETECTION', 'SUCCEEDED'), { ...stage('VALIDATION', 'SKIPPED'), reasonCode: 'VALIDATOR_NOT_ALLOWED' }, stage('RESULT', 'SUCCEEDED')] }
+  const html = render(data)
+  assert.match(html, /검사 완료 · 인증 미확인/)
+  assert.match(html, /인증 미확인 사유/)
+  assert.match(html, /validationConnectionId=3/)
+  assert.match(html, /키 발급 서비스의 검증을 허용하지 않았어요/)
+  assert.match(html, /4건/)
+  const aggregate = { ...event(2, 'STAGE_SUMMARY'), stage: 'VALIDATION', outcome: 'SKIPPED', reasonCode: 'NO_CANDIDATES' }
+  assert.match(modules.lib.scanProgressEventReason(aggregate, data), /허용하지 않았어요/)
+  assert.equal(modules.lib.scanProgressEventReason({ ...aggregate, attemptNo: 0 }, data), '인증 확인 대상 없음')
+  assert.equal(modules.lib.scanNeedsValidationSetup({ ...data, validationSummary: { ...validationSummary, uncheckedReasons: [] }, stages: [{ ...stage('VALIDATION', 'SKIPPED'), reasonCode: 'SYNTHETIC_FIXTURE' }] }), false)
+})
+
 test('five real phases allow concurrent collection and detection and show actual response metadata', () => {
   const html = render(value, 3)
   assert.equal((html.match(/aria-controls="scan-terminal-91"/g) ?? []).length, 5)

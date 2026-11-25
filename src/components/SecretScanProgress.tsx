@@ -7,7 +7,7 @@ import {
   mergeScanEvents, scanProgressEventOutcome, scanEventTime, scanOperationLabel,
   scanRequestFormat, scanProgressCount, scanProgressStages, scanProgressStates,
   scanProgressTerminal, scanStageCount, scanProgressReason, scanProgressStatusLabel,
-  scanValidationOnlyIssue,
+  scanValidationOnlyIssue, scanIsMetadataOnly, scanNeedsValidationSetup, scanProgressEventReason,
 } from '@/lib/secretScanProgress'
 import { scanDate, scanDuration, scanPlatforms } from '@/lib/secretScan'
 import { validationIssuerLabels } from '@/lib/secretValidation'
@@ -25,6 +25,9 @@ function ValidationSummary({ summary }: { summary: ScanValidationSummary }) {
       {otherUnchecked > 0 && <div><dt>그 외 생략</dt><dd>{otherUnchecked}건</dd></div>}
       {summary.unknownCount > 0 && <div><dt>인증 확인 불가</dt><dd>{summary.unknownCount}건</dd></div>}
     </dl>
+    {!!summary.uncheckedReasons?.length && <ul aria-label="인증 미확인 사유">
+      {summary.uncheckedReasons.map((item) => <li key={item.reasonCode}><strong>{scanProgressReason(item.reasonCode)} <span>{item.count}건</span></strong></li>)}
+    </ul>}
     {!summary.reuseRecorded && <p>이 실행의 이전 결과 재사용 내역은 기록되지 않았어요.</p>}
     {summary.reusedResults.length > 0 && <details>
       <summary>재사용한 결과와 검증 시각</summary>
@@ -106,7 +109,9 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
   const settled = scanProgressTerminal(data.status)
   const completed = ['SUCCEEDED', 'PARTIAL', 'SKIPPED'].includes(data.status)
   const unverifiedCount = data.validationSummary ? data.validationSummary.uncheckedCount + data.validationSummary.unknownCount : null
-  const metadata = data.scanKind === 'METADATA'
+  const metadataOnly = scanIsMetadataOnly(data)
+  const metadata = metadataOnly
+  const needsValidationSetup = scanNeedsValidationSetup(data)
   const waiting = scanDuration(data.requestedAt, data.startedAt ?? data.capturedAt)
   const currentObjects = data.collectedObjectCount ?? data.stages.find((item) => item.key === 'COLLECTION')?.processedCount
 
@@ -122,7 +127,16 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
       <div><dt>현재 처리량</dt><dd>{scanProgressCount(currentObjects) ? `${currentObjects}개` : '집계 중'}</dd></div>
       <div><dt>최근 활동</dt><dd>{scanDate(data.latestActivityAt)}</dd></div>
     </dl>
-    {metadata && <p className="secret-scan-execution-completed-note">접근키 상태와 리소스 목록을 조회해요. 키 값 탐지와 인증 확인은 본문 검사에서 진행해요.</p>}
+    {metadataOnly && <div className="secret-scan-scope-note">
+      <strong>이번 실행은 목록과 상태 조회예요.</strong>
+      <p>S3 파일, Secrets Manager 값, Parameter Store 값은 읽지 않았어요. 내용 탐지는 검사할 대상 등록과 서버의 내용 읽기 설정 및 해당 대상의 읽기 권한이 필요해요.</p>
+      <Link to={`/secrets/connections/${data.connectionId}/scopes`}>등록된 검사 대상 확인</Link>
+    </div>}
+    {needsValidationSetup && <div className="secret-scan-scope-note">
+      <strong>키를 발견했지만 인증 확인은 설정으로 제한됐어요.</strong>
+      <p>연결의 검증 허용, 검사 대상별 승인, 서버의 검증 기능을 확인하세요. 설정을 바꾼 뒤 다시 검사해야 새 인증 결과가 남아요.</p>
+      <Link to={`/secrets/connections?validationConnectionId=${data.connectionId}`}>이 연결의 키 검증 설정</Link>
+    </div>}
     {data.status === 'PENDING' && <p className="secret-scan-execution-waiting">{data.attemptNo > 0 ? '재시도할 시각을 기다리고 있어요.' : '워커가 요청을 가져오기를 기다리고 있어요.'}{data.availableAt && data.attemptNo > 0 && <span>다음 시도 {scanDate(data.availableAt)}</span>}</p>}
     {data.status === 'PARTIAL' && <p className="secret-scan-execution-completed-note">검사 처리를 마쳤어요. {scanValidationOnlyIssue(data) && unverifiedCount != null && unverifiedCount > 0 ? `인증 미확인 ${unverifiedCount}건의 사유를 결과에서 확인하세요.` : '확인이 필요한 항목과 대상별 사유를 결과에서 확인하세요.'}</p>}
     {progress.isError && <div className="secret-scan-execution-read-error" role="alert"><p>진행 상태의 연결을 확인하지 못했어요. 마지막 확인 {scanDate(data.capturedAt)}</p><button className="btn outline" onClick={() => void progress.restart()}>다시 조회</button></div>}
@@ -144,7 +158,7 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
       })}
     </ol>
 
-    {data.validationSummary && data.stages.some((item) => item.key === 'VALIDATION' && !['PENDING', 'UNKNOWN'].includes(item.status)) && <ValidationSummary summary={data.validationSummary} />}
+    {!metadataOnly && data.validationSummary && data.stages.some((item) => item.key === 'VALIDATION' && !['PENDING', 'UNKNOWN'].includes(item.status)) && <ValidationSummary summary={data.validationSummary} />}
 
     <section id={`scan-terminal-${runId}`} className="secret-scan-execution-terminal" aria-labelledby={`scan-terminal-title-${runId}`}>
       <div className="secret-scan-execution-terminal-head">
@@ -157,7 +171,7 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
           : <ol className="secret-scan-execution-events">{visible.map((event) => <li key={event.id} className={`event-${event.outcome.toLowerCase()}`}>
             <div className="secret-scan-execution-event-command"><time dateTime={event.observedAt}>{scanEventTime(event.observedAt)}</time><span aria-hidden="true">›</span><strong>{scanOperationLabel(event.operationCode)}</strong><small>시도 {event.attemptNo}</small></div>
             {scanRequestFormat(event.operationCode) && <div className="secret-scan-execution-request"><span>요청 형식</span><code>{scanRequestFormat(event.operationCode)}</code></div>}
-            <p><span>{event.httpStatus != null && `HTTP ${event.httpStatus} · `}{scanProgressEventOutcome(event, data)}{event.durationMs != null && ` · ${event.durationMs}ms`}</span>{scanProgressReason(event.reasonCode) && <span>{scanProgressReason(event.reasonCode)}</span>}{scanProgressCount(event.processedCount) && <span>처리 {event.processedCount}{scanProgressCount(event.totalCount) ? ` / ${event.totalCount}` : ''}</span>}</p>
+            <p><span>{event.httpStatus != null && `HTTP ${event.httpStatus} · `}{scanProgressEventOutcome(event, data)}{event.durationMs != null && ` · ${event.durationMs}ms`}</span>{scanProgressEventReason(event, data) && <span>{scanProgressEventReason(event, data)}</span>}{scanProgressCount(event.processedCount) && <span>처리 {event.processedCount}{scanProgressCount(event.totalCount) ? ` / ${event.totalCount}` : ''}</span>}</p>
           </li>)}</ol>}
       </div>
       <p className="secret-scan-execution-terminal-foot">마지막 활동 {scanDate(data.latestActivityAt)}{data.truncated && ` · 일부 상세 생략 ${data.suppressedEventCount}개`}</p>

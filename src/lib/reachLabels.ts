@@ -1,15 +1,16 @@
 // 취약점 관리(Reach) 화면 글자. 값은 API 그대로 쓰고 보이는 글자만 바꾼다 (Reach 화면 명세 2-3)
 import type {
   ReachDeployment,
+  ReachL3Level,
   ReachMethod,
   ReachNotAnalyzedReason,
   ReachResetReason,
   ReachReviewState,
   ReachScanMatchStatus,
   ReachScanStatus,
-  ReachTrigger,
   ReachSeverity,
   ReachStatus,
+  ReachTrigger,
 } from '@/api/reach'
 
 export const reachStatusOrder: ReachStatus[] = ['REACHABLE', 'UNKNOWN', 'UNREACHABLE', 'NOT_ANALYZED']
@@ -47,6 +48,28 @@ export const reachReviewLabel: Record<ReachReviewState, string> = {
   UNREVIEWED: '검토 전',
   PROVISIONAL: '잠정',
   CONFIRMED: '확정',
+}
+
+export const reachL3Order: ReachL3Level[] = ['REGION', 'FUNCTION', 'NONE', 'NOT_RECORDED']
+
+/**
+ * L3(실제 실행)가 닿은 곳. NONE은 시나리오가 그 코드를 안 탔다는 뜻일 뿐 도달 불가가 아니라서 "실행 없음"이라고만 쓴다.
+ * NOT_RECORDED는 기록 범위 밖이거나 클래스 파일이 없어 볼 수 없었던 것
+ */
+export const reachL3Label: Record<ReachL3Level, string> = {
+  REGION: '구간 실행',
+  FUNCTION: '함수까지 실행',
+  NONE: '실행 없음',
+  NOT_RECORDED: '기록 안 됨',
+}
+
+/** 구간을 확인하지 못한 이유 */
+export const reachL3UncheckedLabel: Record<string, string> = {
+  OTHER_VERSION: '라이브러리 버전이 구간 데이터와 달라요',
+  OUT_OF_SCOPE: '기록 범위 밖이에요',
+  NO_CLASS_FILE: '클래스 파일이 없어요',
+  NO_METHOD: '리포트에 그 메서드가 없어요',
+  NO_LINE_NUMBERS: '줄 번호가 없는 클래스예요',
 }
 
 /** 판정 상태의 "미확인"과 헷갈리지 않게 배포 상태 UNKNOWN은 "확인 못 함"으로 쓴다 */
@@ -119,7 +142,7 @@ export const reachTriggerLabel: Record<ReachTrigger, string> = {
   SCHEDULE: '일정',
 }
 
-/** API의 다섯 단계 (SCR-05-06). L3는 FR-14 [계획]이라 없다 */
+/** API의 다섯 단계 (SCR-05-06). L3(FR-14)는 단계가 아니라 Finding의 근거로 따로 온다 */
 export const reachStageLabel: Record<string, string> = {
   SBOM: 'SBOM 생성',
   MATCH: 'CVE 대조',
@@ -146,6 +169,24 @@ export const reachToolLabel: Record<string, string> = {
   reach: 'Reach',
   rulesVersion: '규칙 데이터',
   vulnFunctionsVersion: '취약 함수 데이터',
+  reachRef: '판정 데이터·분석기 커밋',
+  sbomSource: 'SBOM',
+}
+
+/** 판정 데이터·분석기·CI 스크립트가 있는 저장소 (tools.reachRef가 이 저장소의 커밋이다) */
+export const REACH_CODE_REPO_URL = 'https://github.com/Logssey/dashboard-backend'
+
+/**
+ * tools.reachRef(40자 커밋, 로컬 실행에서 판정 데이터·분석기를 고친 채 돌렸으면 끝에 -dirty)를 화면 글자와 커밋 링크로.
+ * 커밋 모양이 아니면 받은 값을 그대로, 링크 없이
+ */
+export function reachRefLink(value: string): { text: string; href: string | null } {
+  const match = /^([0-9a-f]{40})(-dirty)?$/.exec(value)
+  if (!match) return { text: value, href: null }
+  return {
+    text: match[1].slice(0, 12) + (match[2] ? ' (로컬에서 고친 채 실행)' : ''),
+    href: `${REACH_CODE_REPO_URL}/commit/${match[1]}`,
+  }
 }
 
 /** 검토 이력의 바뀐 까닭 (SCR-03-14) */

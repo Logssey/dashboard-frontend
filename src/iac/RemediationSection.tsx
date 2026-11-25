@@ -44,7 +44,7 @@ export function RemediationSection() {
                       </div>
                     </td>
                     <td className="muted">{text.how}</td>
-                    <td><Badge label={item.source === '③' ? '③ State' : '① 경로'} /></td>
+                    <td><Badge label={item.source === 'STATE' ? 'State' : '경로'} /></td>
                   </tr>
                 )
               })}

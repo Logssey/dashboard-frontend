@@ -1,7 +1,8 @@
-import type { ReachDeployment, ReachMethod, ReachReviewState, ReachScanMatchStatus, ReachScanStatus, ReachSeverity, ReachStatus } from '@/api/reach'
+import type { ReachDeployment, ReachL3Summary, ReachMethod, ReachReviewState, ReachScanMatchStatus, ReachScanStatus, ReachSeverity, ReachStatus } from '@/api/reach'
 import {
   labelOf,
   reachDeploymentLabel,
+  reachL3Label,
   reachMethodLabel,
   reachReviewLabel,
   reachScanMatchLabel,
@@ -9,6 +10,7 @@ import {
   reachStatusLabel,
   reachStatusTone,
 } from '@/lib/reachLabels'
+import { l3RaiseLimit } from '@/lib/reachL3'
 
 // Reach 배지. 종류마다 모양이 다르고 항상 글자를 쓴다 (Reach 화면 명세 2-3)
 // 판정 상태 = 채운 알약, 검토 = 테두리 알약, 배포 = 채운 알약, 심각도 = 왼쪽 막대 칩, 방식 = 회색 네모 태그
@@ -29,6 +31,22 @@ export function ReachDeploymentBadge({ deployment }: { deployment: ReachDeployme
   return (
     <span className={`badge reach-pill reach-deploy ${deployment.toLowerCase().replace('_', '-')}`}>
       {labelOf(reachDeploymentLabel, deployment)}
+    </span>
+  )
+}
+
+/**
+ * L3(실제 실행)가 닿은 곳. 판정 배지와 헷갈리지 않게 테두리만 있는 네모로 쓴다.
+ * 이 이미지를 띄워 본 결과가 없으면 줄표다(확인 안 됨)
+ */
+export function ReachL3Badge({ l3 }: { l3: ReachL3Summary | null | undefined }) {
+  if (!l3) return <span className="caption" title="이 이미지를 띄워 본 결과가 없어요">—</span>
+  const limit = l3RaiseLimit(l3)
+  const detail = (l3.startupOnly ? ' (기동 중에만)' : l3.reached === 'FUNCTION' && !l3.regionsChecked ? ' (구간 확인 못 함)' : '')
+    + (l3.reached !== 'REGION' && l3.reached !== 'FUNCTION' ? '' : limit === 'NONE' ? ' · 판정 근거 아님' : limit === 'UNKNOWN' ? ' · 판정은 확인 못 함까지만' : '')
+  return (
+    <span className={`badge reach-l3 ${l3.reached.toLowerCase().replace('_', '-')}`} title={`L3 실제 실행: ${labelOf(reachL3Label, l3.reached)}${detail}`}>
+      {labelOf(reachL3Label, l3.reached)}
     </span>
   )
 }

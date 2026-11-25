@@ -53,7 +53,7 @@ function PathChangeItem({ change }: { change: IacPathChange }) {
   )
 }
 
-/** 화면에 보여줄 규칙 ID (② 발견, ① 경로 변화, ③ State 순서, 중복 없이) */
+/** 화면에 보여줄 규칙 ID (plan 전 검사 발견, 경로 변화, State 순서, 중복 없이) */
 function ruleIds(pr: IacPullRequest): string[] {
   const ids = [
     ...pr.gate.findings.map((finding) => finding.ruleId),
@@ -133,9 +133,9 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
                   <dd>{formatDateTime(pr.checkedAt)}</dd>
                 </dl>
 
-                {/* ② plan 전 검사 */}
+                {/* plan 전 검사 */}
                 <section>
-                  <h3>② plan 전 검사</h3>
+                  <h3>plan 전 검사</h3>
                   {pr.gate.findings.length === 0 ? (
                     <p className="muted iac-section-text">통과. 걸린 규칙이 없어요.</p>
                   ) : (
@@ -155,11 +155,11 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
                   )}
                 </section>
 
-                {/* ① 경로 변화 */}
+                {/* 경로 변화 */}
                 <section>
-                  <h3>① 경로 변화</h3>
+                  <h3>경로 변화</h3>
                   {gateBlocked ? (
-                    <p className="muted iac-section-text">② 에서 차단돼 plan 과 경로를 계산하지 않았어요.</p>
+                    <p className="muted iac-section-text">plan 전 검사에서 차단돼 plan 과 경로를 계산하지 않았어요.</p>
                   ) : pr.paths.length === 0 && pr.resourceFindings.length === 0 ? (
                     <p className="muted iac-section-text">새로 생기거나 사라진 경로가 없어요.</p>
                   ) : (
@@ -201,9 +201,9 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
                   )}
                 </section>
 
-                {/* ③ State 영향 */}
+                {/* State 영향 */}
                 <section>
-                  <h3>③ State 영향</h3>
+                  <h3>State 영향</h3>
                   {gateBlocked || !pr.state ? (
                     <p className="muted iac-section-text">계산하지 않았어요.</p>
                   ) : (

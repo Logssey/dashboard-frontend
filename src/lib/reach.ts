@@ -1,5 +1,6 @@
 // 취약점 관리(Reach) 화면 계산. 집계는 백엔드가 하고, 여기서는 표시용 계산만 한다
 import type {
+  ReachDeployment,
   ReachFindingDetail,
   ReachFindingListItem,
   ReachNotAnalyzedReason,
@@ -128,9 +129,16 @@ export function compareCve(a: string, b: string): number {
   return a.localeCompare(b)
 }
 
-/** 기본 정렬: 상태(도달 가능 → 미확인 → 도달 불가 → 분석 대상 아님) → 심각도 → CVE (API-04 sort 기본값) */
+/**
+ * 목록 정렬의 배포 순서: 실행 중 → 확인 못 함 → 실행 안 함 (API-04 기본 정렬).
+ * 확인 못 함(레포 스캔, 클러스터 조회 없음)은 돌고 있을 수 있어 실행 안 함보다 앞이다. 필터 순서(reachDeploymentOrder)와 다르다
+ */
+export const reachDeploymentSortOrder: ReachDeployment[] = ['RUNNING', 'UNKNOWN', 'NOT_RUNNING']
+
+/** 기본 정렬: 배포(실행 중 먼저) → 상태(도달 가능 → 미확인 → 도달 불가 → 분석 대상 아님) → 심각도 → CVE (API-04 기본 정렬) */
 export function compareFindings(a: ReachFindingListItem, b: ReachFindingListItem): number {
   return (
+    reachDeploymentSortOrder.indexOf(a.deployment) - reachDeploymentSortOrder.indexOf(b.deployment) ||
     reachStatusOrder.indexOf(a.verdict.status) - reachStatusOrder.indexOf(b.verdict.status) ||
     reachSeverityOrder.indexOf(a.vulnerability.severity) - reachSeverityOrder.indexOf(b.vulnerability.severity) ||
     compareCve(a.vulnerability.id, b.vulnerability.id) ||
@@ -360,11 +368,117 @@ export function newScanRequest(form: NewScanForm): { errors: Partial<Record<keyo
   }
 }
 
+/** 대화상자에서 대상을 고르면 채워지는 칸. 단계(l1·l2)는 고른 뒤에도 그대로 둔다 */
+export type ScanPickFill = Pick<NewScanForm, 'type' | 'app' | 'repository' | 'digest' | 'repoName' | 'commit' | 'path'>
+
+/** 새 스캔 대화상자에서 고를 수 있는 대상 한 줄 (SCR-05-09) */
+export type ScanPick = {
+  key: string
+  /** 워크로드 이름 또는 대상 표시 이름 */
+  title: string
+  /** 저장소 @ digest 앞자리, 레포 @ 커밋 앞자리 */
+  ref: string
+  /** 전체 digest나 커밋. 마우스를 올리면 보인다 */
+  full: string
+  note: string
+  fill: ScanPickFill
+}
+
+const SCAN_PICK_LIMIT = 8
+
+function imageFill(app: string | null | undefined, repository: string, digest: string): ScanPickFill {
+  return { type: 'IMAGE', app: app ?? '', repository, digest, repoName: '', commit: '', path: '' }
+}
+
+/**
+ * 새 스캔 대화상자의 고르기 목록 (SCR-05-09).
+ * running: 실행 중인 이미지(API-07). 같은 이미지(저장소·digest)는 한 줄, 스캔 없는 것이 먼저.
+ * recent: 최근 스캔한 대상(API-02 첫 쪽). PR 스캔은 뺀다(머지 전 코드를 기준 집계에 넣지 않으려고, SR-09).
+ *   대상마다 가장 새 스캔 한 줄이고, running에 있는 이미지는 다시 넣지 않는다
+ */
+export function scanPicks(workloads: ReachWorkload[], scans: ReachScan[]): { running: ScanPick[]; recent: ScanPick[] } {
+  const running: ScanPick[] = []
+  const seenImages = new Set<string>()
+  for (const item of [...workloads].sort(compareWorkloads)) {
+    const image = `${item.image.repository}@${item.image.digest}`
+    if (seenImages.has(image)) continue
+    seenImages.add(image)
+    running.push({
+      key: `running:${image}`,
+      title: item.name,
+      ref: `${item.image.repository} @ ${item.image.digest.replace('sha256:', '').slice(0, 8)}`,
+      full: item.image.digest,
+      note: item.scanMatch.status === 'MATCH' ? `스캔 #${item.scanMatch.scanId ?? '?'} 있음` : '이 이미지는 아직 스캔 없음',
+      fill: imageFill(item.app, item.image.repository, item.image.digest),
+    })
+  }
+
+  const recent: ScanPick[] = []
+  const seenTargets = new Set<number>()
+  for (const scan of scans) {
+    if (recent.length >= SCAN_PICK_LIMIT) break
+    const { target } = scan
+    if (scan.trigger === 'PR' || seenTargets.has(target.id)) continue
+    let fill: ScanPickFill
+    if (target.type === 'IMAGE' && target.image) {
+      if (seenImages.has(`${target.image.repository}@${target.image.digest}`)) continue
+      fill = imageFill(target.app, target.image.repository, target.image.digest)
+    } else if (target.type === 'REPO' && target.repo) {
+      fill = { type: 'REPO', app: target.app ?? '', repository: '', digest: '', repoName: target.repo.name, commit: target.repo.commit, path: target.repo.path ?? '' }
+    } else {
+      continue
+    }
+    seenTargets.add(target.id)
+    recent.push({
+      key: `recent:${target.id}`,
+      title: target.displayName,
+      ref: scanTargetRef(scan),
+      full: target.image?.digest ?? target.repo?.commit ?? '',
+      note: `스캔 #${scan.id} · ${formatKst(scan.startedAt ?? scan.createdAt).replace(' KST', '')}`,
+      fill,
+    })
+  }
+  return { running: running.slice(0, SCAN_PICK_LIMIT), recent }
+}
+
+/** 지금 양식의 대상이 이 줄과 같은가. 고른 줄을 표시하는 데 쓴다 */
+export function isScanPicked(form: NewScanForm, pick: ScanPick): boolean {
+  const { fill } = pick
+  if (form.type !== fill.type) return false
+  return fill.type === 'IMAGE'
+    ? form.repository.trim() === fill.repository && form.digest.trim() === fill.digest
+    : form.repoName.trim() === fill.repoName && form.commit.trim() === fill.commit && form.path.trim() === fill.path
+}
+
+/**
+ * [다시 대조]를 보일 스캔 (SCR-05-08). 성공한 스캔만 다시 대조할 수 있다(API-01 rescanOf).
+ * PR 스캔은 뺀다: 다시 대조하면 수동 스캔이 되어 머지 전 코드가 기준 집계에 들어간다(SR-09)
+ */
+export function canRescan(scan: Pick<ReachScan, 'scanStatus' | 'trigger'>): boolean {
+  return scan.scanStatus === 'SUCCEEDED' && scan.trigger !== 'PR'
+}
+
+/** API-01(rescanOf) 오류를 사람이 읽을 글로. 422는 대상이 아니라 원래 스캔 문제다 */
+export function rescanErrorText(status: number, code: string | null, message: string): string {
+  if (status === 422 && !message.startsWith('RUNNER_NOT_INSTALLED')) {
+    return '이 스캔은 다시 대조할 수 없어요. 성공으로 끝난 스캔만 다시 대조해요.'
+  }
+  return scanRequestErrorText(status, code, message)
+}
+
+/** API-01 멱등 키. 같은 키로 다시 보내면 서버가 처음 응답을 다시 준다 (API 명세 2-7) */
+export function newIdempotencyKey(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `reach-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 /** API-01 오류를 사람이 읽을 글로 (API 명세 2-6) */
 export function scanRequestErrorText(status: number, code: string | null, message: string): string {
   if (status === 400) return `입력 값을 확인하세요. (${message})`
   if (status === 403) return '스캔을 요청할 권한이 없어요.'
   if (status === 409) return '같은 요청이 처리 중이거나, 같은 요청 키로 다른 내용을 보냈어요. 잠시 뒤 다시 시도하세요.'
+  if (status === 422 && message.startsWith('RUNNER_NOT_INSTALLED')) {
+    return '이 앱의 레포에는 Reach 실행기가 아직 없어요(GitHub App 설치와 Reach 워크플로가 필요해요).'
+  }
   if (status === 422) return '어느 서비스(앱)의 대상인지 정하지 못했어요. 앱을 직접 골라 주세요.'
   if (status === 503) return '스캔 실행기(GitHub 워크플로)를 지금 부를 수 없어요. 잠시 뒤 다시 시도하세요.'
   return code ? `${message} (${code})` : message

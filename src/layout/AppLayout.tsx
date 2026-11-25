@@ -8,8 +8,11 @@ import { availableMetric, parseWorkbenchFilters } from '@/lib/secretWorkbench'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
 import { sanitizedSecretSearchParams, secretSearchErrorMessage } from '@/lib/secretReadSelection'
 import { Icon, type IconName } from '@/components/Icon'
+import { HelpChat } from '@/components/HelpChat'
+import { clearHelpMessages } from '@/lib/helpChat'
 import { infrastructurePaths, LOGIN_PATH, OVERVIEW_PATH, pageTitle, sectionPages } from '@/lib/routes'
 import { isVulnerabilityPath, vulnerabilityPages } from '@/lib/reachRoutes'
+import { codePages, isCodePath } from '@/code/routes'
 import { ME_QUERY_KEY, useMe } from './useMe'
 
 const navigation: Array<{ path: string; icon: IconName; label: string }> = [
@@ -17,6 +20,8 @@ const navigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: '/secrets', icon: 'key', label: '시크릿' },
   { path: '/configuration', icon: 'cloud', label: '인프라 보안' },
   { path: '/vulnerabilities', icon: 'shield', label: '취약점 관리' },
+  { path: '/code', icon: 'code', label: '코드 취약점' },
+  { path: '/reports', icon: 'list', label: '리포트' },
 ]
 
 
@@ -38,6 +43,7 @@ export function AppLayout() {
   const inInfrastructure = infrastructurePaths.includes(location.pathname)
   const inSecrets = location.pathname === '/secrets' || location.pathname.startsWith('/secrets/')
   const inVulnerabilities = isVulnerabilityPath(location.pathname)
+  const inCode = isCodePath(location.pathname)
   const safeNavigation = sanitizedSecretSearchParams(new URLSearchParams(location.search))
 
   const summarySelection = parseWorkbenchFilters(new URLSearchParams())
@@ -53,6 +59,7 @@ export function AppLayout() {
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSettled: () => {
+      clearHelpMessages()
       queryClient.setQueryData(ME_QUERY_KEY, null)
       queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== ME_QUERY_KEY[0] })
       navigate(LOGIN_PATH, { replace: true })
@@ -97,7 +104,9 @@ export function AppLayout() {
             const isInfrastructure = item.path === '/configuration'
             const isSecrets = item.path === '/secrets'
             const active = isInfrastructure ? inInfrastructure : isSecrets ? inSecrets
-              : item.path === '/vulnerabilities' ? inVulnerabilities : location.pathname === item.path
+              : item.path === '/vulnerabilities' ? inVulnerabilities
+              : item.path === '/code' ? inCode
+              : item.path === '/reports' ? location.pathname.startsWith('/reports') : location.pathname === item.path
             return (
               <div key={item.path}>
                 <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={item.path} end>
@@ -124,6 +133,12 @@ export function AppLayout() {
                 )}
                 {item.path === '/vulnerabilities' && inVulnerabilities &&
                   vulnerabilityPages.map((page) => (
+                    <NavLink key={page.path} className={`nav-link sub ${location.pathname === page.path ? 'active' : ''}`.trim()} to={page.path} end>
+                      {page.title}
+                    </NavLink>
+                  ))}
+                {item.path === '/code' && inCode &&
+                  codePages.map((page) => (
                     <NavLink key={page.path} className={`nav-link sub ${location.pathname === page.path ? 'active' : ''}`.trim()} to={page.path} end>
                       {page.title}
                     </NavLink>
@@ -166,6 +181,7 @@ export function AppLayout() {
             <span>{title}</span>
           </div>
           <div className="row topbar-user">
+            {me && <HelpChat page={title} />}
             {me && (
               <>
                 <span className="avatar desktop-only">{initials(me.displayName)}</span>
