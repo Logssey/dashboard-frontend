@@ -68,8 +68,12 @@ export function scanProgressReason(code: string | null): string | null {
     SOURCE_GUARD_BLOCKED: '당시 원천 보호 설정에 따른 인증 확인 생략',
     NO_CANDIDATES: '인증 확인 대상 없음', NO_CREDENTIALS: '인증 확인 대상 없음',
     DISABLED: '인증 확인 설정 꺼짐', VALIDATION_DISABLED: '인증 확인 설정 꺼짐',
+    VALIDATOR_NOT_ALLOWED: '이 연결에서 해당 키 발급 서비스의 검증을 허용하지 않았어요.',
     WAITING_FOR_WORKER: '워커 배정 대기', RETRY_SCHEDULED: '다음 시도 대기',
     VALIDATION_INCONCLUSIVE: '인증을 확인하지 못한 키가 있어요. 키별 사유를 확인하세요.',
+    NOT_APPLICABLE_METADATA: '목록과 상태만 조회한 실행으로, 키 내용 탐지와 인증 확인은 포함하지 않아요.',
+    MULTIPLE_VALIDATION_REASONS: '여러 사유로 인증을 확인하지 못했어요. 아래 사유별 건수를 확인하세요.',
+    UNRECORDED_REASON: '인증을 확인하지 않은 상세 사유가 기록되지 않았어요.',
   }
   return labels[code] ?? validationReasonLabels[code] ?? scanReason(code)
 }
@@ -89,7 +93,31 @@ export function scanProgressEventOutcome(event: ScanProgressEvent, data: SecretS
 }
 
 export function scanProgressStatusLabel(data: SecretScanProgressResponse): string {
+  if (data.status === 'SUCCEEDED' && scanIsMetadataOnly(data)) return '목록 조회 완료'
+  if (data.status === 'SUCCEEDED' && data.validationSummary && data.validationSummary.uncheckedCount > 0
+    && data.stages.some((item) => item.key === 'VALIDATION' && item.status === 'SKIPPED')) return '검사 완료 · 인증 미확인'
   return scanRunStatus(data.status)
+}
+
+export function scanIsMetadataOnly(data: SecretScanProgressResponse): boolean {
+  return ['DETECTION', 'VALIDATION'].every((key) => data.stages.some((item) =>
+    item.key === key && item.status === 'SKIPPED' && item.reasonCode === 'NOT_APPLICABLE_METADATA'))
+}
+
+export function scanNeedsValidationSetup(data: SecretScanProgressResponse): boolean {
+  const setupReasons = new Set(['DISABLED', 'VALIDATION_DISABLED', 'VALIDATOR_NOT_ALLOWED', 'NOT_APPROVED', 'PROFILE_UNCONFIGURED'])
+  return data.stages.some((item) => item.key === 'VALIDATION' && setupReasons.has(item.reasonCode ?? ''))
+    || !!data.validationSummary?.uncheckedReasons?.some((item) => item.count > 0 && setupReasons.has(item.reasonCode))
+}
+
+export function scanProgressEventReason(event: ScanProgressEvent, data: SecretScanProgressResponse): string | null {
+  // Older runs summarized the alphabetically first scope reason, hiding blocked credentials.
+  // Only replace that aggregate for the current attempt; individual observations stay unchanged.
+  const stage = data.stages.find((item) => item.key === 'VALIDATION')
+  if (event.stage === 'VALIDATION' && event.operationCode === 'STAGE_SUMMARY'
+    && event.outcome === 'SKIPPED' && event.attemptNo === data.attemptNo && stage?.status === 'SKIPPED'
+    && data.validationSummary?.uncheckedReasons?.length) return scanProgressReason(stage.reasonCode)
+  return scanProgressReason(event.reasonCode)
 }
 
 export function scanStageCount(stage: ScanProgressStage): string | null {

@@ -29,6 +29,7 @@ export interface ScanProgressEvent {
 }
 
 export interface ScanValidationSummary {
+  uncheckedReasons?: { reasonCode: string; count: number }[]
   reuseRecorded: boolean
   newRequestCount: number
   completedRequestCount: number
