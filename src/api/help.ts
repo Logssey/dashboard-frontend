@@ -29,6 +29,8 @@ export interface HelpChatResponse {
   cached: boolean
   /** 체크리스트 카드. 일반 답이거나 카드 형식이 틀려 글로 대체됐으면 null */
   cards?: HelpCard[] | null
+  /** AI 답이 아니라 대응 절차 문서의 고정 10단계 (AI 호출 실패·형식 오류) */
+  withoutAi?: boolean
 }
 
 export type HelpMode = 'checklist'
@@ -220,9 +222,31 @@ export async function fetchIncidentStatus(): Promise<IncidentStatus> {
   }
 }
 
-export function askHelp(question: string, page: string, history: HelpTurn[], mode?: HelpMode): Promise<HelpChatResponse> {
-  return apiRequest<HelpChatResponse>('/api/v1/help/chat', {
-    method: 'POST',
-    body: JSON.stringify(mode ? { question, page, history, mode } : { question, page, history }),
-  })
+/** 예/아니오 환경 신호 (설계 문서 18.3). 숫자·이름은 넣지 않는다 */
+export type HelpSignals = Partial<Record<string, boolean>>
+
+export function askHelp(
+  question: string,
+  page: string,
+  history: HelpTurn[],
+  mode?: HelpMode,
+  signals?: HelpSignals,
+): Promise<HelpChatResponse> {
+  const body: Record<string, unknown> = { question, page, history }
+  if (mode) body.mode = mode
+  if (signals && Object.keys(signals).length > 0) body.signals = signals
+  return apiRequest<HelpChatResponse>('/api/v1/help/chat', { method: 'POST', body: JSON.stringify(body) })
+}
+
+/** 사고 보고서 초안 (설계 문서 18.4). 메모의 문장만 AI가 다듬고, 숫자와 시각은 화면이 채운다 */
+export interface HelpReportDraft {
+  summary: string
+  checked: string[]
+  actions: string[]
+  remaining: string[]
+  remainingToday: number
+}
+
+export function draftReport(memo: string): Promise<HelpReportDraft> {
+  return apiRequest<HelpReportDraft>('/api/v1/help/report', { method: 'POST', body: JSON.stringify({ memo }) })
 }

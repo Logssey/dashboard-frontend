@@ -2,9 +2,22 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '@/api/client'
-import { askHelp, fetchCveImpact, fetchHelpStatus, fetchIncidentStatus, type HelpCard, type HelpMode } from '@/api/help'
+import {
+  askHelp,
+  draftReport,
+  fetchCveImpact,
+  fetchHelpStatus,
+  fetchIncidentStatus,
+  type HelpCard,
+  type HelpMode,
+  type HelpSignals,
+} from '@/api/help'
 import {
   buildHistory,
+  maskPrivate,
+  REPORT_MEMO_MAX,
+  reportText,
+  signalsForAI,
   CHECKLIST_DEFAULT_QUESTION,
   HELP_SCREEN_ROUTES,
   helpScreenRoute,
@@ -192,6 +205,46 @@ export function HelpChat({ page }: { page: string }) {
   }
   const signalCheckedAt = signalStatus.dataUpdatedAt ? signalCheckTime(signalStatus.dataUpdatedAt) : null
 
+  // 사고 보고서 초안 (설계 문서 18.4): 메모는 이 화면에만 두고 저장소에 남기지 않는다.
+  const [reportOpen, setReportOpen] = useState(false)
+  const [memo, setMemo] = useState('')
+  const [reportOut, setReportOut] = useState<string | null>(null)
+  const [reportError, setReportError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const report = useMutation({
+    mutationFn: (notes: string) => draftReport(notes),
+    onSuccess: (draft) => {
+      setReportError(null)
+      setReportOut(reportText(draft, signalStatus.data, signalStatus.dataUpdatedAt || null, Date.now()))
+    },
+    onError: (error) => {
+      const code = error instanceof ApiError ? error.code : null
+      setReportError(
+        (code && helpErrorMessages[code]) ||
+          (error instanceof ApiError && error.status === 429 ? error.message : '초안을 만들지 못했어요. 잠시 후 다시 시도해 주세요.'),
+      )
+    },
+  })
+  const makeReport = () => {
+    const typed = memo.trim()
+    if (!typed || report.isPending) return
+    if (typed.length > REPORT_MEMO_MAX) return setReportError(helpErrorMessages.MEMO_INVALID)
+    const notes = maskPrivate(typed)
+    if (looksLikeSecret(notes)) return setReportError(helpErrorMessages.QUESTION_REJECTED)
+    setReportOut(null)
+    setCopied(false)
+    report.mutate(notes)
+  }
+  const copyReport = async () => {
+    if (!reportOut) return
+    try {
+      await navigator.clipboard.writeText(reportOut)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
@@ -205,8 +258,17 @@ export function HelpChat({ page }: { page: string }) {
   }, [messages])
 
   const ask = useMutation({
-    mutationFn: ({ question, history, mode }: { question: string; history: ReturnType<typeof buildHistory>; mode?: HelpMode }) =>
-      askHelp(question, page, history, mode),
+    mutationFn: ({
+      question,
+      history,
+      mode,
+      signals,
+    }: {
+      question: string
+      history: ReturnType<typeof buildHistory>
+      mode?: HelpMode
+      signals?: HelpSignals
+    }) => askHelp(question, page, history, mode, signals),
     onSuccess: (response) =>
       setMessages((current) => [
         ...current,
@@ -216,6 +278,7 @@ export function HelpChat({ page }: { page: string }) {
           grounded: response.grounded,
           sources: response.sources,
           cards: usableCards(response.cards),
+          ...(response.withoutAi === true ? { withoutAi: true } : {}),
         },
       ]),
     onError: (error) => {
@@ -228,8 +291,11 @@ export function HelpChat({ page }: { page: string }) {
   })
 
   const send = (text: string, mode?: HelpMode) => {
-    const question = text.trim()
-    if (!question || ask.isPending) return
+    const typed = text.trim()
+    if (!typed || ask.isPending) return
+    // 고객 정보(이메일·IP·전화번호 등)는 보내기 전에 가린다. 화면과 대화 기록에도 가린 글만 남는다 (설계 문서 18.1).
+    const question = maskPrivate(typed)
+    const masked = question !== typed
     if (question.length > HELP_QUESTION_MAX) {
       setInputError(helpErrorMessages.INVALID_INPUT)
       return
@@ -245,6 +311,7 @@ export function HelpChat({ page }: { page: string }) {
     const userMessage: HelpMessage = {
       role: 'user',
       text: question,
+      ...(masked ? { masked: true } : {}),
       ...(impact.cves.length ? { impactCves: impact.cves } : {}),
       ...(impact.name ? { incidentName: impact.name } : {}),
       ...(looksLikeIncident(question) || mode === 'checklist' ? { incidentStatus: true } : {}),
@@ -253,7 +320,9 @@ export function HelpChat({ page }: { page: string }) {
     if (userMessage.incidentStatus && types.length) userMessage.incidentTypes = types
     setMessages((current) => [...current, userMessage])
     setDraft('')
-    ask.mutate({ question, history, mode })
+    // 사고 질문이면 환경 신호를 예/아니오로만 함께 보낸다 (설계 문서 18.3). 숫자·이름은 보내지 않는다.
+    const incident = userMessage.incidentStatus === true || impact.cves.length > 0
+    ask.mutate({ question, history, mode, signals: incident ? signalsForAI(signalStatus.data) : undefined })
   }
 
   // "화면 열기": 카드의 화면 키를 고정 표에서 찾은 내부 경로로만 이동한다. 서랍은 열어 둔다.
@@ -325,6 +394,49 @@ export function HelpChat({ page }: { page: string }) {
             </div>
 
             <div className="help-messages" ref={listRef} aria-live="polite">
+              {reportOpen && (
+                <section className="help-report" aria-label="사고 보고서 초안">
+                  <strong className="help-card-title">사고 보고서 초안</strong>
+                  <p className="caption">
+                    확인하고 조치한 내용을 메모로 적으면 AI가 보고서 문장으로 다듬어요. 시각과 숫자는 Logssey가 채우고, 메모에 없는
+                    숫자는 막아요. 고객 정보는 가려서 보내고 메모는 저장하지 않아요.
+                  </p>
+                  <label className="sr-only" htmlFor="help-report-memo">
+                    조치 메모
+                  </label>
+                  <textarea
+                    id="help-report-memo"
+                    value={memo}
+                    maxLength={REPORT_MEMO_MAX}
+                    rows={4}
+                    placeholder="예: 14시 웹 서버 2대 격리. 런타임 탐지 확인했고 이상 없음. 서버 키 교체는 내일."
+                    onChange={(event) => setMemo(event.target.value)}
+                  />
+                  {reportError && (
+                    <p className="notice error" role="alert">
+                      {reportError}
+                    </p>
+                  )}
+                  <div className="row between">
+                    <span className="caption">
+                      {memo.length}/{REPORT_MEMO_MAX}
+                    </span>
+                    <button type="button" className="btn primary small" disabled={!ready || report.isPending || !memo.trim()} onClick={makeReport}>
+                      {report.isPending ? '초안 만드는 중…' : '초안 만들기'}
+                    </button>
+                  </div>
+                  {reportOut && (
+                    <>
+                      <pre className="help-report-out">{reportOut}</pre>
+                      <div className="row help-form-actions">
+                        <button type="button" className="btn outline small" onClick={copyReport}>
+                          {copied ? '복사했어요' : '복사'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
               {signals.length > 0 && (
                 <section className="help-signals" aria-label="새 보안 신호">
                   <strong className="help-card-title">새 보안 신호</strong>
@@ -408,6 +520,12 @@ export function HelpChat({ page }: { page: string }) {
                   ) : (
                     <p>{message.text}</p>
                   )}
+                  {message.role === 'assistant' && message.withoutAi === true && (
+                    <p className="help-masked-note">AI 연결이 안 돼 대응 절차 문서의 고정 10단계로 보여 드려요(AI가 만든 답이 아니에요).</p>
+                  )}
+                  {message.role === 'user' && message.masked === true && (
+                    <p className="help-masked-note">이메일·IP·전화번호처럼 보이는 값은 가려서 보냈어요.</p>
+                  )}
                   {message.sources && message.sources.length > 0 && (
                     <details className="help-sources">
                       <summary>{sourcesToggleLabel(message.sources.length)}</summary>
@@ -487,6 +605,15 @@ export function HelpChat({ page }: { page: string }) {
                     onClick={() => send(draft.trim() || CHECKLIST_DEFAULT_QUESTION, 'checklist')}
                   >
                     사고 대응 체크리스트
+                  </button>
+                  <button
+                    type="button"
+                    className="btn outline small"
+                    aria-expanded={reportOpen}
+                    title="조치 메모로 사고 보고서 초안을 만들어요"
+                    onClick={() => setReportOpen((value) => !value)}
+                  >
+                    보고서 초안
                   </button>
                   <button type="submit" className="btn primary small" disabled={!ready || ask.isPending || !draft.trim()}>
                     보내기
