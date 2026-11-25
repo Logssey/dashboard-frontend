@@ -20,6 +20,23 @@ export interface OverviewSummaryResponse {
   scoreRule: string
   lastCollectedAt: string | null
   secretIntegration?: { status: 'AVAILABLE' | 'NOT_AUTHORIZED'; unit: 'ResponseCase'; origin: 'PRODUCTION' | 'ALL'; total: number | null; unassessedCount: number | null; notApplicableCount: number | null; restrictedCoverage: boolean }
+  /** 보안 기능별 반영 현황 (같은 원인을 묶은 건수) */
+  parts?: OverviewPartSummary[]
+}
+
+export interface OverviewPartSummary {
+  part: string
+  label: string
+  status: 'CONNECTED' | 'NO_DATA' | 'NOT_AUTHORIZED' | 'ERROR'
+  link: string | null
+  critical: number
+  high: number
+  medium: number
+  low: number
+  unassessed: number
+  total: number
+  penalty: number
+  dataAsOf: string | null
 }
 
 export interface RiskTrendResponse {
@@ -53,7 +70,7 @@ export interface AssetRef {
 
 export interface PriorityFinding {
   eventId: number | null
-  sourceType?: 'DETECTION_EVENT' | 'SECRET_CASE'
+  sourceType?: 'DETECTION_EVENT' | 'SECRET_CASE' | 'PART_FINDING'
   sourceId?: number
   detailPath?: string | null
   displayId: string | null
@@ -62,7 +79,7 @@ export interface PriorityFinding {
   title: string
   asset: AssetRef | null
   environment: Exclude<Environment, 'ALL'> | 'UNKNOWN' | 'MIXED'
-  ownerTeam: string
+  ownerTeam: string | null
   reviewStatus: 'UNREVIEWED' | 'REVIEWED' | null
   actionStatus: 'OPEN' | 'IN_PROGRESS' | 'REVALIDATION_PENDING' | 'RESOLVED' | 'RISK_ACCEPTED'
   detectedAt: string
