@@ -11,7 +11,7 @@ export const scanProgressStages: Record<ScanProgressStageKey, { title: string; d
 }
 
 export const scanProgressStates: Record<ScanProgressStage['status'], string> = {
-  PENDING: '대기', RUNNING: '진행 중', SUCCEEDED: '완료', PARTIAL: '일부 실패',
+  PENDING: '대기', RUNNING: '진행 중', SUCCEEDED: '처리 완료', PARTIAL: '일부 실패',
   FAILED: '실패', SKIPPED: '생략', CANCELLED: '취소', UNKNOWN: '기록 확인 필요',
 }
 
@@ -79,23 +79,33 @@ export function scanProgressReason(code: string | null): string | null {
 }
 
 export function scanValidationOnlyIssue(data: SecretScanProgressResponse): boolean {
-  return ['PARTIAL', 'FAILED'].includes(data.status)
-    && data.stages.some((item) => item.key === 'VALIDATION' && ['PARTIAL', 'FAILED'].includes(item.status))
+  return data.status === 'PARTIAL'
+    && data.stages.some((item) => item.key === 'VALIDATION' && item.status === 'PARTIAL' && item.reasonCode === 'VALIDATION_INCONCLUSIVE')
     && ['COLLECTION', 'DETECTION'].every((key) => data.stages.some((item) => item.key === key && item.status === 'SUCCEEDED'))
+    && data.stages.every((item) => item.status === 'SUCCEEDED' || item.status === 'SKIPPED'
+      || (['VALIDATION', 'RESULT'].includes(item.key) && item.status === 'PARTIAL' && item.reasonCode === 'VALIDATION_INCONCLUSIVE'))
 }
 
-export function scanProgressEventOutcome(event: ScanProgressEvent, data: SecretScanProgressResponse): string {
-  const completedValidationSummary = data.status === 'PARTIAL'
+export function scanProgressStageStatus(stage: ScanProgressStage, data: SecretScanProgressResponse): ScanProgressStage['status'] {
+  return scanValidationOnlyIssue(data) && ['VALIDATION', 'RESULT'].includes(stage.key)
+    && stage.status === 'PARTIAL' && stage.reasonCode === 'VALIDATION_INCONCLUSIVE' ? 'SUCCEEDED' : stage.status
+}
+
+export function scanCompletedValidationSummary(event: ScanProgressEvent, data: SecretScanProgressResponse): boolean {
+  return data.status === 'PARTIAL'
     && event.operationCode === 'STAGE_SUMMARY' && event.outcome === 'PARTIAL'
     && event.reasonCode === 'VALIDATION_INCONCLUSIVE'
     && ['VALIDATION', 'RESULT'].includes(event.stage) && scanValidationOnlyIssue(data)
-  return completedValidationSummary ? '검사 완료' : scanEventOutcome(event.outcome)
+}
+
+export function scanProgressEventOutcome(event: ScanProgressEvent, data: SecretScanProgressResponse): string {
+  return scanCompletedValidationSummary(event, data) ? '처리 완료' : scanEventOutcome(event.outcome)
 }
 
 export function scanProgressStatusLabel(data: SecretScanProgressResponse): string {
   if (data.status === 'SUCCEEDED' && scanIsMetadataOnly(data)) return '목록 조회 완료'
-  if (data.status === 'SUCCEEDED' && data.validationSummary && data.validationSummary.uncheckedCount > 0
-    && data.stages.some((item) => item.key === 'VALIDATION' && item.status === 'SKIPPED')) return '검사 완료 · 인증 미확인'
+  if (data.status === 'SUCCEEDED' || scanValidationOnlyIssue(data)) return '처리 완료'
+  if (data.status === 'PARTIAL') return '일부 실패'
   return scanRunStatus(data.status)
 }
 

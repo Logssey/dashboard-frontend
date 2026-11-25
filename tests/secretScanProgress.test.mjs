@@ -66,16 +66,16 @@ test('metadata inventory is distinguished from secret detection and hides irrele
   assert.notEqual(modules.lib.scanProgressStatusLabel({ ...data, status: 'FAILED' }), '목록 조회 완료')
 })
 
-test('blocked credentials show actual reason counts and the matching connection settings', () => {
+test('disabled validation keeps its skip reason and matching settings without the key summary', () => {
   const data = { ...value, status: 'SUCCEEDED', validationSummary: { ...validationSummary, uncheckedCount: 4,
     incompleteCount: 0, reusedResultCount: 0, reusedResults: [], uncheckedReasons: [{ reasonCode: 'VALIDATOR_NOT_ALLOWED', count: 4 }] },
     stages: [stage('DETECTION', 'SUCCEEDED'), { ...stage('VALIDATION', 'SKIPPED'), reasonCode: 'VALIDATOR_NOT_ALLOWED' }, stage('RESULT', 'SUCCEEDED')] }
   const html = render(data)
-  assert.match(html, /검사 완료 · 인증 미확인/)
-  assert.match(html, /인증 미확인 사유/)
+  assert.match(html, /처리 완료/)
+  assert.doesNotMatch(html, /인증 미확인 사유/)
   assert.match(html, /validationConnectionId=3/)
   assert.match(html, /키 발급 서비스의 검증을 허용하지 않았어요/)
-  assert.match(html, /4건/)
+  assert.match(html, /stage-skipped/)
   const aggregate = { ...event(2, 'STAGE_SUMMARY'), stage: 'VALIDATION', outcome: 'SKIPPED', reasonCode: 'NO_CANDIDATES' }
   assert.match(modules.lib.scanProgressEventReason(aggregate, data), /허용하지 않았어요/)
   assert.equal(modules.lib.scanProgressEventReason({ ...aggregate, attemptNo: 0 }, data), '인증 확인 대상 없음')
@@ -164,58 +164,42 @@ test('incomplete AWS credentials retain their exact validation reasons in the ex
   assert.doesNotMatch(html, /최근 검사 일부 누락|검사 근거 확인 필요|HTTP 200/)
 })
 
-test('same-cycle reused results show their original observations separately from new API requests', () => {
+test('inconclusive key validity does not turn completed processing stages into warnings', () => {
   const html = render(incompleteRun)
-  assert.match(html, /새 인증 요청<\/dt><dd>0건/)
-  assert.match(html, /이전 결과 재사용<\/dt><dd>7건/)
-  assert.match(html, /구성 부족<\/dt><dd>2건/)
-  assert.match(html, /GitHub PAT · 사용 불가 2건/)
-  assert.match(html, /검증 2026\. 11\. 12\. 02:10 KST/)
-  assert.match(html, /href="\/secrets\/history\/85"/)
-  assert.match(html, /검사 완료/)
-  assert.match(html, /인증 미확인 2건의 사유를 결과에서 확인하세요/)
-  assert.match(html, /인증 확인이 필요한 키 보기/)
-  assert.doesNotMatch(html, /실패 대상 확인|부분 실패|HTTP 401|GET \/user/)
-  const capped = render({ ...incompleteRun, validationSummary: { ...validationSummary, reusedResults: validationSummary.reusedResults.slice(0, 1), reusedResultsTruncated: true } })
-  assert.match(capped, /이전 관측 일부를 표시해요/)
-  assert.match(capped, /이전 결과 재사용<\/dt><dd>7건/)
-})
-
-test('historical reuse gaps stay unknown and real operational failures retain failure navigation', () => {
-  const historical = render({ ...incompleteRun, validationSummary: { ...validationSummary, reuseRecorded: false, reusedResultCount: null, reusedResults: [] } })
-  assert.match(historical, /이전 결과 재사용<\/dt><dd>미기록/)
-  assert.match(historical, /이 실행의 이전 결과 재사용 내역은 기록되지 않았어요/)
-  assert.doesNotMatch(historical, /이전 결과 재사용<\/dt><dd>0건/)
-  const failed = render({ ...incompleteRun, validationSummary: { ...validationSummary, unknownCount: 1 } })
-  assert.match(failed, /검사 완료/)
-  assert.match(failed, /인증 확인 불가<\/dt><dd>1건/)
-  assert.match(failed, /인증 확인이 필요한 키 보기/)
-  assert.doesNotMatch(failed, /실패 대상 확인/)
-  const collectionFailure = render({ ...incompleteRun, stages: incompleteRun.stages.map((item) => item.key === 'COLLECTION' ? { ...item, status: 'PARTIAL' } : item) })
-  assert.match(collectionFailure, /실패 대상 확인/)
-  assert.match(collectionFailure, /확인이 필요한 항목과 대상별 사유를 결과에서 확인하세요/)
-})
-
-test('completed processing keeps credential outcomes while failed and cancelled executions keep their status', () => {
-  for (const status of ['SUCCEEDED', 'PARTIAL', 'SKIPPED']) {
-    assert.equal(modules.lib.scanProgressStatusLabel({ ...incompleteRun, status }), '검사 완료')
-  }
-  const completed = render(incompleteRun)
-  assert.match(completed, /secret-run-badge succeeded">검사 완료/)
-  assert.match(completed, /구성 부족<\/dt><dd>2건/)
+  assert.equal((html.match(/class="stage-succeeded"/g) ?? []).length, 5)
+  assert.match(html, /secret-run-badge succeeded">처리 완료/)
+  assert.doesNotMatch(html, /stage-partial|인증 미확인|인증을 확인하지 못한 키|인증 확인 결과|구성 부족|실패 대상 확인/)
+  assert.match(html, /href="\/secrets\/history\/91\/findings"[^>]*>발견 결과 보기/)
+  assert.match(html, /href="\/secrets\/history\/91"[^>]*>실행 이력/)
   assert.equal(incompleteRun.status, 'PARTIAL')
   assert.equal(incompleteRun.validationSummary.uncheckedCount, 2)
+  assert.equal(incompleteRun.validationSummary.reusedResultCount, 7)
+})
+
+test('real collection, validation and result failures remain visible', () => {
+  for (const [key, reasonCode] of [['COLLECTION', 'NETWORK_ERROR'], ['VALIDATION', 'VALIDATION_ATTEMPT_FAILED'], ['RESULT', 'RESULT_COMMIT_FAILED']]) {
+    const data = { ...incompleteRun, stages: incompleteRun.stages.map((item) => item.key === key ? { ...item, status: 'PARTIAL', reasonCode } : item) }
+    const html = render(data)
+    assert.match(html, /stage-partial/)
+    assert.match(html, /secret-run-badge partial">일부 실패/)
+    assert.match(html, /실패 대상 확인/)
+    assert.equal(modules.lib.scanValidationOnlyIssue(data), false)
+  }
   for (const [status, label] of [['FAILED', '실패'], ['CANCELLED', '취소']]) {
     assert.equal(modules.lib.scanProgressStatusLabel({ ...incompleteRun, status }), label)
     assert.match(render({ ...incompleteRun, status }), new RegExp(`secret-run-badge ${status.toLowerCase()}">${label}`))
   }
+  assert.equal(modules.lib.scanProgressStatusLabel({ ...incompleteRun, status: 'SUCCEEDED' }), '처리 완료')
 })
 
 test('completed validation summaries keep per-key reasons while actual partial and failed operations stay factual', () => {
   const summary = { ...event(1, 'STAGE_SUMMARY'), stage: 'VALIDATION', outcome: 'PARTIAL', httpStatus: null, reasonCode: 'VALIDATION_INCONCLUSIVE' }
-  assert.equal(modules.lib.scanProgressEventOutcome(summary, incompleteRun), '검사 완료')
+  assert.equal(modules.lib.scanProgressEventOutcome(summary, incompleteRun), '처리 완료')
+  const html = render({ ...incompleteRun, events: [{ ...summary, stage: 'RESULT' }] })
+  assert.match(html, /class="event-completed"/)
+  assert.doesNotMatch(html, /인증을 확인하지 못한 키|event-partial/)
   assert.equal(modules.lib.scanProgressReason(summary.reasonCode), '인증을 확인하지 못한 키가 있어요. 키별 사유를 확인하세요.')
-  assert.equal(modules.lib.scanProgressEventOutcome({ ...summary, stage: 'RESULT' }, incompleteRun), '검사 완료')
+  assert.equal(modules.lib.scanProgressEventOutcome({ ...summary, stage: 'RESULT' }, incompleteRun), '처리 완료')
   assert.equal(modules.lib.scanProgressEventOutcome({ ...summary, operationCode: 'GITHUB_CREDENTIAL_CHECK' }, incompleteRun), '일부 처리')
   assert.equal(modules.lib.scanProgressEventOutcome({ ...summary, stage: 'COLLECTION' }, incompleteRun), '일부 처리')
   assert.equal(modules.lib.scanProgressEventOutcome({ ...summary, outcome: 'FAILED', reasonCode: 'NETWORK_ERROR' }, incompleteRun), '실패')
