@@ -31,7 +31,7 @@ export function reviewInputErrors(context: ReviewContext, input: ReviewInput, no
   if (!currentReviewVersions(context)) errors.push('VERSIONS_REQUIRED')
   if (!input.decision || !allowedReviewDecisions(context).includes(input.decision)) errors.push('DECISION_NOT_ALLOWED')
   if (!context.allowedReasonCodes?.[input.decision]?.includes(input.reasonCode)) errors.push('REASON_REQUIRED')
-  if (!validEvidenceRef(input.evidenceRef)) errors.push('SAFE_REFERENCE_REQUIRED')
+  if (input.evidenceRef && !validEvidenceRef(input.evidenceRef)) errors.push('SAFE_REFERENCE_REQUIRED')
   if (input.decision !== 'NEEDS_MORE_INFO' && !context.findings?.some((entry) => entry.findingId === input.findingId && entry.valid)) errors.push('VALID_FINDING_REQUIRED')
   if (input.decision === 'NEEDS_MORE_INFO') {
     if (!context.allowedMissingReasonCodes?.includes(input.missingReasonCode)) errors.push('MISSING_REASON_REQUIRED')

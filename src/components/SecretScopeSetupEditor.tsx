@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
 import { fetchStoragePolicies, previewScopeClassification, proposeScopeClassification, type ClassificationPreview, type ScopeClassification, type ProposeClassification, type PreviewClassification } from '@/api/secretPolicy'
-import { idempotencyFor, safeMutationMessage, validEvidenceRef } from '@/lib/secretEvidence'
+import { idempotencyFor, safeMutationMessage } from '@/lib/secretEvidence'
 import { approvalReasonLabels, setupReasonLabels } from '@/lib/secretScopeSetup'
 import { useSecretReadRefresh } from '@/lib/useSecretReadRefresh'
 
@@ -11,7 +11,6 @@ function AdvancedPolicyEditor({ scope, onUpdated }: { scope: ScopeClassification
   const [editPolicy, setEditPolicy] = useState(false)
   const [policyChoice, setPolicyChoice] = useState('keep')
   const [policyPage, setPolicyPage] = useState(0)
-  const [evidence, setEvidence] = useState('')
   const [reviewer, setReviewer] = useState('')
   const [confirmed, setConfirmed] = useState(false)
   const [stale, setStale] = useState(false)
@@ -31,11 +30,11 @@ function AdvancedPolicyEditor({ scope, onUpdated }: { scope: ScopeClassification
   const save = useMutation({ mutationFn: (value: ProposeClassification) => proposeScopeClassification(scope.scopeId, value), onSuccess: (result) => { refresh(); onUpdated(result) }, onError: (error) => { if (error instanceof ApiError && error.status === 409) setStale(true) } })
   if (!scope.capabilities?.canPropose) return <section className="card secret-governance-form"><h2>설정 변경</h2><p>권한 있는 보안 담당자가 보관 정책을 변경할 수 있어요.</p></section>
   const validChoice = keepPolicy || policyChoice === 'none' || !!selected
-  const ready = !!origin && validChoice && validEvidenceRef(evidence) && preview?.canSubmit && confirmed && !stale
+  const ready = !!origin && validChoice && preview?.canSubmit && confirmed && !stale
   const busy = save.isPending || prepare.isPending
   return <section className="card secret-governance-form"><h2>보관 규칙 변경</h2><p className="caption">현재 검사 대상의 보관 허용·금지 정책을 변경해요.</p>
     <form onSubmit={(event) => { event.preventDefault(); if (!ready || !preview) return
-      const payload = { ...request, reasonCode: policyId == null ? 'POLICY_PENDING' as const : scope.origin === 'UNCLASSIFIED' ? 'SOURCE_CLASSIFICATION' as const : 'SOURCE_CORRECTION' as const, evidenceRef: evidence, expectedApprovalMode: preview.approvalMode, reviewerUserId: preview.approvalMode === 'INDEPENDENT_REVIEW' && reviewer ? Number(reviewer) : null }
+      const payload = { ...request, reasonCode: policyId == null ? 'POLICY_PENDING' as const : scope.origin === 'UNCLASSIFIED' ? 'SOURCE_CLASSIFICATION' as const : 'SOURCE_CORRECTION' as const, expectedApprovalMode: preview.approvalMode, reviewerUserId: preview.approvalMode === 'INDEPENDENT_REVIEW' && reviewer ? Number(reviewer) : null }
       save.mutate({ ...payload, idempotencyKey: idempotencyFor(command, payload) })
     }}>
       <details open={editPolicy} onToggle={(event) => setEditPolicy(event.currentTarget.open)}><summary>보관 정책 별도 설정</summary><div className="secret-policy-picker">
@@ -50,7 +49,7 @@ function AdvancedPolicyEditor({ scope, onUpdated }: { scope: ScopeClassification
         {!!preview.remainingReasonCodes.length && <p>저장 후 남는 항목: {preview.remainingReasonCodes.map((code) => setupReasonLabels[code] ?? '추가 확인').join(' · ')}</p>}
         {preview.approvalMode === 'INDEPENDENT_REVIEW' && <label>검토 담당자<select className="select" value={reviewer} onChange={(e) => setReviewer(e.target.value)}><option value="">미지정 · 검토 대기로 등록</option>{preview.eligibleReviewers.map((person) => <option key={person.userId} value={person.userId}>{person.displayName}</option>)}</select>{!preview.eligibleReviewers.length && <small>현재 다른 보안 담당자가 없어요. 요청은 대기로 남으며 자동 승인되지 않아요.</small>}</label>}
       </div>}
-      <label>근거 참조<input className="input" value={evidence} placeholder="TICKET:SEC-123" maxLength={80} autoComplete="off" disabled={busy} onChange={(e) => { setEvidence(e.target.value); setConfirmed(false) }} /><small>티켓·변경·정책 참조를 입력하세요.</small></label>
+      <p className="caption">확인한 내용과 담당자, 시각은 내부 기록으로 저장해요.</p>
       <label className="secret-check-label"><input type="checkbox" checked={confirmed} disabled={!preview || busy} onChange={(e) => setConfirmed(e.target.checked)} /> 이 검사 대상에 적용할 보관 정책과 변경 영향을 확인했어요.</label>
       {save.isError && <p className="notice error" role="alert">{safeMutationMessage(save.error)}{stale && <button className="btn outline" type="button" onClick={() => onUpdated()}>현재 설정 다시 확인</button>}</p>}
       <button className="btn primary" disabled={!ready || busy}>{save.isPending ? '저장 중…' : preview?.approvalMode === 'INDEPENDENT_REVIEW' ? '검토 요청' : '보관 정책 저장'}</button>
