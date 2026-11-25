@@ -566,7 +566,7 @@ test('report draft: AI sentences plus code-filled time and Logssey numbers, note
   }
   const source = await readFile('src/components/HelpChat.tsx', 'utf8')
   const block = source.slice(source.indexOf('// 사고 보고서 초안'), source.indexOf('const copyReport'))
-  assert.ok(block.includes('const notes = maskPrivate(typed)'))
+  assert.ok(source.includes('const preview = reportPreview(memo)'))
   assert.ok(!/sessionStorage|saveHelpMessages|setMessages/.test(block), 'notes stay on this screen only')
 })
 
@@ -603,6 +603,41 @@ test('playbook-only answers are labelled as not written by AI', async () => {
   const source = await readFile('src/components/HelpChat.tsx', 'utf8')
   assert.ok(source.includes("...(response.withoutAi === true ? { withoutAi: true } : {})"))
   assert.ok(source.includes('AI가 만든 답이 아니에요'))
+})
+
+test('the send notice is always shown under the question box and the report notes box', async () => {
+  assert.equal(help.SEND_NOTICE,
+    '입력한 내용은 외부 AI(Anthropic)로 전송됩니다. 이름, 호스트 이름, 계정 ID는 자동으로 가려지지 않으니 직접 지우고 보내 주세요.')
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  const notice = '<p className="help-send-notice">{SEND_NOTICE}</p>'
+  assert.equal(source.split(notice).length - 1, 2, 'once for questions, once for report notes')
+  // Each notice sits right after its textarea, outside any condition.
+  const question = source.indexOf('id="help-question"')
+  const memo = source.indexOf('id="help-report-memo"')
+  for (const start of [question, memo]) {
+    const close = source.indexOf('/>', source.indexOf('onChange', start))
+    const after = source.indexOf(notice, start)
+    assert.ok(close > start && after > close, 'notice comes after its textarea')
+    assert.equal(source.slice(close + 2, after).trim(), '', 'nothing (no condition) between the textarea and the notice')
+  }
+})
+
+test('report notes are previewed as they will be sent and go out only after confirming', async () => {
+  const preview = help.reportPreview('  14시 서버 격리, 담당 kim@example.com, 010-1234-5678  ')
+  assert.deepEqual(preview, { notes: '14시 서버 격리, 담당 [이메일], [전화번호]', changed: true })
+  assert.deepEqual(help.reportPreview('14시 서버 격리'), { notes: '14시 서버 격리', changed: false })
+  assert.equal(help.reportPreview('   ').error, 'MEMO_INVALID')
+  assert.equal(help.reportPreview('가'.repeat(help.REPORT_MEMO_MAX + 1)).error, 'MEMO_INVALID')
+  assert.equal(help.reportPreview(`교체한 키 ghp_${randomText(36)}`).error, 'QUESTION_REJECTED')
+
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  const previewFn = source.slice(source.indexOf('const previewReport'), source.indexOf('const confirmReport'))
+  const confirmFn = source.slice(source.indexOf('const confirmReport'), source.indexOf('const copyReport'))
+  assert.ok(!previewFn.includes('mutate'), 'previewing never sends')
+  assert.ok(confirmFn.includes('report.mutate(reportPending.notes)'), 'confirming sends exactly the previewed text')
+  assert.ok(source.includes('가린 뒤 실제로 전송될 내용') && source.includes('확인하고 보내기'))
+  const memoBox = source.slice(source.indexOf('id="help-report-memo"'), source.indexOf('<p className="help-send-notice">{SEND_NOTICE}</p>', source.indexOf('id="help-report-memo"')))
+  assert.ok(memoBox.includes('setReportPending(null)'), 'editing the notes drops an old preview')
 })
 
 async function filesUnder(dir) {

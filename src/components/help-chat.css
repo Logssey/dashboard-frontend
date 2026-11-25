@@ -64,3 +64,5 @@
 .help-report textarea { width: 100%; resize: vertical; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; font-size: 13px; }
 .help-report-out { margin: 0; padding: 10px; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 13px; background: var(--canvas); border-radius: var(--radius-sm); }
 .help-form-actions { flex-wrap: wrap; justify-content: flex-end; }
+.help-send-notice { margin: 0; font-size: 11px; line-height: 1.5; color: var(--text-muted); }
+.help-report-preview { display: grid; gap: 6px; padding: 8px; border: 1px dashed var(--border); border-radius: var(--radius-sm); }
