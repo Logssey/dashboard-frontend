@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { fetchSecurityScore, type SecurityScoreResponse } from '@/api/securityScore'
 import { Badge } from '@/components/Badge'
 import { ScoreRing } from '@/components/ScoreRing'
@@ -67,7 +68,7 @@ const barColor = (score: number) => (score < 50 ? 'var(--critical)' : score < 80
 
 const ROW = {
   display: 'grid',
-  gridTemplateColumns: 'minmax(150px, 220px) minmax(140px, 260px) minmax(0, 1fr)',
+  gridTemplateColumns: 'minmax(150px, 220px) minmax(140px, 260px) minmax(0, 1fr) 16px',
   gap: 20,
   alignItems: 'center',
   padding: '13px 0',
@@ -87,25 +88,104 @@ function ScoreBar({ score }: { score: number | null }) {
   )
 }
 
+/** 응답에 link가 없을 때(옛 서버) 기능 화면으로 */
+const PART_LINK: Record<string, string> = {
+  SECRET: '/secrets',
+  IAC: '/iac',
+  VULNERABILITY: '/vulnerabilities',
+  COMPLIANCE: '/configuration',
+  CODE: '/code',
+}
+
 const ellipsis = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
+
+type Asset = SecurityScoreResponse['assets'][number]
+
+/** 자산 한 줄. 위험을 볼 화면이 있으면 줄 전체가 링크다. nested면 묶음 아래 펼친 줄이라 이름을 들여 쓴다 */
+function AssetRow({ asset, nested = false }: { asset: Asset; nested?: boolean }) {
+  const grade = asset.worst ? GRADE[asset.worst.grade]?.label ?? asset.worst.grade : null
+  const link = asset.worst ? asset.worst.link ?? PART_LINK[asset.worst.part] : undefined
+  const cells = (
+    <>
+      <div style={{ ...ellipsis, paddingLeft: nested ? 18 : 0 }}>
+        <strong>{asset.name}</strong> <span className="caption">{asset.tier}등급</span>
+        {asset.status === 'STALE' && <> <Badge label="평가 끊김" tone="high" /></>}
+      </div>
+      <ScoreBar score={asset.score} />
+      <span className="caption" style={ellipsis} title={asset.worst?.title}>
+        {asset.worst ? `${grade} · ${asset.worst.title}` : asset.status === 'STALE' ? '검사가 끊겨 High로 계산했어요' : '열린 위험 없음'}
+      </span>
+      <span aria-hidden="true" style={{ color: 'var(--text-muted)' }}>{link ? '›' : ''}</span>
+    </>
+  )
+  return link ? (
+    <Link role="listitem" to={link} className="score-asset-row" style={{ ...ROW, color: 'inherit', textDecoration: 'none' }}
+      aria-label={`${asset.name} ${asset.score ?? '—'}점, ${grade ?? ''} ${asset.worst?.title ?? ''} 보기`}>
+      {cells}
+    </Link>
+  ) : (
+    <div role="listitem" style={ROW}>{cells}</div>
+  )
+}
+
+/** 점수가 같은 자산 묶음. 처음엔 접혀 있고 누르면 자산별 줄이 아래에 펼쳐진다 */
+function AssetGroup({ assets, open, onToggle }: { assets: Asset[]; open: boolean; onToggle: () => void }) {
+  const score = assets[0].score
+  const grades = [...new Set(assets.map((a) => a.worst?.grade).filter((g): g is string => g != null))]
+  const names = assets.map((a) => a.name).join(' · ')
+  // 모두 같은 등급이면 앞에 등급을 붙인다(같은 점수면 보통 같은 등급)
+  const summary = grades.length === 1 ? `${GRADE[grades[0]]?.label ?? grades[0]} · ${names}` : names
+  return (
+    <div role="listitem">
+      <button type="button" className="score-asset-row" aria-expanded={open} onClick={onToggle}
+        style={{ border: 0, ...ROW, width: '100%', background: 'none', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+        <div style={ellipsis}>
+          <strong>{score ?? '—'}점 자산</strong> <span className="caption">{assets.length}개</span>
+          {assets.some((a) => a.status === 'STALE') && <> <Badge label="평가 끊김" tone="high" /></>}
+        </div>
+        <ScoreBar score={score} />
+        <span className="caption" style={ellipsis} title={names}>{summary}</span>
+        <span aria-hidden="true" style={{ color: 'var(--text-muted)' }}>{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div role="list" aria-label={`${score ?? '—'}점 자산`}>
+          {assets.map((asset) => <AssetRow key={asset.id} asset={asset} nested />)}
+        </div>
+      )}
+    </div>
+  )
+}
 
 /**
  * 자산별 보안 점수. 점수가 낮은 자산부터 막대로 보여 주고, 감점을 정한 위험 하나를 붙인다.
- * 100점(감점 없음) 자산은 한 줄로 묶고, 평가 안 된 자산은 접어 둔다
+ * 점수가 같은 자산이 둘 이상이면 한 줄로 묶어 접어 두고(누르면 펼침), 평가 안 된 자산은 따로 접어 둔다
  */
 export function SecurityScoreAssets() {
   const score = useSecurityScore()
   const [showUnevaluated, setShowUnevaluated] = useState(false)
+  // 펼친 묶음의 점수. 조회할 때마다 다시 묶으므로 점수가 바뀌면 자산이 다른 묶음으로 옮겨 간다
+  const [openScores, setOpenScores] = useState<ReadonlySet<number | null>>(new Set())
   if (!score.isSuccess) return null
   const assets = score.data.assets
-  // 100점(감점 없음) 자산은 몇 개든 한 줄로 묶는다. 조회할 때마다 나누므로 점수가 바뀌면 묶음에서 빠지거나 들어온다
-  const grouped = assets.filter((a) => a.status === 'EVALUATED' && a.score === 100)
   const unevaluated = assets.filter((a) => a.status === 'NOT_EVALUATED')
   const ranked = assets
-    .filter((a) => a.status !== 'NOT_EVALUATED' && !grouped.includes(a))
+    .filter((a) => a.status !== 'NOT_EVALUATED')
     .sort((a, b) => (a.score ?? 0) - (b.score ?? 0) || a.tier - b.tier)
+  const groups: Asset[][] = []
+  for (const asset of ranked) {
+    const last = groups.at(-1)
+    if (last && last[0].score === asset.score) last.push(asset)
+    else groups.push([asset])
+  }
+  const toggle = (s: number | null) =>
+    setOpenScores((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(s)) next.add(s)
+      return next
+    })
   return (
     <section className="card" aria-labelledby="score-assets-title">
+      <style>{'.score-asset-row:hover{background:var(--surface-subtle)}.score-asset-row:hover strong{color:var(--primary-text)}'}</style>
       <div className="card-head">
         <h2 id="score-assets-title">자산별 보안 점수</h2>
         {unevaluated.length > 0 && (
@@ -119,31 +199,12 @@ export function SecurityScoreAssets() {
         )}
       </div>
       <div role="list">
-        {ranked.map((asset) => {
-          const grade = asset.worst ? GRADE[asset.worst.grade]?.label ?? asset.worst.grade : null
-          return (
-            <div role="listitem" key={asset.id} style={ROW}>
-              <div style={ellipsis}>
-                <strong>{asset.name}</strong> <span className="caption">{asset.tier}등급</span>
-                {asset.status === 'STALE' && <> <Badge label="평가 끊김" tone="high" /></>}
-              </div>
-              <ScoreBar score={asset.score} />
-              <span className="caption" style={ellipsis} title={asset.worst?.title}>
-                {asset.worst ? `${grade} · ${asset.worst.title}` : asset.status === 'STALE' ? '검사가 끊겨 High로 계산했어요' : '열린 위험 없음'}
-              </span>
-            </div>
-          )
-        })}
-        {grouped.length > 0 && (
-          <div role="listitem" style={ROW}>
-            <div style={ellipsis}>
-              <strong>100점 자산</strong> <span className="caption">{grouped.length}개</span>
-            </div>
-            <ScoreBar score={100} />
-            <span className="caption" style={ellipsis} title={grouped.map((a) => a.name).join(' · ')}>
-              {grouped.map((a) => a.name).join(' · ')}
-            </span>
-          </div>
+        {groups.map((group) =>
+          group.length === 1 ? (
+            <AssetRow key={group[0].id} asset={group[0]} />
+          ) : (
+            <AssetGroup key={`score-${group[0].score}`} assets={group} open={openScores.has(group[0].score)} onToggle={() => toggle(group[0].score)} />
+          ),
         )}
         {showUnevaluated &&
           unevaluated.map((asset) => (
