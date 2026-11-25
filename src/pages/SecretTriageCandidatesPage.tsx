@@ -53,7 +53,16 @@ export function SecretTriageCandidatesPage() {
     const link = document.getElementById(`review-link-${focus.replace(':', '-')}`)
     if (link) { link.focus({ preventScroll: true }); link.scrollIntoView({ block: 'center' }); restored.current = focus }
   }, [queue.isSuccess, queue.data, params])
-  const refresh = () => { const next = new URLSearchParams(params); next.delete('snapshotId'); next.delete('focus'); next.set('page', '1'); setRefreshVersion((value) => value + 1); setParams(next) }
+  useEffect(() => {
+    if (!queue.isSuccess || queue.isFetching || !queue.data.snapshotId) return
+    const lastPage = Math.max(0, Math.ceil(queue.data.total / queue.data.size) - 1)
+    if (page <= lastPage) return
+    const next = new URLSearchParams(params)
+    next.set('snapshotId', queue.data.snapshotId)
+    next.set('page', String(lastPage + 1))
+    setParams(next, { replace: true })
+  }, [queue.isSuccess, queue.isFetching, queue.data, page, params, setParams])
+  const refresh = () => { const next = new URLSearchParams(params); next.delete('snapshotId'); restored.current = ''; setRefreshVersion((value) => value + 1); setParams(next) }
   const selection = workbenchBuckets[bucket]
   const overviewParams = workbenchSearch(filters)
   return <><Link className="secret-scan-back" to={`/secrets?${overviewParams}`}>← 같은 기준의 현황</Link><PageHeader title="확인 대기열" description="같은 기준시각의 대상과 다음 작업을 확인하세요." actions={<><Link className="btn outline" to="/secrets/triage/investigations">추가 조사</Link><Link className="btn outline" to="/secrets/triage/alerts">자격증명 여부 확인</Link></>} />

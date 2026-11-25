@@ -83,8 +83,8 @@ test('verification panes do not pile up all response forms under the case', () =
 test('a stale manually approved lifecycle record is historical and synthetic retirement stays simulation', () => {
   const data = { caseId: 7, caseVersion: 3, allowedKinds: [], allowedReviewReasonCodes: {}, capabilities: { canSubmit: false }, items: [{ evidenceId: 51, kind: 'FIXTURE_RETIRED', verificationLevel: 'APPROVED_MANUAL', reviewStatus: 'APPROVED', performedAt: '2026-10-20T00:00:00Z', observedAt: '2026-10-20T00:00:00Z', evidenceRef: 'TICKET:SEC-123', version: 2, isCurrentlyApplicable: false, coverageLimit: 'SIMULATION', capabilities: { canReview: false } }] }
   const html = render(modules.lifecycle.SecretLifecycleEvidence, [[['secret-case-lifecycle', 7], data]])
-  assert.match(html, /현재 해결 판단에 적용되지 않는 근거/)
-  assert.match(html, /합성 표본의 사용 종료 근거/)
+  assert.match(html, /현재 해결 판단에 미적용/)
+  assert.match(html, /합성 표본 사용 종료/)
   assert.doesNotMatch(html, /공급자 확인<|완전 해결/)
 })
 test('external lifecycle evidence accepts at most the past 90 days and exception deadlines at most the server limit', () => {
@@ -123,9 +123,22 @@ test('the case header derives risk acceptance only from the current server contr
 test('lifecycle mutations disappear when the evidence context is stale or belongs to another case', () => {
   const data = { caseId: 7, caseVersion: 2, allowedKinds: ['REVOKED'], allowedReviewReasonCodes: { APPROVE: ['EXTERNAL_RECORD_CONFIRMED'] }, capabilities: { canSubmit: true }, items: [{ evidenceId: 51, kind: 'REVOKED', verificationLevel: 'PENDING', reviewStatus: 'PENDING', performedAt: '2026-10-20T00:00:00Z', observedAt: null, evidenceRef: 'TICKET:SEC-123', version: 1, isCurrentlyApplicable: false, coverageLimit: 'LIMITED', capabilities: { canReview: true } }] }
   const html = render(modules.lifecycle.SecretLifecycleEvidence, [[['secret-case-lifecycle', 7], data]])
-  assert.match(html, /다른 버전/)
+  assert.match(html, /최신 대응 건을 조회/)
   assert.doesNotMatch(html, /보안 검토 요청|근거 검토 저장/)
   const mismatch = render(modules.lifecycle.SecretLifecycleEvidence, [[['secret-case-lifecycle', 7], { ...data, caseId: 8 }]])
   assert.match(mismatch, /대상이 현재 대응 건과 다릅니다/)
   assert.doesNotMatch(mismatch, /TICKET:SEC-123/)
+})
+
+
+test('closure groups repeated blockers by their actual reason without dropping original location checks', () => {
+  const groups = modules.lib.closureBlockerGroups([
+    { code: 'CREDENTIAL_LIFECYCLE_CHECK', reasonCode: 'LIFECYCLE_EVIDENCE_REQUIRED', occurrenceId: 11, status: 'BLOCKED' },
+    { code: 'CREDENTIAL_LIFECYCLE_CHECK', reasonCode: 'LIFECYCLE_EVIDENCE_REQUIRED', occurrenceId: 12, status: 'UNKNOWN' },
+    { code: 'LOCATION_ABSENCE_CHECK', reasonCode: 'COMPARABLE_POST_ACTION_MISSING', occurrenceId: 11, status: 'PASSED' },
+  ])
+  assert.equal(groups.length, 1)
+  assert.deepEqual(groups[0].occurrenceIds, [11, 12])
+  assert.equal(groups[0].checkCount, 2)
+  assert.equal(modules.lib.closureBlockerTarget(groups[0].code).check, 'lifecycle')
 })

@@ -52,6 +52,36 @@ function render(data, expectedConnectionId) {
     createElement(modules.component.SecretScanProgress, { runId: 91, expectedConnectionId }))))
 }
 
+test('metadata inventory is distinguished from secret detection and hides irrelevant validation zeros', () => {
+  const data = { ...value, provider: 'AWS', status: 'SUCCEEDED', validationSummary,
+    stages: [stage('QUEUE', 'SUCCEEDED'), stage('COLLECTION', 'SUCCEEDED'),
+      { ...stage('DETECTION', 'SKIPPED'), reasonCode: 'NOT_APPLICABLE_METADATA' },
+      { ...stage('VALIDATION', 'SKIPPED'), reasonCode: 'NOT_APPLICABLE_METADATA' }, stage('RESULT', 'SUCCEEDED')] }
+  const html = render(data)
+  assert.match(html, /목록 조회 완료/)
+  assert.match(html, /S3 파일, Secrets Manager 값, Parameter Store 값은 읽지 않았어요/)
+  assert.match(html, /\/secrets\/connections\/3\/scopes/)
+  assert.doesNotMatch(html, /인증 확인 결과 요약|구성 부족/)
+  assert.equal(modules.lib.scanIsMetadataOnly({ ...data, stages: [stage('DETECTION', 'SUCCEEDED'), data.stages[3]] }), false)
+  assert.notEqual(modules.lib.scanProgressStatusLabel({ ...data, status: 'FAILED' }), '목록 조회 완료')
+})
+
+test('blocked credentials show actual reason counts and the matching connection settings', () => {
+  const data = { ...value, status: 'SUCCEEDED', validationSummary: { ...validationSummary, uncheckedCount: 4,
+    incompleteCount: 0, reusedResultCount: 0, reusedResults: [], uncheckedReasons: [{ reasonCode: 'VALIDATOR_NOT_ALLOWED', count: 4 }] },
+    stages: [stage('DETECTION', 'SUCCEEDED'), { ...stage('VALIDATION', 'SKIPPED'), reasonCode: 'VALIDATOR_NOT_ALLOWED' }, stage('RESULT', 'SUCCEEDED')] }
+  const html = render(data)
+  assert.match(html, /검사 완료 · 인증 미확인/)
+  assert.match(html, /인증 미확인 사유/)
+  assert.match(html, /validationConnectionId=3/)
+  assert.match(html, /키 발급 서비스의 검증을 허용하지 않았어요/)
+  assert.match(html, /4건/)
+  const aggregate = { ...event(2, 'STAGE_SUMMARY'), stage: 'VALIDATION', outcome: 'SKIPPED', reasonCode: 'NO_CANDIDATES' }
+  assert.match(modules.lib.scanProgressEventReason(aggregate, data), /허용하지 않았어요/)
+  assert.equal(modules.lib.scanProgressEventReason({ ...aggregate, attemptNo: 0 }, data), '인증 확인 대상 없음')
+  assert.equal(modules.lib.scanNeedsValidationSetup({ ...data, validationSummary: { ...validationSummary, uncheckedReasons: [] }, stages: [{ ...stage('VALIDATION', 'SKIPPED'), reasonCode: 'SYNTHETIC_FIXTURE' }] }), false)
+})
+
 test('five real phases allow concurrent collection and detection and show actual response metadata', () => {
   const html = render(value, 3)
   assert.equal((html.match(/aria-controls="scan-terminal-91"/g) ?? []).length, 5)
@@ -69,6 +99,25 @@ test('unknown quantities stay absent and a legacy run explains missing detailed 
   const html = render({ ...value, eventsStatus: 'NOT_RECORDED', events: [] })
   assert.match(html, /상세 내역이 기록되지 않았어요/)
   assert.doesNotMatch(html, /HTTP 200|항목 0개 처리/)
+})
+
+test('metadata scans describe resource lookup and distinguish excluded value checks', () => {
+  const html = render({ ...value, provider: 'AWS', scanKind: 'METADATA',
+    stages: [stage('QUEUE', 'SUCCEEDED'), stage('COLLECTION', 'RUNNING'),
+      stage('DETECTION', 'SKIPPED'), stage('VALIDATION', 'SKIPPED'), stage('RESULT', 'PENDING')],
+  })
+  assert.match(html, /AWS 메타데이터 조회/)
+  assert.match(html, /리소스 정보 조회/)
+  assert.match(html, /키 값 탐지 · 적용 제외/)
+  assert.match(html, /인증 확인 · 적용 제외/)
+})
+
+test('truncated detail logs still expose current counters and the last worker activity', () => {
+  const html = render({ ...value, truncated: true, suppressedEventCount: 14, collectedObjectCount: 2089 })
+  assert.match(html, /현재 처리량<\/dt><dd>2089개/)
+  assert.match(html, /대기 시간<\/dt><dd>30초/)
+  assert.match(html, /최근 활동/)
+  assert.match(html, /위의 현재 처리량과 최근 활동에서 진행 상태/)
 })
 
 test('expiry, omitted details, skip reasons and final navigation are independently rendered', () => {

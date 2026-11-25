@@ -29,6 +29,7 @@ export interface ScanProgressEvent {
 }
 
 export interface ScanValidationSummary {
+  uncheckedReasons?: { reasonCode: string; count: number }[]
   reuseRecorded: boolean
   newRequestCount: number
   completedRequestCount: number
@@ -51,6 +52,7 @@ export interface SecretScanProgressResponse {
   runId: number
   connectionId: number
   provider: string
+  scanKind?: 'METADATA' | 'CONTENT' | 'UNKNOWN'
   status: string
   attemptNo: number
   maxAttempts: number
