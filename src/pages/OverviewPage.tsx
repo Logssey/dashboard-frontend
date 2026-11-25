@@ -10,7 +10,7 @@ import { EnvironmentSelect } from '@/components/EnvironmentSelect'
 import { FindingTable } from '@/components/FindingTable'
 import { Icon } from '@/components/Icon'
 import { PageHeader } from '@/components/PageHeader'
-import { ScoreRing } from '@/components/ScoreRing'
+import { SecurityScoreAssets, SecurityScoreCard, useSecurityScore } from '@/components/SecurityScoreCard'
 import { TrendChart } from '@/components/TrendChart'
 import { providerLabel } from '@/lib/labels'
 import { scanDate } from '@/lib/secretScan'
@@ -123,31 +123,7 @@ export function OverviewPage() {
             )}
           </article>
 
-          <article className="card score-card">
-            <div className="row between">
-              <h2>현재 위험 기준 점수</h2>
-              <Badge label="참고 지표" />
-            </div>
-            {summary.isPending ? (
-              <Loading />
-            ) : summary.isError ? (
-              <LoadError />
-            ) : (
-              <div className="row between">
-                <div>
-                  <strong className="score-number">{summary.data.securityScore}</strong>
-                  <span className="unit">/ 100</span>
-                  <p className="caption">
-                    탐지된 위험을 기준으로
-                    <br />
-                    현재 상태를 확인하세요.
-                  </p>
-                </div>
-                <ScoreRing score={summary.data.securityScore} />
-              </div>
-            )}
-            <p className="caption">Critical −4점 · High −1점. 같은 원인은 한 건으로 세요. 미평가·미검사 항목의 안전을 보장하지 않아요.</p>
-          </article>
+          <SecurityScoreCard />
 
           <article className="card">
             <div className="card-head">
@@ -201,6 +177,8 @@ export function OverviewPage() {
 
         {summary.isSuccess && summary.data.parts && <PartTable parts={summary.data.parts} />}
 
+        <SecurityScoreAssets />
+
         {summary.isSuccess && summary.data.secretIntegration && <section className="notice" aria-label="시크릿 통합 집계 범위">{summary.data.secretIntegration.status === 'AVAILABLE' ? <>통합 조회 범위의 시크릿 대응 {summary.data.secretIntegration.total ?? '—'}건을 포함해요.{summary.data.secretIntegration.unassessedCount != null && summary.data.secretIntegration.unassessedCount > 0 ? ` 미평가 ${summary.data.secretIntegration.unassessedCount}건은 등급 점수에서 제외해요.` : ''}{summary.data.secretIntegration.notApplicableCount != null && summary.data.secretIntegration.notApplicableCount > 0 ? ` 평가 대상 외 ${summary.data.secretIntegration.notApplicableCount}건은 등급 점수에서 제외해요.` : ''}{summary.data.secretIntegration.restrictedCoverage ? ' 열람 가능한 위치 기준이에요.' : ''} <Link to="/secrets">시크릿 현황</Link></> : <>시크릿 대응 건은 조회 권한이 없어 집계에 포함하지 않았어요.</>}</section>}
 
         <section className="card list-card" id="priority" ref={priorityRef}>
@@ -244,12 +222,18 @@ const NUM = { textAlign: 'right' } as const
 
 /** 보안 기능별로 몇 건이 점수에 반영됐는지 (같은 원인을 묶은 건수) */
 function PartTable({ parts }: { parts: OverviewPartSummary[] }) {
+  const score = useSecurityScore()
+  // 감점은 보안 점수(ADR-D012, 운영 환경)에서 그 기능의 위험만으로 계산한 값이다. 기능별 감점을 더해도 전체 감점과 같지 않다
+  const penalty = (part: string) => {
+    const found = score.data?.parts.find((p) => p.part === part)
+    return found && found.status === 'CONNECTED' ? `−${found.penalty}` : '—'
+  }
   return (
     <section className="card list-card" aria-labelledby="overview-parts-title">
       <div className="card-head">
         <div>
           <h2 id="overview-parts-title">보안 기능별 반영 현황</h2>
-          <p className="section-intro">각 기능에서 지금 열린 위험을 같은 원인끼리 묶어 셌어요. 감점이 점수에서 깎인 값이에요.</p>
+          <p className="section-intro">각 기능에서 지금 열린 위험을 같은 원인끼리 묶어 셌어요. 감점은 보안 점수(운영 환경)에서 그 기능의 위험만으로 깎이는 값이에요.</p>
         </div>
       </div>
       <div className="table-scroll" tabIndex={0} role="region" aria-label="보안 기능별 반영 현황 표. 좁은 화면에서는 가로로 스크롤하세요.">
@@ -264,7 +248,7 @@ function PartTable({ parts }: { parts: OverviewPartSummary[] }) {
               <th scope="col" style={NUM}>Low</th>
               <th scope="col" style={NUM}>미평가</th>
               <th scope="col" style={NUM}>합계</th>
-              <th scope="col" style={NUM}>감점</th>
+              <th scope="col" style={NUM}>감점(운영)</th>
               <th scope="col">기준 시각</th>
             </tr>
           </thead>
@@ -282,7 +266,7 @@ function PartTable({ parts }: { parts: OverviewPartSummary[] }) {
                   <td style={NUM}>{counted ? part.low : '—'}</td>
                   <td style={NUM}>{counted ? part.unassessed : '—'}</td>
                   <td style={NUM}><strong>{counted ? part.total : '—'}</strong></td>
-                  <td style={NUM}>{counted ? `−${part.penalty}` : '—'}</td>
+                  <td style={NUM}>{penalty(part.part)}</td>
                   <td className="caption">{part.dataAsOf ? scanDate(part.dataAsOf) : '—'}</td>
                 </tr>
               )
