@@ -339,7 +339,7 @@ export const HELP_SCREEN_ROUTES: Readonly<Record<string, { path: string; title: 
   RUNTIME: { path: '/runtime', title: '런타임 보안' },
   IAC: { path: '/iac', title: 'IaC 보안' },
   SECRET_FINDINGS: { path: '/secrets/findings', title: '발견된 키' },
-  SECRET_CASES: { path: '/secrets/cases', title: '대응 관리' },
+  SECRET_CASES: { path: '/secrets/cases', title: '조치 관리' },
   COMPLIANCE: { path: '/configuration', title: '컴플라이언스' },
   OUTSIDE: null,
 })
@@ -412,7 +412,7 @@ const suggestions: Array<{ match: (page: string) => boolean; questions: string[]
   { match: (p) => p === '통합 현황', questions: ['환경별로 보려면 어떻게 해요?', '위험 기준 점수는 어떻게 계산돼요?'] },
   { match: (p) => p === '발견된 키' || p === '키 상세', questions: ['CSV로 내보내려면 어떻게 해요?', '키 유효성 확인은 어떻게 해요?'] },
   { match: (p) => ['확인 대기열', '위치 확인', '추가 조사', '실키 경고'].includes(p), questions: ['대응 건은 어떻게 만들어요?', '추가 조사는 어떻게 종료해요?'] },
-  { match: (p) => p === '대응 관리' || p === '대응 상세', questions: ['담당자는 어떻게 바꿔요?', '대응 건을 해결로 바꾸려면?'] },
+  { match: (p) => p === '조치 관리' || p === '대응 상세', questions: ['담당자는 어떻게 바꿔요?', '대응 건을 해결로 바꾸려면?'] },
   { match: (p) => p === '연결 및 설정' || p === '연결 범위', questions: ['GitHub 연결은 어떻게 추가해요?', '연결 테스트 결과는 어떻게 읽어요?'] },
   { match: (p) => p === '검사 이력' || p === '검사 상세', questions: ['검사는 어떻게 시작해요?'] },
   { match: (p) => p === '키 형식 등록', questions: ['사내 키 형식은 어떻게 등록해요?'] },

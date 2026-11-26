@@ -112,9 +112,10 @@ function UsageLocationContent({ secretId, location }: { secretId: number; locati
   </div>
 }
 
-export function SecretUsageHistory({ secretId, detail, locations }: { secretId: number; detail: SecretDetail; locations: KeyLocation[] }) {
+export function SecretUsageHistory({ secretId, detail, locations, defaultOccurrenceId }: { secretId: number; detail: SecretDetail; locations: KeyLocation[]; defaultOccurrenceId?: number }) {
   const [params, setParams] = useSearchParams()
-  const selectedId = positiveId(params.get('occurrence')), location = locations.find((item) => item.occurrenceId === selectedId)
+  const selectedId = params.has('occurrence') ? positiveId(params.get('occurrence')) : params.has('validationOccurrence') ? positiveId(params.get('validationOccurrence')) : defaultOccurrenceId
+  const location = locations.find((item) => item.occurrenceId === selectedId)
   return <section className="card secret-scan-section secret-usage"><div className="secret-usage-heading"><div><h2>사용 이력</h2><p className="caption">키가 실제로 사용된 자료의 기간·조회 범위·키 연결 근거를 확인하세요.</p></div></div>
     <label className="secret-usage-location-picker">확인할 발견 위치<select className="select" value={location?.occurrenceId ?? ''} onChange={(event) => { const next = new URLSearchParams(params); next.set('occurrence', event.target.value); next.set('locationPanel', 'closed'); next.delete('usagePage'); next.delete('usageObservation'); setParams(next) }}><option value="">발견 위치 선택</option>{locations.map((item) => <option key={item.occurrenceId} value={item.occurrenceId}>{item.safeLocationLabel}</option>)}</select></label>
     {location ? <UsageLocationContent key={`${secretId}:${location.occurrenceId}`} secretId={secretId} location={location} /> : <><SecretIamUsageMetadata metadata={detail.iamMetadata} /><p className="notice">사용 이력을 확인할 발견 위치를 선택하세요. 다른 위치의 기록을 임의로 합치지 않아요.</p></>}

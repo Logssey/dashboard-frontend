@@ -17,7 +17,7 @@ export function withSecretOrigin(path: string, context: URLSearchParams | string
 export const secretNavigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: '/secrets', icon: 'key', label: '현황' },
   { path: '/secrets/findings', icon: 'list', label: '발견된 키' },
-  { path: '/secrets/cases', icon: 'shield', label: '대응 관리' },
+  { path: '/secrets/cases', icon: 'task', label: '조치 관리' },
   { path: '/secrets/connections', icon: 'plug', label: '연결 및 설정' },
   { path: '/secrets/history', icon: 'clock', label: '검사 이력' },
   { path: '/secrets/key-patterns', icon: 'code', label: '키 형식 등록' },

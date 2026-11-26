@@ -30,10 +30,11 @@ function metricValue(value: number | null | undefined) {
 
 /** IaC 보안 탭 (S-01, security-solution-docs iac-security dashboard-flow). 계산은 백엔드가 하고 화면은 보여주기만 한다 */
 export const iacPages = [
-  { path: '/iac', title: '현황' }, { path: '/iac/prs', title: 'PR 검사' },
-  { path: '/iac/paths', title: '현재 공격 경로' }, { path: '/iac/changes', title: '변경 감시' },
-  { path: '/iac/checks', title: '검사 이력' },
-]
+  { path: '/iac', title: '현황', icon: 'cloud' }, { path: '/iac/prs', title: 'PR 검사', icon: 'code' },
+  { path: '/iac/paths', title: '현재 공격 경로', icon: 'plug' }, { path: '/iac/changes', title: '변경 감시', icon: 'activity' },
+  { path: '/iac/actions', title: '조치 관리', icon: 'task' },
+  { path: '/iac/checks', title: '검사 이력', icon: 'clock' },
+] as const
 export function IacPage() {
   const location = useLocation(), navigate = useNavigate()
   const view = location.pathname.split('/')[2] || 'overview'

@@ -436,19 +436,37 @@ test('review history lists newest first and names server resets', () => {
   assert.match(renderToStaticMarkup(createElement(reach.ReviewHistory, { history: [] })), /아직 검토 기록이 없어요/)
 })
 
-test('sidebar lists 워크로드 and 검사 under 이미지 보안', () => {
+test('image sidebar retains workload and scan destinations', () => {
   const html = renderAt(client(), reach.AppLayout, '/vulnerabilities/workloads')
-  assert.match(html, /href="\/vulnerabilities\/workloads"[^>]*>실행 중 워크로드</)
-  assert.match(html, /href="\/vulnerabilities\/scans"[^>]*>이미지 검사</)
+  assert.match(html, /href="\/vulnerabilities\/workloads"/)
+  assert.match(html, /href="\/vulnerabilities\/scans"/)
+  assert.match(html, /<span>이미지 검사<\/span>/)
   assert.match(html, /<span>실행 중 워크로드<\/span>/) // 상단 바 제목
 })
 
-test('only the current security submenu is expanded and inactive links are inert', () => {
-  const html = renderAt(client(), reach.AppLayout, '/vulnerabilities/workloads')
-  assert.match(html, /aria-expanded="true" aria-controls="submenu-vulnerabilities"/)
-  assert.match(html, /id="submenu-vulnerabilities" class="nav-expansion is-open" aria-hidden="false"/)
-  for (const domain of ['secrets', 'iac', 'code']) {
-    assert.match(html, new RegExp(`id="submenu-${domain}" class="nav-expansion" inert="" aria-hidden="true"`))
+test('grouped sidebar retains every destination and selects the correct parent on details', () => {
+  const areas = [
+    ['/secrets/1', '시크릿 보안', '/secrets/findings', ['/secrets','/secrets/findings','/secrets/cases','/secrets/connections','/secrets/history','/secrets/key-patterns']],
+    ['/iac/paths/1?tab=actions', 'IaC 보안', '/iac/actions', ['/iac','/iac/prs','/iac/paths','/iac/changes','/iac/actions','/iac/checks']],
+    ['/vulnerabilities/findings/1?tab=actions', '이미지 보안', '/vulnerabilities/actions', ['/vulnerabilities','/vulnerabilities/findings','/vulnerabilities/actions','/vulnerabilities/workloads','/vulnerabilities/scans','/vulnerabilities/rules']],
+    ['/code/policy', '코드 보안', '/code/policy', ['/code','/code/policy']],
+    ['/iac/prs/1', 'IaC 보안', '/iac/prs', []],
+    ['/iac/paths/1', 'IaC 보안', '/iac/paths', []],
+    ['/iac/findings/1', 'IaC 보안', '/iac/actions', []],
+    ['/vulnerabilities/findings/1', '이미지 보안', '/vulnerabilities/findings', []],
+  ]
+  for (const [route, label, active, paths] of areas) {
+    const html = renderAt(client(), reach.AppLayout, route)
+    const sidebar = html.split('</aside>')[0]
+    assert.equal((sidebar.match(/class="nav-link security-area-link/g) ?? []).length, 6)
+    assert.equal((sidebar.match(/class="nav-link sub/g) ?? []).length, 20)
+    assert.match(sidebar, /aria-expanded="true" aria-controls="security-menu-group"/)
+    assert.doesNotMatch(html.split('</aside>')[1], /security-area-tab/)
+    const tabs = sidebar.split(`aria-label="${label} 세부 메뉴">`)[1]?.split('</div>')[0]
+    assert.ok(tabs, route)
+    assert.equal((tabs.match(/aria-current="page"/g) ?? []).length, 1)
+    assert.ok(tabs.includes(`aria-current="page" href="${active}"`), route)
+    for (const path of paths) assert.ok(tabs.includes(`href="${path}"`), path)
   }
 })
 

@@ -8,12 +8,13 @@ export const VULNERABILITY_RULES_PATH = '/vulnerabilities/rules'
 
 /** 사이드바 "이미지 보안" 아래에 펼치는 하위 메뉴 (Reach 화면 명세 COM-04) */
 export const vulnerabilityPages = [
-  { path: VULNERABILITIES_PATH, title: '현황' },
-  { path: VULNERABILITY_FINDINGS_PATH, title: '취약점 목록' },
-  { path: VULNERABILITY_WORKLOADS_PATH, title: '실행 중 워크로드' },
-  { path: VULNERABILITY_SCANS_PATH, title: '이미지 검사' },
-  { path: VULNERABILITY_RULES_PATH, title: '검사 기준' },
-]
+  { path: VULNERABILITIES_PATH, title: '현황', icon: 'layers' },
+  { path: VULNERABILITY_FINDINGS_PATH, title: '취약점 목록', icon: 'list' },
+  { path: '/vulnerabilities/actions', title: '조치 관리', icon: 'task' },
+  { path: VULNERABILITY_WORKLOADS_PATH, title: '실행 중 워크로드', icon: 'activity' },
+  { path: VULNERABILITY_SCANS_PATH, title: '이미지 검사', icon: 'search' },
+  { path: VULNERABILITY_RULES_PATH, title: '검사 기준', icon: 'compliance' },
+] as const
 
 export function isVulnerabilityPath(pathname: string): boolean {
   return pathname === VULNERABILITIES_PATH || pathname.startsWith(`${VULNERABILITIES_PATH}/`)

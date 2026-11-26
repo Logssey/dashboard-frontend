@@ -86,6 +86,33 @@ test('inventory makes metadata and value candidate filters explicit and uses saf
   assert.doesNotMatch(html, /키 전체 노출|dialog|secret-history-detail-title/)
 })
 
+test('keys with action records still open key evidence from the inventory', () => {
+  const { filters } = parseInventoryFilters(new URLSearchParams())
+  const html = renderPage(SecretsPage, '/secrets/findings', '/secrets/findings', [[['secret-inventory', filters, 0], { items: [{ ...item, nextActionCode: 'VIEW_CASE', currentCaseId: 7 }], total: 1, page: 0, size: 20, snapshotId }]])
+  assert.match(html, /상세 보기/)
+  assert.match(html, /href="\/secrets\/12\?/)
+  assert.doesNotMatch(html, /href="\/secrets\/cases\/7|>다음 행동<|>근거 확인</)
+})
+
+test('default and old detail URLs show evidence and histories together; actions retain key information', () => {
+  for (const suffix of ['', '?tab=locations', '?tab=validation', '?tab=info', '?tab=cases']) {
+    const { filters } = parseLocationFilters(new URLSearchParams(suffix))
+    const html = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12${suffix}`, [
+      [['secret-detail', 12, 'ALL'], { ...item, casesByOrigin: [{ origin: 'TEST', caseId: 7 }] }],
+      [['secret-key-locations', 12, filters, 0], { credential: item, items: [location(1, 'PRESENT')], total: 1, visibleLocationCount: 1, page: 0, size: 20 }],
+    ])
+    assert.ok(html.indexOf('<h2>키 정보') < html.indexOf('aria-label="키 상세 보기"'))
+    if (suffix.includes('cases')) {
+      assert.match(html, /href="\/secrets\/cases\/7/)
+      assert.doesNotMatch(html, /aria-label="인증과 사용 이력"/)
+    } else {
+      assert.match(html, /<h2>상세 근거/)
+      assert.match(html, /aria-label="인증과 사용 이력"/)
+    }
+    assert.doesNotMatch(html, /must-not-render/)
+  }
+})
+
 test('a failed latest scope scan preserves earlier success without claiming current complete coverage', () => {
   const params = new URLSearchParams('origin=TEST&occurrence=1')
   const { filters } = parseLocationFilters(params)

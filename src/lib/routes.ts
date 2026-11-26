@@ -10,10 +10,11 @@ export const OVERVIEW_PATH = '/overview'
 export const LOGIN_PATH = '/login'
 
 export const sectionPages: SectionPage[] = [
+  { path: '/actions', title: '조치 관리', description: '담당자, 조치 기록과 재검사 결과를 확인하세요.' },
   { path: '/secrets', title: '시크릿 현황', description: '발견한 시크릿과 대응 현황을 확인하세요.' },
   { path: '/secrets/findings', title: '발견된 키', description: '발견한 키 후보와 검증 상태를 확인하세요.' },
   { path: '/secrets/triage', title: '확인 대기열', description: '근거 확인·추가 조사·대응 연결 작업을 확인하세요.' },
-  { path: '/secrets/cases', title: '대응 관리', description: '시크릿 대응 건과 담당자 변경 이력을 확인하세요.' },
+  { path: '/secrets/cases', title: '조치 관리', description: '시크릿 대응 건과 담당자 변경 이력을 확인하세요.' },
   { path: '/secrets/connections', title: '연결 및 설정', description: '승인된 수집 연결과 연결 상태를 확인하세요.' },
   { path: '/secrets/history', title: '검사 이력', description: '검사 실행과 부분 실패 범위를 확인하세요.' },
   { path: '/secrets/key-patterns', title: '키 형식 등록', description: '사내 키 모양을 등록해 검사에 더하세요.' },
@@ -35,8 +36,11 @@ export const sectionPages: SectionPage[] = [
 export const infrastructurePaths = ['/configuration', '/identities', '/runtime', '/iac']
 
 export function pageTitle(pathname: string): string {
+  if (pathname === '/iac/actions') return 'IaC 조치 관리'
+  if (pathname === '/vulnerabilities/actions') return '이미지 조치 관리'
   if (pathname.startsWith('/iac/prs/')) return 'PR 검사 상세'
   if (pathname.startsWith('/iac/paths/')) return '공격 경로 상세'
+  if (pathname.startsWith('/iac/findings/')) return '인프라 설정 조치'
   if (pathname.startsWith('/vulnerabilities/findings/')) return '이미지 취약점 상세'
   const iacTitle = ({ '/iac/prs': 'PR 검사', '/iac/paths': '현재 공격 경로', '/iac/changes': '변경 감시', '/iac/checks': '검사 이력' } as Record<string, string>)[pathname]
   if (iacTitle) return iacTitle

@@ -52,7 +52,7 @@ test('inconsistent or unavailable evidence never becomes a zero-risk visualizati
   assert.match(html, /집계하지 못했어요/)
   assert.doesNotMatch(html, /필수 대응 0/)
 })
-test('selecting a location opens a full page and retains the key return URL', () => {
+test('selecting a location keeps the key heading and tabs visible alongside its evidence', () => {
   const params = new URLSearchParams('occurrence=8'), filters = api.parseLocationFilters(params).filters
   const item = { id: 12, issuer: 'AWS', credentialType: 'AWS_ACCESS_KEY_PAIR', componentState: 'CONFIRMED', maskedLabel: 'AWS ••••1234', severity: 'UNASSESSED', validationStatus: 'UNCHECKED', occurrenceCount: 6, firstSeenAt: '2026-10-20T01:00:00Z', lastSeenAt: '2026-10-21T01:00:00Z', remediationSummary: summary, occurrences: [] }
   const location = { occurrenceId: 8, connectionId: 2, scopeId: 5, scopeRevision: 1, source: 'GITHUB', environment: 'UNKNOWN', origin: 'PRODUCTION', safeLocationLabel: '주문 서비스 · 위치 #8', presence: 'PRESENT', exposure: 'UNKNOWN', validity: { result: 'UNCHECKED' }, storagePolicy: { result: 'UNKNOWN' }, capabilities: {}, coverage: {}, caseId: null }
@@ -60,12 +60,23 @@ test('selecting a location opens a full page and retains the key return URL', ()
   client.setQueryData(['secret-detail', 12, 'ALL'], item)
   client.setQueryData(['secret-key-locations', 12, filters, 0], { credentialSetId: 12, credential: item, items: [location], detailVersion: 'v1', total: 6, visibleLocationCount: 6, page: 0, size: 20, readAt: '2026-10-21T01:00:00Z', locationStateCounts: { presence: { PRESENT: 3, MISSING: 1, UNKNOWN: 2 } }, sourceGroups: [{ source: 'GITHUB', locationCount: 6, scopeCount: 2, presenceCounts: { PRESENT: 3, MISSING: 1, UNKNOWN: 2 } }] })
   const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/secrets/12?occurrence=8'] }, createElement(Routes, null, createElement(Route, { path: '/secrets/:secretId', element: createElement(api.SecretKeyDetailPage) })))))
-  client.clear()
-  assert.match(html, /security-detail-page/)
-  assert.doesNotMatch(html, /<dialog|<table/)
-  assert.match(html, /locationPanel=closed/)
-  assert.match(html, /발견 위치 상세/)
+  assert.match(html, /aria-label="키 상세 보기"/)
+  assert.match(html, /키별 발견 위치 비교/)
+  assert.match(html, /aria-expanded="false" aria-controls="key-discovery-connections">발견 위치 연결 보기/)
+  assert.match(html, /선택한 위치/)
+  assert.match(html, /확인된 사실/)
+  assert.doesNotMatch(html, /<dialog|security-detail-page/)
   assert.doesNotMatch(html, /<td colSpan="7"/)
+  const info = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/secrets/12?occurrence=8&tab=info'] }, createElement(Routes, null, createElement(Route, { path: '/secrets/:secretId', element: createElement(api.SecretKeyDetailPage) })))))
+  assert.match(info, /<h2>키 정보/)
+  assert.match(info, /상세 근거/)
+  assert.match(info, /aria-label="인증과 사용 이력"/)
+  assert.ok(info.indexOf('<h2>키 정보') < info.indexOf('aria-label="키 상세 보기"'))
+  const tabs = info.match(/<nav class="secret-key-tabs" aria-label="키 상세 보기">([\s\S]*?)<\/nav>/)[1]
+  assert.equal((tabs.match(/<button/g) ?? []).length, 2)
+  assert.match(tabs, /검사 결과/)
+  assert.match(tabs, /조치 기록/)
+  client.clear()
 })
 
 
@@ -107,14 +118,14 @@ test('the primary case action follows the explicit location and never falls back
     client.setQueryData(['secret-detail', 12, 'ALL'], item)
     client.setQueryData(['secret-key-locations', 12, filters, 0], { credential: item, items, total: 2, visibleLocationCount: 2, page: 0, size: 20 })
     const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: [`/secrets/12?${params}`] }, createElement(Routes, null, createElement(Route, { path: '/secrets/:secretId', element: createElement(api.SecretKeyDetailPage) })))))
-    client.clear(); return html.match(/<div class="secret-key-primary-actions">([\s\S]*?)<\/div><div class="secret-key-recent-scan">/)[1]
+    client.clear(); return { html, actions: html.match(/<div class="row secret-location-actions">([\s\S]*?)<\/div>/)?.[1] ?? '' }
   }
   const selectedB = page(9, 2)
-  assert.match(selectedB, /cases\/2\?origin=ALL&amp;occurrence=9/); assert.doesNotMatch(selectedB, /cases\/1/)
+  assert.match(selectedB.actions, /cases\/2\?origin=ALL&amp;occurrence=9/); assert.doesNotMatch(selectedB.actions, /cases\/1/)
   const withoutCase = page(9, null)
-  assert.match(withoutCase, /선택 위치 확인/); assert.doesNotMatch(withoutCase, /cases\/1|대응 상세 보기/)
+  assert.match(withoutCase.html, /상세 근거/); assert.doesNotMatch(withoutCase.actions, /cases\//)
   const invalidSelection = page(404, 2)
-  assert.match(invalidSelection, /선택 위치를 다시 확인/); assert.doesNotMatch(invalidSelection, /cases\//)
+  assert.match(invalidSelection.html, /선택한 위치가 현재 필터·페이지에 없어요/); assert.equal(invalidSelection.actions, '')
 })
 
 

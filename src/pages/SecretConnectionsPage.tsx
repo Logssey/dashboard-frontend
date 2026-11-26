@@ -222,6 +222,10 @@ export function SecretConnectionsPage() {
       <Link className="btn outline" to="/secrets/connections/policies">보관 규칙</Link>
       <button className="btn outline" disabled={connections.isFetching} onClick={() => void connections.refetch()}>새로고침</button>
     </>} />
+    {import.meta.env?.MODE === 'actiondemo' && <p className="notice">로컬 시연 연결만 표시해요. 운영에 등록된 GitHub·Notion·AWS 연결과 별개인 설정 확인용 데이터예요.</p>}
+    {setup.isError ? <p className="notice" role="alert">연결 추가 설정을 불러오지 못했어요. 기존 연결은 아래에서 확인할 수 있어요. <button className="btn outline" onClick={() => void setup.refetch()}>설정 다시 조회</button></p>
+      : setup.data && !setup.data.enabled ? <p className="caption">현재 환경에서 새 연결 등록이 꺼져 있어요. 등록된 연결의 검사 대상과 키 검증 설정은 아래에서 확인하세요.</p>
+      : setup.data && !setup.data.canCreate ? <p className="caption">새 연결 등록에는 연결 운영 권한이 필요해요.</p> : null}
     <SecretFilterDisclosure label="연결 조회" fields={[{ key: 'status', label: '연결 상태', options: { '': '전체 상태', ACTIVE: '활성', PAUSED: '일시중지', ERROR: '확인 필요' }, defaultValue: '' }]}
       values={{ status }} busy={connections.isFetching} onApply={(next) => changeStatus(next.status)} onReset={() => changeStatus('')} />
     {!valid ? <p className="notice error" role="alert">조회 주소를 확인해 주세요. <button className="btn outline" onClick={() => setParams(new URLSearchParams())}>조건 초기화</button></p>

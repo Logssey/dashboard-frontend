@@ -148,7 +148,7 @@ test('overview navigation opens unified lists without transferring its workbench
   assert.doesNotMatch(html, /위치 정보 미제공/)
 })
 
-test('three task selectors use the server review union and open occurrence review even with an existing case', () => {
+test('three task selectors use server counts and open stable key details with the selected occurrence', () => {
   const review = { status: 'AVAILABLE', unit: 'Occurrence', total: 4, snapshotId, items: [
     { secretId: 11, occurrenceId: 21, caseId: 7, maskedLabel: '다시 검토할 키', whyHereCode: 'NEEDS_REVIEW' },
     { secretId: 12, occurrenceId: 22, caseId: 7, maskedLabel: '대응이 필요한 키', whyHereCode: 'CASE_LINK_REQUIRED' },
@@ -162,10 +162,10 @@ test('three task selectors use the server review union and open occurrence revie
   assert.doesNotMatch(html, /secret-overview-work-tabs|secret-summary-card coverageGapScopes/)
   const links = decodeLinks(html)
   assert.ok(links.some((url) => url.searchParams.get('bucket') === 'REVIEW_REQUIRED'))
-  assert.ok(links.some((url) => url.pathname === '/secrets/triage/11' && url.searchParams.get('occurrence') === '21'))
-  assert.ok(links.some((url) => url.pathname === '/secrets/triage/12' && url.searchParams.get('occurrence') === '22'))
+  assert.ok(links.some((url) => url.pathname === '/secrets/11' && url.searchParams.get('occurrence') === '21'))
+  assert.ok(links.some((url) => url.pathname === '/secrets/12' && url.searchParams.get('occurrence') === '22'))
   assert.equal(links.filter((url) => url.pathname === '/secrets/cases/7').length, 0)
-  const target = links.find((url) => url.pathname === '/secrets/triage/11')
+  const target = links.find((url) => url.pathname === '/secrets/11')
   assert.equal(new URLSearchParams(target.searchParams.get('returnQuery')).get('bucket'), 'REVIEW_REQUIRED')
 })
 

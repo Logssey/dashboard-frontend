@@ -21,13 +21,14 @@ const scrollPositions = new Map<string, number>()
 
 const navigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: OVERVIEW_PATH, icon: 'grid', label: '통합 현황' },
+  { path: '/actions', icon: 'task', label: '조치 관리' },
   { path: '/secrets', icon: 'key', label: '시크릿 보안' },
   { path: '/iac', icon: 'cloud', label: 'IaC 보안' },
-  { path: '/vulnerabilities', icon: 'shield', label: '이미지 보안' },
+  { path: '/vulnerabilities', icon: 'layers', label: '이미지 보안' },
   { path: '/code', icon: 'code', label: '코드 보안' },
-  { path: '/runtime', icon: 'shield', label: '런타임 보안' },
-  { path: '/configuration', icon: 'list', label: '컴플라이언스' },
-  { path: '/reports', icon: 'list', label: '리포트' },
+  { path: '/runtime', icon: 'activity', label: '런타임 보안' },
+  { path: '/configuration', icon: 'compliance', label: '컴플라이언스' },
+  { path: '/reports', icon: 'report', label: '리포트' },
 ]
 
 
@@ -56,7 +57,18 @@ export function AppLayout() {
   const inIac = location.pathname === '/iac' || location.pathname.startsWith('/iac/')
   const inSecrets = location.pathname === '/secrets' || location.pathname.startsWith('/secrets/')
   const inVulnerabilities = isVulnerabilityPath(location.pathname)
+  const actionTab = new URLSearchParams(location.search).get('tab') === 'actions'
+  const inIacActions = location.pathname === '/iac/actions' || location.pathname.startsWith('/iac/findings/') || actionTab && location.pathname.startsWith('/iac/paths/')
+  const inImageActions = location.pathname === '/vulnerabilities/actions' || actionTab && location.pathname.startsWith('/vulnerabilities/findings/')
   const inCode = isCodePath(location.pathname)
+  const sectionPages = inSecrets ? secretNavigation.map(({ label, ...page }) => ({ ...page, title: label }))
+    : inIac ? iacPages : inVulnerabilities ? vulnerabilityPages : inCode ? codePages : []
+  const sectionActivePath = inSecrets ? secretNavigation.find((page) => activeSecretNavigation(page.path, location.pathname))?.path
+    : inIacActions ? '/iac/actions' : inImageActions ? '/vulnerabilities/actions'
+    : [...sectionPages].reverse().find((page) => location.pathname === page.path || location.pathname.startsWith(page.path + '/'))?.path
+  const inSecurity = navigation.slice(2, 8).some(item => location.pathname === item.path || location.pathname.startsWith(item.path + '/'))
+  const [securityOpen, setSecurityOpen] = useState(inSecurity)
+  useEffect(() => { if (inSecurity) setSecurityOpen(true) }, [inSecurity, location.pathname])
   const safeNavigation = sanitizedSecretSearchParams(new URLSearchParams(location.search))
 
   const summarySelection = parseWorkbenchFilters(new URLSearchParams())
@@ -107,65 +119,35 @@ export function AppLayout() {
         <div className="workspace">
           <span className="avatar">R</span>
           <div>
-            <strong>Re:Used</strong>
-            <small>Team workspace</small>
+            <strong>{import.meta.env?.MODE === 'actiondemo' ? '로컬 시연' : 'Re:Used'}</strong>
+            <small>{import.meta.env?.MODE === 'actiondemo' ? '운영 데이터와 분리' : 'Team workspace'}</small>
           </div>
         </div>
         <p className="nav-label">보안 워크스페이스</p>
         <nav aria-label="보안 메뉴">
-          {navigation.map((item) => {
-            const isIac = item.path === '/iac'
-            const isSecrets = item.path === '/secrets'
-            const hasSubmenu = isSecrets || isIac || item.path === '/vulnerabilities' || item.path === '/code'
-            const submenuId = `submenu-${item.path.slice(1)}`
-            const active = isIac ? inIac : isSecrets ? inSecrets
-              : item.path === '/vulnerabilities' ? inVulnerabilities
-              : item.path === '/code' ? inCode
-              : item.path === '/reports' ? location.pathname.startsWith('/reports') : location.pathname === item.path
-            return (
-              <div key={item.path}>
-                <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={item.path} end aria-expanded={hasSubmenu ? active : undefined} aria-controls={hasSubmenu ? submenuId : undefined}>
-                  <Icon name={item.icon} />
-                  {item.label}
-                </NavLink>
-                {hasSubmenu && <div id={submenuId} className={`nav-expansion${active ? ' is-open' : ''}`} inert={!active} aria-hidden={!active}><div className="nav-expansion-content">
-                {isSecrets && (
-                  <div className="secret-subnav" role="group" aria-label="시크릿 세부 메뉴">
-                    {secretNavigation.map((page) => (
-                      <Link
-                        key={page.path}
-                        className={`nav-link secret-sub ${activeSecretNavigation(page.path, location.pathname) ? 'active' : ''}`.trim()}
-                        to={page.path}
-                        aria-current={activeSecretNavigation(page.path, location.pathname) ? 'page' : undefined}
-                      >
-                        <Icon name={page.icon} />
-                        <span>{page.label}</span>
-                        {page.path === '/secrets/findings' && summary.isSuccess && !isSecretSnapshotInvalidated(summarySelection.filters.snapshotId) && availableMetric(reviewMetric) && (
-                          <span className="secret-nav-count" title="검토·대응 생성이 필요한 발견 위치" aria-label={`확인 필요 위치 ${reviewMetric!.value}곳`}>{reviewMetric!.value}</span>
-                        )}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {item.path === '/vulnerabilities' &&
-                  vulnerabilityPages.map((page) => (
-                    <NavLink key={page.path} className={`nav-link sub ${(location.pathname === page.path || location.pathname.startsWith(page.path + '/')) && (page.path !== '/vulnerabilities' || location.pathname === page.path) ? 'active' : ''}`.trim()} to={page.path} end>
-                      {page.title}
-                    </NavLink>
-                  ))}
-                {item.path === '/code' &&
-                  codePages.map((page) => (
-                    <NavLink key={page.path} className={`nav-link sub ${(location.pathname === page.path || location.pathname.startsWith(page.path + '/')) && (page.path !== '/vulnerabilities' || location.pathname === page.path) ? 'active' : ''}`.trim()} to={page.path} end>
-                      {page.title}
-                    </NavLink>
-                  ))}
-                {isIac && iacPages.map((page) => (
-                  <NavLink key={page.path} className={`nav-link sub ${location.pathname === page.path || (page.path !== '/iac' && location.pathname.startsWith(page.path + '/')) ? 'active' : ''}`} to={page.path} end>{page.title}</NavLink>
-                ))}
-                </div></div>}
-              </div>
-            )
+          <NavLink className="nav-link" to={OVERVIEW_PATH} end><Icon name="grid" />통합 현황</NavLink>
+          <button type="button" className={`nav-link security-menu-toggle${inSecurity ? ' active' : ''}`} aria-expanded={securityOpen} aria-controls="security-menu-group" onClick={() => setSecurityOpen(open => !open)}>
+            <Icon name="shield" /><span>보안 점검</span><Icon name="chevron" />
+          </button>
+          <div id="security-menu-group" className={`nav-expansion${securityOpen ? ' is-open' : ''}`} inert={!securityOpen} aria-hidden={!securityOpen}><div className="nav-expansion-content security-menu-group">
+          {navigation.slice(2, 8).map(item => {
+            const active = location.pathname === item.path || location.pathname.startsWith(item.path + '/')
+            const pages = item.path === '/secrets' ? secretNavigation.map(({label,...page})=>({...page,title:label})) : item.path === '/iac' ? iacPages : item.path === '/vulnerabilities' ? vulnerabilityPages : item.path === '/code' ? codePages : []
+            return <div key={item.path}>
+              <Link className={`nav-link security-area-link${active ? ' active' : ''}`} to={item.path} aria-current={active ? 'page' : undefined} aria-expanded={pages.length ? active : undefined} aria-controls={pages.length ? `submenu-${item.path.slice(1)}` : undefined}><Icon name={item.icon} /><span>{item.label}</span></Link>
+              {!!pages.length && <div id={`submenu-${item.path.slice(1)}`} className={`nav-expansion${active ? ' is-open' : ''}`} inert={!active} aria-hidden={!active}><div className="nav-expansion-content">
+                <div className="security-subnav" role="group" aria-label={`${item.label} 세부 메뉴`}>
+                  {pages.map(page=><Link key={page.path} className={`nav-link sub${active && page.path === sectionActivePath ? ' active' : ''}`} to={page.path} aria-current={active && page.path === sectionActivePath ? 'page' : undefined}>
+                    <Icon name={page.icon} /><span>{page.title}</span>
+                    {page.path === '/secrets/findings' && inSecrets && summary.isSuccess && !isSecretSnapshotInvalidated(summarySelection.filters.snapshotId) && availableMetric(reviewMetric) && <span className="secret-nav-count" aria-label={`확인 필요 위치 ${reviewMetric!.value}곳`}>{reviewMetric!.value}</span>}
+                  </Link>)}
+                </div>
+              </div></div>}
+            </div>
           })}
+          </div></div>
+          <NavLink className="nav-link" to="/actions"><Icon name="task" />조치 관리</NavLink>
+          <NavLink className="nav-link" to="/reports"><Icon name="report" />리포트</NavLink>
         </nav>
       </aside>
 
@@ -206,8 +188,10 @@ export function AppLayout() {
         </header>
         <main id="main" className={inSecrets || inIac || inVulnerabilities ? 'security-workspace' : undefined} tabIndex={-1}>
           {import.meta.env?.VITE_READ_ONLY_PREVIEW === 'true' && <p className="notice page-notice" role="status">로컬 미리보기 · 운영 조회 결과를 임시 보관해 보여줍니다. 저장, 검사 실행 등 운영 데이터를 바꾸는 작업은 차단됩니다.</p>}
+          {import.meta.env?.DEV && import.meta.env?.VITE_LOCAL_ACTION_PREVIEW === 'true' && <p className="notice page-notice" role="status">로컬 조치 기능 검증 · 예시 데이터만 사용합니다. 저장 내용은 로컬 테스트 DB에만 반영됩니다.</p>}
           {inSecrets && safeNavigation.get('searchRejected') === '1' && !['/secrets/findings', '/secrets/cases', '/secrets/triage'].includes(location.pathname)
             && <p className="notice error" role="alert">{secretSearchErrorMessage}</p>}
+
           <Outlet />
           <footer className="footer">
             <span>© 2026 Logssey · Cloud security, clearly.</span>

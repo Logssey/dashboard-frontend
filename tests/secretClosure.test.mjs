@@ -76,7 +76,7 @@ test('disabled risk acceptance preserves past approvals and authorized cancellat
   assert.doesNotMatch(html, /위험 수용 승인|기간을 정한 위험 수용|수용 중/)
 })
 test('verification panes do not pile up all response forms under the case', () => {
-  const html = render(modules.verification.SecretCaseVerification, [[['secret-case-closure', 7], checks]])
+  const html = render(modules.verification.SecretCaseVerification, [[['secret-case-closure', 7], checks]], {}, '/secrets/cases/7?tab=verification&check=closure')
   assert.match(html, /현재 해결 조건/)
   assert.doesNotMatch(html, /수행 내용 선택|기간을 정한 위험 수용|이관 근거 참조|작업 위치<select/)
 })
@@ -113,7 +113,7 @@ test('the case header derives risk acceptance only from the current server contr
   const data = { caseId: 7, caseVersion: 3, fullyRiskAccepted: true }
   const html = render(modules.status.SecretCaseStatus, [[['secret-case-exceptions', 7], data]])
   assert.match(html, /위험 수용 중/)
-  assert.match(html, /조치 단계: 재검사 대기 · 해결과 별도/)
+  assert.match(html, /조치 단계: 확인 대기 · 해결과 별도/)
   const stale = render(modules.status.SecretCaseStatus, [[['secret-case-exceptions', 7], { ...data, caseVersion: 2 }]])
   assert.doesNotMatch(stale, /위험 수용 중/)
   assert.match(stale, /최신 상태 조회 필요/)
