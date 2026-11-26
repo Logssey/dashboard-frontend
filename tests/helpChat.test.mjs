@@ -661,3 +661,9 @@ test('questions may be up to 1,000 characters, matching the server', () => {
   assert.equal(help.HELP_QUESTION_MAX, 1000)
   assert.equal(help.helpErrorMessages.INVALID_INPUT, '질문은 1~1000자로 입력해 주세요.')
 })
+
+test('the compliance screen suggests an ISMS-P evidence question', () => {
+  const questions = help.suggestedQuestions('컴플라이언스')
+  assert.ok(questions.includes('ISMS-P 2.11.2는 어디서 증적을 봐요?'), questions.join(' / '))
+  for (const q of questions) assert.ok(q.length <= help.HELP_QUESTION_MAX)
+})

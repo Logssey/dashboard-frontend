@@ -416,7 +416,7 @@ const suggestions: Array<{ match: (page: string) => boolean; questions: string[]
   { match: (p) => p === '연결 관리' || p === '연결 범위', questions: ['GitHub 연결은 어떻게 추가해요?', '연결 테스트 결과는 어떻게 읽어요?'] },
   { match: (p) => p === '스캔 이력' || p === '스캔 상세', questions: ['스캔은 어떻게 시작해요?'] },
   { match: (p) => p === '키 형식 등록', questions: ['사내 키 형식은 어떻게 등록해요?'] },
-  { match: (p) => p === '컴플라이언스', questions: ['컴플라이언스 점검은 어떻게 시작해요?'] },
+  { match: (p) => p === '컴플라이언스', questions: ['컴플라이언스 점검은 어떻게 시작해요?', 'ISMS-P 2.11.2는 어디서 증적을 봐요?'] },
   { match: (p) => ['요약', '취약점 관리', 'Finding 목록', '워크로드', '스캔'].includes(p), questions: ['Log4Shell 같은 취약점이 터지면 무엇부터 봐요?', 'CVE-2021-44228 우리 영향 있어?','취약점 스캔은 어떻게 요청해요?', 'Finding 검토는 어떻게 저장해요?'] },
 ]
 
