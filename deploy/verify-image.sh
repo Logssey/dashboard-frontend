@@ -29,6 +29,7 @@ http { access_log off;
   location = /api/v1/auth/me { default_type application/json; return 200 '{"syntheticRouteCheck":true}'; }
   location = /oauth2/authorization/github { default_type text/plain; return 200 'syntheticGithubStart'; }
   location = /login/oauth2/code/github { default_type text/plain; return 200 'syntheticGithubCallback'; }
+  location = /internal/v1/runtime/events/falco/raw { default_type application/json; return 401 '{"code":"UNAUTHORIZED"}'; }
   location / { return 404; }
 } }
 EOF
@@ -57,6 +58,8 @@ docker exec "$task_frontend" wget -qO- "$task_base/api/v1/auth/me" | grep -Fx '{
 docker exec "$task_frontend" wget -qO- "$task_base/oauth2/authorization/github" | grep -Fx 'syntheticGithubStart'
 docker exec "$task_frontend" wget -qO- "$task_base/login/oauth2/code/github?code=x&state=y" | grep -Fx 'syntheticGithubCallback'
 docker exec "$task_frontend" wget -qO- "$task_base/login?error=github" | grep -q '<div id="root">'
-docker exec "$task_frontend" wget -S -O /dev/null "$task_base/internal/v1/runtime" > "$task_dir/blocked" 2>&1 || true
+docker exec "$task_frontend" wget -S -O /dev/null "$task_base/internal/v1/runtime/events/falco/raw" > "$task_dir/runtime" 2>&1 || true
+grep -q '401 Unauthorized' "$task_dir/runtime"
+docker exec "$task_frontend" wget -S -O /dev/null "$task_base/internal/v1/private" > "$task_dir/blocked" 2>&1 || true
 grep -q '404 Not Found' "$task_dir/blocked"
 echo 'ISOLATED_FRONTEND_IMAGE_PASSED'
