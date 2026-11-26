@@ -39,6 +39,27 @@ function render(Component, props, seeds = [], url = '/secrets/12?occurrence=8') 
   return html
 }
 const props = { experience, canSupplement: true, onAction() {} }
+
+test('assessment waiting and missing evidence after completion have distinct explanations', () => {
+  const waiting = render(api.SecretRiskExperience, { ...props, process: { status: 'PENDING', workerAvailable: false } })
+  assert.match(waiting, /평가 작업이 대기 중/)
+  assert.match(waiting, /평가 워커의 연결 상태/)
+  const running = render(api.SecretRiskExperience, { ...props, process: { status: 'RUNNING', workerAvailable: true } })
+  assert.match(running, /완료되면 자동으로 갱신/)
+  const completed = render(api.SecretRiskExperience, { ...props, process: { status: 'COMPLETED', workerAvailable: true } })
+  assert.match(completed, /평가는 완료됐지만 등급을 정할 근거가 부족/)
+  assert.doesNotMatch(completed, /평가 작업이 대기 중/)
+})
+
+test('policy grades are shown without replacing them with authentication status', () => {
+  for (const [grade, label] of [['CRITICAL','Critical'],['HIGH','High'],['MEDIUM','Medium'],['LOW','Low']]) {
+    const html = render(api.SecretRiskExperience, { ...props, experience: { ...experience,
+      summary: { ...experience.summary, status: 'CURRENT', severity: grade, ruleId: 'R03' } },
+      process: { status: 'COMPLETED', workerAvailable: true } })
+    assert.match(html, new RegExp(`<strong>${label}</strong>`))
+    assert.doesNotMatch(html, /평가는 완료됐지만 등급을 정할 근거가 부족/)
+  }
+})
 test('risk explanation shows six read-only facts, candidates, current authentication and only the missing question', () => {
   const html = render(api.SecretRiskExperience, props)
   for (const label of ['보관·공유 적정성', '접근 가능 범위', '키 구성 확인', '권한과 자원 영향', '중대한 사고 근거', '현재 인증 상태']) assert.match(html, new RegExp(label))

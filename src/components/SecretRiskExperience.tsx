@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import type { RiskExperience } from '@/api/secretRisk'
+import type { RiskExperience, SecretRisk } from '@/api/secretRisk'
 import type { KeyLocation } from '@/api/secrets'
 import { criterionStatusLabel, experienceReason, permissionSupportReason, priorityLabel, priorityReason, riskActionLabel } from '@/lib/secretRiskExperience'
 import { riskAxisLabels, riskAxisValue, riskReason, severityText } from '@/lib/secretRisk'
@@ -7,15 +7,19 @@ import { scanDate } from '@/lib/secretScan'
 
 interface Props {
   experience: RiskExperience
+  process?: SecretRisk['assessmentProcess']
   location?: KeyLocation
   credentialSetId?: number
   canSupplement: boolean
   onAction: (action: string, evidenceType?: string | null) => void
 }
 
-export function SecretRiskExperience({ experience, location, credentialSetId, canSupplement, onAction }: Props) {
+export function SecretRiskExperience({ experience, process, location, credentialSetId, canSupplement, onAction }: Props) {
   if (experience.version !== 'risk-experience-v1') return <p className="notice">판단 설명을 현재 버전으로 불러오지 못했어요. 다시 조회하세요.</p>
   const summary = experience.summary
+  const pending = process?.status === 'PENDING' || process?.status === 'RUNNING'
+  const processMessage = pending ? (process.workerAvailable ? '저장된 근거로 위험도를 평가하고 있어요. 완료되면 자동으로 갱신돼요.' : '평가 작업이 대기 중이에요. 평가 워커의 연결 상태를 확인해야 해요.')
+    : process?.status === 'FAILED' ? '평가 작업을 완료하지 못했어요. 평가 이력과 워커 상태를 확인하세요.' : null
   const priority = experience.workPriority
   const supportReason = permissionSupportReason(experience)
   const questions = new Map<string, { action: string; evidenceType: string | null; codes: string[] }>()
@@ -45,7 +49,8 @@ export function SecretRiskExperience({ experience, location, credentialSetId, ca
     <section className={`secret-risk-headline ${summary.status.toLowerCase()}`} aria-label="시크릿 노출 위험도 요약">
       <div className="secret-risk-headline-status"><h3>시크릿 노출 위험도</h3><strong>{grade}</strong><span>{summary.held ? '기존 높은 판단 유지 · 독립 검토 필요' : summary.status === 'CURRENT' ? '현재 근거 기준' : summary.status === 'STALE' ? '이전 평가와 현재 사실 구분' : summary.status === 'METADATA_ONLY' ? '원문 노출 평가 대상 아님' : '위험 없음으로 판단하지 않음'}</span></div>
       {summary.held && <p>최근 자동 평가 {severityText(summary.automaticSeverity, summary.ruleId === 'R00' ? 'NOT_APPLICABLE' : undefined)} · 현재 유지 판단과 구분해요.</p>}
-      <p>{experienceReason(experience)}</p>
+      <p role={processMessage ? 'status' : undefined}>{processMessage ?? experienceReason(experience)}</p>
+      {process?.status === 'COMPLETED' && summary.ruleId === 'R99' && <p className="caption">평가는 완료됐지만 등급을 정할 근거가 부족해요. 아래 확인 항목을 보완하면 다시 평가해요.</p>}
       {first && <div className="secret-risk-next"><div><span>다음 행동</span><strong>{riskReason(first.codes[0])}</strong></div>{actionControl(first.action, first.evidenceType)}</div>}
       <p className="caption">원문 관찰 {experience.sourcePresenceObservedAt ? scanDate(experience.sourcePresenceObservedAt) : '현재 관찰 시점 미확인'} · 판단 조회 {scanDate(experience.readAt)}</p>
     </section>
