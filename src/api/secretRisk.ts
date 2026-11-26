@@ -37,6 +37,7 @@ export interface RiskAnalysisContext {
   limitations: string[]
 }
 export interface SecretRisk {
+  assessmentProcess?: { status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'NOT_REQUESTED' | 'NOT_APPLICABLE'; workerAvailable: boolean; jobId?: number; requestedAt?: string | null; finishedAt?: string | null }
   legacyExposureAssessment?: { decision: string; assessmentId: number; scopeRevision: number | null; currentScopeRevision: number; needsReconfirmation: boolean; reasonCodes: string[] }
   latestAutomaticAssessment: RiskAssessment | null; effectiveAssessment: RiskAssessment | null
   lastConfirmedSeverity: { severity: RiskSeverity; assessmentId: number; assessedAt: string | null } | null
