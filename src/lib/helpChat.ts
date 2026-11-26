@@ -1,6 +1,6 @@
 import type { CveImpact, HelpCard, HelpReportDraft, HelpSource, HelpTurn, IncidentSource, IncidentStatus } from '@/api/help'
 
-export const HELP_QUESTION_MAX = 500
+export const HELP_QUESTION_MAX = 1000
 const HISTORY_MESSAGES = 6
 const STORAGE_KEY = 'logssey.help.chat'
 

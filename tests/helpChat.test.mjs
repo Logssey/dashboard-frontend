@@ -656,3 +656,8 @@ test('frontend source and build output never reference the Claude API or its key
     }
   }
 })
+
+test('questions may be up to 1,000 characters, matching the server', () => {
+  assert.equal(help.HELP_QUESTION_MAX, 1000)
+  assert.equal(help.helpErrorMessages.INVALID_INPUT, '질문은 1~1000자로 입력해 주세요.')
+})
