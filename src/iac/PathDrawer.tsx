@@ -1,3 +1,4 @@
+import { ActionRecordPanel } from '@/components/ActionRecordPanel'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
@@ -8,7 +9,7 @@ import { formatDateTime, hopLabel, remediationText, severityLabel, severityTone,
  * 열린 경로 상세 (S-01 C). 단계마다 다음 단계로 가는 관계를 보여주고, 끊을 수 있는 관계에 수정 방법을 붙인다.
  * 수정 PR 생성은 다음 단계(FR-D2)라 안내만 한다.
  */
-export function PathDrawer({ pathId }: { pathId: number | null; onClose: () => void }) {
+export function PathDrawer({ pathId, actionOnly = false }: { pathId: number | null; onClose: () => void; actionOnly?: boolean }) {
   const detail = useQuery({
     queryKey: ['iac', 'path', pathId],
     queryFn: () => fetchIacPath(pathId!),
@@ -18,6 +19,7 @@ export function PathDrawer({ pathId }: { pathId: number | null; onClose: () => v
 
   const path = detail.data?.path
   const cutPoints = detail.data?.cutPoints ?? []
+  if (actionOnly && path) return <section className="card security-detail-content"><ActionRecordPanel kind="IAC_PATH" id={path.pathId} /></section>
 
   return (
     <section className="card security-detail-content">
@@ -36,6 +38,7 @@ export function PathDrawer({ pathId }: { pathId: number | null; onClose: () => v
               <>
                 <div className="row">
                   <span className="caption">경로 #{path.pathId}</span>
+                  <Badge label={path.status === 'CLOSED' ? '미발견 경로 이력' : '발견된 경로'} tone="neutral" />
                   <Badge label={severityLabel[path.severity]} tone={severityTone[path.severity]} />
                   <Badge label={tierLabel(path.tier)} tone={path.tier === 1 ? 'critical' : 'high'} />
                 </div>
@@ -44,7 +47,7 @@ export function PathDrawer({ pathId }: { pathId: number | null; onClose: () => v
                   <dd>{path.target.kind}</dd>
                   <dt>처음 확인</dt>
                   <dd>{formatDateTime(path.firstSeenAt)}</dd>
-                  <dt>마지막 확인</dt>
+                  <dt>마지막 발견</dt>
                   <dd>{formatDateTime(path.lastSeenAt)}</dd>
                 </dl>
 

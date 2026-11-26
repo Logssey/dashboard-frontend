@@ -4,9 +4,9 @@ export const CODE_PATH = '/code'
 export const CODE_POLICY_PATH = '/code/policy'
 
 export const codePages = [
-  { path: CODE_PATH, title: '발견 현황' },
-  { path: CODE_POLICY_PATH, title: '검사 기준·정책' },
-]
+  { path: CODE_PATH, title: '발견 현황', icon: 'code' },
+  { path: CODE_POLICY_PATH, title: '검사 기준·정책', icon: 'compliance' },
+] as const
 
 export function isCodePath(pathname: string): boolean {
   return pathname === CODE_PATH || pathname.startsWith(`${CODE_PATH}/`)

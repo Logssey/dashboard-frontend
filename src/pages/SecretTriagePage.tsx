@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
 import { decideSecretOccurrence, fetchReviewContext, repairSecretCaseLink, type ReviewContext, type ReviewDecision, type ReviewResult } from '@/api/secretTriage'
 import { SecretTaskGuidance } from '@/components/SecretTaskGuidance'
@@ -38,13 +38,11 @@ function ReviewForm({ context, reload, onSaved }: { context: ReviewContext; relo
   const [missing, setMissing] = useState(''), [owner, setOwner] = useState(''), [due, setDue] = useState('')
   const [confirm, setConfirm] = useState(false), [stale, setStale] = useState(false)
   const requestKey = useRef({ payload: '', key: '' }), repairKey = useRef({ payload: '', key: '' })
-  const navigate = useNavigate(), refresh = useSecretReadRefresh()
+  const refresh = useSecretReadRefresh()
   const onSuccess = (result: ReviewResult) => {
     onSaved(result)
     refresh()
-    if (result.caseId) navigate(reviewCasePath(context, result.caseId, params, true))
-    else if (result.investigationTaskId) navigate(`/secrets/triage/investigations/${result.investigationTaskId}`)
-    else { setDecision(''); setConfirm(false); reload() }
+    setDecision(''); setConfirm(false); reload()
   }
   const onError = (error: Error) => { if (error instanceof ApiError && error.status === 409) { setStale(true); setConfirm(false) } }
   const submit = useMutation({ mutationFn: () => {
@@ -123,7 +121,7 @@ export function SecretTriagePage() {
   return <>
     <Link className="secret-scan-back" to={reviewReturnPath(params, secretId, occurrenceId, valid?.origin ?? requestedOrigin)}>← 이전 목록·키로 돌아가기</Link>
     <section className="page-head"><div><h1 ref={title} tabIndex={-1}>{valid?.maskedLabel || '위치 근거 확인'}</h1><p className="subtitle">확인된 사실과 부족한 근거를 구분해 판단하세요.</p></div><button className="btn outline" disabled={!occurrenceId || context.isFetching} onClick={reload}>현재 근거 다시 조회</button></section>
-    {receipt?.credentialSetId === secretId && receipt?.occurrenceId === occurrenceId && <section className="card secret-scan-section" role="status"><h2>이 위치의 결정을 저장했어요</h2><p>{receipt.result.correctionId ? '선택한 탐지 근거를 오탐으로 교정했어요. 다른 위치의 판정은 유지돼요.' : receipt.result.exposureStatus === 'NORMAL' ? '이 위치의 승인된 보관 근거를 저장했어요. 키의 유효성과 다른 위치의 조치는 별도예요.' : '현재 근거와 다음 작업을 확인해 주세요.'}</p></section>}
+    {receipt?.credentialSetId === secretId && receipt?.occurrenceId === occurrenceId && <section className="card secret-scan-section" role="status"><h2>이 위치의 결정을 저장했어요</h2><p>{receipt.result.correctionId ? '선택한 탐지 근거를 오탐으로 교정했어요. 다른 위치의 판정은 유지돼요.' : receipt.result.exposureStatus === 'NORMAL' ? '이 위치의 승인된 보관 근거를 저장했어요. 키의 유효성과 다른 위치의 조치는 별도예요.' : '현재 근거와 다음 작업을 확인해 주세요.'}</p>{receipt.result.caseId && valid && <Link className="btn primary" to={reviewCasePath(valid,receipt.result.caseId,params,true)}>조치 관리 열기</Link>}{receipt.result.investigationTaskId && <Link className="btn primary" to={`/secrets/triage/investigations/${receipt.result.investigationTaskId}`}>추가 조사 열기</Link>}</section>}
     {!secretId || !occurrenceId ? <div className="card secret-scan-message" role="alert"><h2>확인할 위치를 선택해 주세요</h2><p>키와 발견 위치가 모두 지정돼야 판단 근거를 확인할 수 있어요.</p>{secretId && <Link className="btn outline" to={`/secrets/${secretId}?${new URLSearchParams({ origin: requestedOrigin, ...(params.has('returnQuery') ? { return: 'workbench', returnQuery: params.get('returnQuery')! } : {}) })}`}>키 상세에서 위치 선택</Link>}</div> : context.isPending ? <p className="card secret-scan-message" role="status">위치·범위·정책 근거를 불러오는 중이에요.</p> : context.isError ? <div className="card secret-scan-message" role="alert"><h2>{context.error instanceof ApiError && context.error.status === 403 ? '위치 근거를 볼 권한이 없어요' : context.error instanceof ApiError && context.error.status === 404 ? '위치 근거를 찾을 수 없어요' : '위치 근거를 불러오지 못했어요'}</h2><p>확인 대기열로 돌아가거나 다시 조회해 주세요. 빈 값을 근거로 판정하지 않아요.</p>{!(context.error instanceof ApiError && [403, 404].includes(context.error.status)) && <button className="btn outline" onClick={reload}>다시 조회</button>}</div> : !valid ? <div className="card secret-scan-message" role="alert"><h2>선택한 키·위치·승인 범위가 일치하지 않아요</h2><p>잘못 연결된 주소일 수 있어요. 이 상태에서는 변경할 수 없어요.</p></div> : <><CurrentCaseAction context={valid} />{!hasCurrentCase(valid) && <SecretTaskGuidance guidance={valid.taskGuidance} />}<ReviewEvidence context={valid} /><ReviewForm key={`${valid.occurrenceId}:${valid.versions?.occurrence}:${valid.versions?.scope}:${valid.versions?.policy}:${refreshVersion}`} context={valid} reload={reload} onSaved={(result) => setReceipt({ credentialSetId: valid.credentialSetId, occurrenceId: valid.occurrenceId, result })} />{valid.canRequestAssistance && <SecretHandoffForm key={`request:${valid.occurrenceId}:${valid.versions.occurrence}`} targetType="OCCURRENCE" targetId={valid.occurrenceId} expectedVersion={valid.versions.occurrence} />}</>}
   </>
 }

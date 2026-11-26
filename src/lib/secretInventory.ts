@@ -66,7 +66,7 @@ export const whyLabel = (code: string | undefined): string => ({ ACCESS_KEY_META
 export const nextLabel = (code: string | undefined): string => ({ VIEW_METADATA: '키 정보', VIEW_CASE: '대응 건', LINK_CASE: '연결 근거 확인', REVIEW_EVIDENCE: '근거 확인', VIEW_DETAIL: '키 상세' } as Record<string, string>)[code ?? ''] ?? '키 상세'
 export const presenceLabels: Record<string, string> = { PRESENT: '마지막 검사에서 발견', MISSING: '마지막 검사에서 미발견', UNKNOWN: '검사 근거 미확인' }
 export const exposureLabels: Record<string, string> = { ABNORMAL: '노출 확인', NORMAL: '보관 허용', UNKNOWN: '노출 미확인' }
-export const actionLabels: Record<string, string> = { OPEN: '신규 및 분석', IN_PROGRESS: '조치 중', REVALIDATION_PENDING: '재검사 대기', RESOLVED: '해결', NO_CASE: '대응 건 없음' }
+export const actionLabels: Record<string, string> = { OPEN: '신규 및 분석', IN_PROGRESS: '조치 중', REVALIDATION_PENDING: '확인 대기', RESOLVED: '해결', NO_CASE: '대응 건 없음' }
 export function parseLocationFilters(params: URLSearchParams): { filters: LocationFilter; errors: string[] } {
   params = canonicalSecretLocationParams(params)
   const errors: string[] = []

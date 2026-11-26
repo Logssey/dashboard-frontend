@@ -13,7 +13,6 @@ import { componentStateLabel } from '@/lib/labels'
 import { caseRiskSeverityLabels, caseRiskValidityLabels, parseCaseRiskSelection } from '@/lib/secretRiskDistribution'
 import { inventorySubtypeLabel, presenceLabels } from '@/lib/secretInventory'
 import { caseAssigneeLabel, caseStageLabels } from '@/lib/secretResponse'
-import { reviewDetailPath } from '@/lib/secretReview'
 import { parseWorkbenchFilters, workbenchBuckets, workbenchOptions, workbenchSearch, workbenchWhyLabel } from '@/lib/secretWorkbench'
 import { positiveId, scanDate, scanReason, scopeTypeLabel } from '@/lib/secretScan'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
@@ -25,7 +24,7 @@ function targetLink(item: WorkbenchQueueItem, unit: string, params: URLSearchPar
   const returnQuery = params.toString()
   if (unit === 'Scope') return { href: item.connectionId && item.scopeId ? params.get('bucket') === 'COVERAGE_GAPS' ? `/secrets/connections/${item.connectionId}/scopes?scopeId=${item.scopeId}&return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : `/secrets/connections/${item.connectionId}/scopes/${item.scopeId}?return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : null, title: item.safeDisplayAlias ?? `범위 #${item.scopeId ?? '미확인'}`, action: '검사 대상 설정 열기', focus: String(item.scopeId ?? '') }
   if (unit === 'ResponseCase') return { href: item.caseId ? `/secrets/cases/${item.caseId}?${new URLSearchParams({ origin: item.origin ?? 'ALL', ...(item.occurrenceId ? { occurrence: String(item.occurrenceId) } : {}), return: 'workbench', returnQuery })}` : null, title: `CASE-${item.caseId ?? '미확인'}`, action: '대응 건 확인', focus: String(item.caseId ?? '') }
-  return { href: secretId ? item.occurrenceId ? reviewDetailPath(secretId, item.occurrenceId, params) : `/secrets/${secretId}?origin=${params.get('origin') ?? 'ALL'}&return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : null, title: item.maskedLabel ?? (secretId ? `키 #${secretId}` : '대상 미확인'), action: item.occurrenceId ? '위치 근거 확인' : '키 상세', focus: item.occurrenceId ? `${secretId}:${item.occurrenceId}` : String(secretId ?? '') }
+  return { href: secretId ? item.occurrenceId ? `/secrets/${secretId}?${new URLSearchParams({ origin: params.get('origin') ?? 'ALL', occurrence:String(item.occurrenceId), return:'workbench', returnQuery })}` : `/secrets/${secretId}?origin=${params.get('origin') ?? 'ALL'}&return=workbench&returnQuery=${encodeURIComponent(returnQuery)}` : null, title: item.maskedLabel ?? (secretId ? `키 #${secretId}` : '대상 미확인'), action: '키 상세 보기', focus: item.occurrenceId ? `${secretId}:${item.occurrenceId}` : String(secretId ?? '') }
 }
 export function SecretTriageCandidatesPage() {
   const [params, setParams] = useSecretListParams(), client = useQueryClient()

@@ -7,7 +7,7 @@ export function SecurityDetailLayout({ title, fallback, children }: { title: str
   const heading = useRef<HTMLHeadingElement>(null)
   const from: unknown = location.state?.from
   const area = `/${fallback.split('/')[1]}`
-  const back = typeof from === 'string' && (from === area || from.startsWith(`${area}/`) || from.startsWith(`${area}?`)) ? from : fallback
+  const back = typeof from === 'string' && (from === '/actions' || from.startsWith('/actions?') || from === area || from.startsWith(`${area}/`) || from.startsWith(`${area}?`)) ? from : fallback
   useEffect(() => { heading.current?.focus({ preventScroll: true }) }, [location.pathname])
   return <div className="security-detail-page">
     <Link className="security-back" to={back}>← 목록으로 돌아가기</Link>

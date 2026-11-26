@@ -148,6 +148,22 @@ test('detail view lists facts used for the verdict before informational facts', 
   assert.match(html, /수정 버전은 팀에서 선택합니다/)
 })
 
+test('image review stays available when common action record loading fails', () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryOnMount: false, staleTime: Infinity } } })
+  client.getQueryCache().build(client, { queryKey: ['action-record', 'IMAGE', 8] }).setState({
+    status: 'error', fetchStatus: 'idle', error: new Error('action service unavailable'),
+  })
+  const html = renderToStaticMarkup(createElement(QueryClientProvider, { client },
+    createElement(MemoryRouter, null, createElement(reach.ReachFindingDetailView, {
+      detail: reach.sampleReachFinding(8), actionOnly: true, actionRecordId: 8,
+      reviewForm: createElement('button', null, '검토 저장'),
+    }))))
+  assert.match(html, /조치 기록을 불러오지 못했어요/)
+  assert.match(html, /aria-label="취약점 판단 검토"/)
+  assert.match(html, />검토 저장<\/button>/)
+  client.clear()
+})
+
 /** 요약·목록 응답을 캐시에 넣어 둔 QueryClient. sample은 "예시 값으로 대신 그렸는지" */
 function seededClient({ summarySample, listSample }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
@@ -188,19 +204,21 @@ test('notice names only the parts that are still sample data', () => {
   assert.match(renderAt(client, reach.VulnerabilityFindingsPage, '/vulnerabilities/findings'), /<strong>취약점 목록<\/strong>/)
 })
 
-test('sidebar opens 요약 and 취약점 목록 under 이미지 보안 only while inside it', () => {
+test('image submenu remains accessible inside the collapsible security group', () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   client.setQueryData(reach.ME_QUERY_KEY, { userId: 1, displayName: 'Security Admin', role: 'ADMIN' })
 
   const inside = renderAt(client, reach.AppLayout, '/vulnerabilities/findings')
-  assert.match(inside, /class="nav-link active" href="\/vulnerabilities"/)
-  assert.match(inside, /class="nav-link sub" href="\/vulnerabilities"[^>]*>현황</)
-  // NavLink가 active를 한 번 더 붙인다 (인프라·시크릿 하위 메뉴와 같음)
-  assert.match(inside, /class="nav-link sub active[^"]*" href="\/vulnerabilities\/findings"[^>]*>취약점 목록</)
+  assert.match(inside, /class="nav-link security-area-link active"/)
+  const sidebar = inside.split('</aside>')[0]
+  assert.match(sidebar, /href="\/vulnerabilities\/findings"/)
+  assert.match(sidebar, /aria-label="이미지 보안 세부 메뉴"/)
+  assert.match(sidebar, /class="nav-link sub active" aria-current="page" href="\/vulnerabilities\/findings"/)
   assert.match(inside, /<span>취약점 목록<\/span>/) // 상단 바 제목
 
   const outside = renderAt(client, reach.AppLayout, '/overview')
-  assert.match(outside, /id="submenu-vulnerabilities" class="nav-expansion" inert="" aria-hidden="true"/)
+  assert.match(outside, /id="security-menu-group" class="nav-expansion" inert="" aria-hidden="true"/)
+  assert.match(outside, /href="\/vulnerabilities\/findings"/)
   assert.equal(reach.isVulnerabilityPath('/vulnerabilities/findings'), true)
   assert.equal(reach.isVulnerabilityPath('/vulnerabilitiesx'), false)
 })

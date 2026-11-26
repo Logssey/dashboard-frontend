@@ -1,5 +1,8 @@
 // 템플릿 아이콘 그대로 (components.js의 paths)
 const paths = {
+  task: 'M9 5H5v16h14V5h-4|M9 3h6v4H9z|m8 14 3 3 5-6',
+  compliance: 'M4 3h16v18H4z|m7 8 1 1 2-2M13 8h4|m7 15 1 1 2-2M13 15h4',
+  report: 'M5 3h9l5 5v13H5z|M14 3v6h5|M8 17v-3M12 17v-6M16 17v-4',
   shield: 'M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Z|m8 12 3 3 5-6',
   grid: 'M3 3h7v7H3z|M14 3h7v7h-7z|M3 14h7v7H3z|M14 14h7v7h-7z',
   cloud: 'M6 18a5 5 0 1 1 0-10 7 7 0 0 1 13 2 4 4 0 0 1-1 8H6',

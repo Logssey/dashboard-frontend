@@ -6,11 +6,11 @@ import { fetchSecretSummary, type CollectionProviderHealth, type WorkbenchFilter
 import type { WorkbenchQueueItem } from '@/api/secretWorkbenchQueue'
 import { useSecretListParams } from '@/lib/useSecretListParams'
 import { PageHeader } from '@/components/PageHeader'
-import { SecretRiskDistribution } from '@/components/SecretRiskDistribution'
 import { SecretCommonCauses } from '@/components/SecretCommonCauses'
+import { SecretRiskDistribution } from '@/components/SecretRiskDistribution'
 import { withSecretOrigin } from '@/lib/secretNavigation'
 import { availableMetric, filterLabel, parseWorkbenchFilters, summaryReason, workbenchQueuePath, workbenchSearch, workbenchWhyLabel } from '@/lib/secretWorkbench'
-import { actionLabels, blockerLabels, guidanceTargetPath, priorityLabels } from '@/lib/secretTaskGuidance'
+import { blockerLabels, priorityLabels } from '@/lib/secretTaskGuidance'
 import { setupReasonLabels } from '@/lib/secretScopeSetup'
 import { isSecretSnapshotInvalidated } from '@/lib/secretSnapshotState'
 import { secretSummaryKey, useSecretWorkbench } from '@/lib/useSecretWorkbench'
@@ -21,7 +21,7 @@ import './secret-workbench.css'
 const views = {
   review: { title: '확인 필요', description: '발견 위치를 검토하고 필요한 대응을 시작하세요.', bucket: 'REVIEW_REQUIRED', stages: '', metric: 'reviewRequiredLocations', unit: '곳' },
   response: { title: '대응 중', description: '담당자와 조치 진행 상황을 확인하세요.', bucket: 'ACTION_REQUIRED', stages: 'OPEN,IN_PROGRESS', metric: 'ongoingCases', unit: '건' },
-  revalidation: { title: '재검사 대기', description: '조치한 위치를 다시 검사하세요.', bucket: 'ACTION_REQUIRED', stages: 'REVALIDATION_PENDING', metric: 'revalidationPendingCases', unit: '건' },
+  revalidation: { title: '확인 대기', description: '재검사 결과와 해결 조건을 확인하세요.', bucket: 'ACTION_REQUIRED', stages: 'REVALIDATION_PENDING', metric: 'revalidationPendingCases', unit: '건' },
 } as const
 type WorkView = keyof typeof views
 
@@ -58,13 +58,9 @@ function workPath(item: WorkbenchQueueItem, filters: WorkbenchFilters, view: Wor
   const context = new URLSearchParams({ origin: filters.origin, return: 'workbench', returnQuery: back })
   if (item.occurrenceId) context.set('occurrence', String(item.occurrenceId))
   const key = item.secretId ?? item.credentialSetId
-  if (item.taskGuidance?.nextActionCode === 'WAIT_FOR_REVALIDATION' && item.taskGuidance.canExecute) {
-    const runPath = guidanceTargetPath(item.taskGuidance)
-    if (runPath?.startsWith('/secrets/history/')) return `${runPath}?${new URLSearchParams({ return: 'workbench', returnQuery: back, ...(item.caseId ? { returnCaseId: String(item.caseId) } : {}) })}`
-  }
-  if (view === 'review' && key && item.occurrenceId) return `/secrets/triage/${key}?${context}`
+  if (view === 'review' && key) return `/secrets/${key}?${context}`
   if (item.caseId) return `/secrets/cases/${item.caseId}?${context}`
-  return key && item.occurrenceId ? `/secrets/triage/${key}?${context}` : null
+  return key ? `/secrets/${key}?${context}` : null
 }
 
 function EmptyWork({ summary, filters, view }: { summary: WorkbenchSummary; filters: WorkbenchFilters; view: WorkView }) {
@@ -121,7 +117,7 @@ function WorkList({ preview, summary, view, filters }: { preview?: WorkPreview; 
         const reasons = guidance?.priorityReasonCodes?.map((code) => priorityLabels[code]).filter(Boolean) ?? []
         const caseLinkRequired = (item.whyHereCode ?? item.whyHere) === 'CASE_LINK_REQUIRED'
         const title = item.maskedLabel ?? (item.caseId ? `대응 #${item.caseId}` : `키 #${item.secretId ?? item.credentialSetId ?? '—'}`)
-        const action = guidance?.canExecute === false ? '내용 확인' : view === 'review' ? caseLinkRequired ? '대응 생성' : '발견 검토' : guidance ? actionLabels[guidance.nextActionCode] ?? '내용 확인' : '내용 확인'
+        const action = guidance?.canExecute === false ? '내용 확인' : view === 'review' ? '키 상세 보기' : '조치 관리 열기'
         return <tr key={view === 'review' ? item.occurrenceId ?? index : item.caseId ?? item.occurrenceId ?? index}>
           <td>
             {path ? <Link to={path}>{title}</Link> : title}
@@ -224,11 +220,7 @@ export function SecretOverviewPage() {
   const legacyRun = params.get('run')
   const invalidated = isSecretSnapshotInvalidated(filters.snapshotId)
   const query = useSecretWorkbench(filters, valid && !legacyRun)
-  const firstWork = (Object.keys(views) as WorkView[]).find((key) => {
-    const metric = query.data?.metrics.find((item) => item.key === views[key].metric)
-    return availableMetric(metric) && metric!.value! > 0
-  })
-  const view = requestedView ?? firstWork ?? 'review'
+  const view = requestedView ?? 'review'
   useEffect(() => {
     if (!query.isSuccess || filters.snapshotId || invalidated) return
     const next = { ...filters, snapshotId: query.data.snapshotId }
@@ -269,7 +261,7 @@ export function SecretOverviewPage() {
       : hasData && data ? <>
         <div className="secret-overview-asof"><span>기준 {scanDate(data.asOf)}</span><span>{data.restrictedCoverage ? '열람 가능한 범위' : '승인된 범위'}</span></div>
         <OverviewCards summary={data} view={view} onSelect={(next) => setParams(overviewSearch(filters, next))} />
-        <SecretCommonCauses summary={data} filters={filters} />
+
         <div className="secret-overview-layout">
           <section id="secret-overview-work-list" className="card secret-overview-work" aria-labelledby="secret-work-title">
             <div className="secret-overview-section-title">
@@ -282,6 +274,7 @@ export function SecretOverviewPage() {
           <CollectionHealth summary={data} filters={filters} />
         </div>
         {data.crossEnvironmentAlerts.status === 'AVAILABLE' && data.crossEnvironmentAlerts.value != null && data.crossEnvironmentAlerts.value > 0 && <section className="secret-overview-security-alert" aria-label="자격증명 여부 확인"><div><strong>자격증명 여부를 확인할 항목 {data.crossEnvironmentAlerts.value}건</strong><p>발견 위치와 실제 자격증명인지 확인한 근거를 검토하세요.</p></div><Link to="/secrets/triage/alerts">해당 항목 확인</Link></section>}
+        <SecretCommonCauses summary={data} filters={filters} />
         <SecretRiskDistribution summary={data} filters={filters} />
         <footer className="secret-overview-footer"><Link to={inventoryPath(filters)}>키·발견 위치 목록</Link>{data.normalInventory.status === 'AVAILABLE' && data.normalInventory.value != null && <Link to={workbenchQueuePath(filters, 'NORMAL_INVENTORY', data.snapshotId)}>보관 승인·메타데이터·폐기 이력 {countText(data.normalInventory.value)}개 키</Link>}</footer>
       </> : null}

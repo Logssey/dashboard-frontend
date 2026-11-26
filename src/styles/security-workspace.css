@@ -54,14 +54,23 @@
 .security-workspace .secret-location-evidence > div { min-width: 0; }
 /* User-requested compact sidebar: one step below the deployed type sizes. */
 .sidebar .nav-link { font-size: 13px; min-height: 36px; line-height: 1.5; }
-.sidebar .nav-link.sub, .sidebar .nav-link.secret-sub { font-size: 12px; }
-.sidebar .secret-subnav { border-left: 0; }
 .sidebar .nav-label { font-size: 11px; }
 .sidebar .workspace small { font-size: 12px; }
+/* Four primary entries; all six security areas and their existing pages remain available. */
+.sidebar .security-menu-toggle { width: 100%; border: 0; background: transparent; text-align: left; font-family: inherit; cursor: pointer; }
+.sidebar .security-menu-toggle.active { background: var(--primary-soft); }
+.security-menu-toggle > span { flex: 1; }
+.security-menu-toggle > .icon:last-child { width: 14px; height: 14px; transition: transform 180ms ease; }
+.security-menu-toggle[aria-expanded=true] > .icon:last-child { transform: rotate(90deg); }
+.sidebar .security-area-link { margin-left: 12px; }
+.sidebar .security-subnav { margin: 2px 0 10px 24px; }
+.sidebar .nav-link.sub { min-height: 36px; gap: 8px; padding: 8px 12px; margin: 2px 0; font-size: 12px; }
+.sidebar .nav-link.sub .icon { width: 16px; height: 16px; }
+.sidebar .nav-link.sub > span:nth-child(2) { flex: 1; }
 .nav-expansion { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows 240ms ease, opacity 180ms ease, visibility 0s 240ms; }
 .nav-expansion.is-open { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-delay: 0s; }
 .nav-expansion-content { min-height: 0; overflow: hidden; }
-@media (prefers-reduced-motion: reduce) { .nav-expansion { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .nav-expansion, .security-menu-toggle > .icon:last-child { transition: none; } }
 @media (max-width: 1200px) {
   .security-workspace { padding: 28px 24px; }
   .security-workspace .iac-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -1,3 +1,4 @@
+import { ActionRecordPanel } from './ActionRecordPanel'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
 import {
@@ -283,7 +284,7 @@ export function ReviewHistory({ history }: { history: ReachReviewHistoryEntry[] 
   )
 }
 
-export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFunctions, vulnFunctionData, reviewForm }: {
+export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFunctions, vulnFunctionData, reviewForm, actionRecordId, actionOnly = false }: {
   detail: ReachFindingDetail
   /** 같은 CVE의 사본을 목록에서 본다 (SCR-03-16 대신 목록 필터로 보낸다) */
   onShowSameCve?: (cve: string) => void
@@ -292,6 +293,8 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
   /** API-10 취약 함수 데이터. API-05가 vulnFunctions를 주지 않을 때 vulnFunctionIds로 찾는다 */
   vulnFunctionData?: ReachVulnFunction[]
   /** 검토 입력(API-06). 예시 데이터일 때는 넘기지 않아 안내 문구만 보인다 */
+  actionRecordId?: number
+  actionOnly?: boolean
   reviewForm?: React.ReactNode
 }) {
   const { verdict, review, vulnerability, component } = detail
@@ -300,6 +303,53 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
   const outdated = l3RaiseOutdated(verdict.status, detail.l3, raised)
   const fix = nearestFixedVersion(component.version, vulnerability.fixedVersions)
   const humanDiffers = review.disagreesWithTool
+  const reviewSection = (
+      <section className="reach-section">
+        <h3>
+          담당자 검토 <ReachReviewBadge state={review.reviewState} />
+        </h3>
+        <dl className="facts">
+          <dt>도구</dt>
+          <dd>
+            {labelOf(reachStatusLabel, verdict.status)}
+            {verdict.method ? ` · ${labelOf(reachMethodLabel, verdict.method)}` : ''}
+          </dd>
+          <dt>사람</dt>
+          <dd>
+            {review.status ? `${labelOf(reachStatusLabel, review.status)} · ${labelOf(reachReviewLabel, review.reviewState)}` : '—'}
+            {review.status && (
+              <span className={`badge reach-flag ${humanDiffers ? 'differs' : ''}`.trim()}>{humanDiffers ? '≠ 불일치' : '일치'}</span>
+            )}
+          </dd>
+          {review.note && (
+            <>
+              <dt>메모</dt>
+              <dd>{review.note}</dd>
+            </>
+          )}
+          {review.reviewer && (
+            <>
+              <dt>기록</dt>
+              <dd>
+                {review.reviewer.name} · {formatKst(review.reviewedAt)}
+              </dd>
+            </>
+          )}
+        </dl>
+        {review.carriedFrom && <p className="caption">이전 검사에서 이어받음 ({formatKst(review.carriedFrom.reviewedAt)})</p>}
+        {review.resetReason && (
+          <span className="badge reach-flag differs">{labelOf(reachResetReasonLabel, review.resetReason)}</span>
+        )}
+        {reviewForm ?? <p className="notice">검토 저장(API-06)은 백엔드가 연결되면 쓸 수 있어요.</p>}
+      </section>
+  )
+
+  if (actionOnly) return <>{actionRecordId && <ActionRecordPanel kind="IMAGE" id={actionRecordId} />}
+      <section className="reach-section" aria-label="취약점 판단 검토">
+        <p className="caption">아래는 취약점 판정에 대한 검토예요. 검토 확정이나 조치 기록 완료만으로 취약점이 해소되지는 않아요.</p>
+        {reviewSection}
+        {review.history && <ReviewHistory history={review.history} />}
+      </section></>
 
   return (
     <div className="drawer-body">
@@ -408,46 +458,7 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
         <p className="caption">수정 버전은 팀에서 선택합니다. 호출 경로가 없어도 수정 가능한 버전을 함께 보여줍니다.</p>
       </section>
 
-      <section className="reach-section">
-        <h3>
-          담당자 검토 <ReachReviewBadge state={review.reviewState} />
-        </h3>
-        <dl className="facts">
-          <dt>도구</dt>
-          <dd>
-            {labelOf(reachStatusLabel, verdict.status)}
-            {verdict.method ? ` · ${labelOf(reachMethodLabel, verdict.method)}` : ''}
-          </dd>
-          <dt>사람</dt>
-          <dd>
-            {review.status ? `${labelOf(reachStatusLabel, review.status)} · ${labelOf(reachReviewLabel, review.reviewState)}` : '—'}
-            {review.status && (
-              <span className={`badge reach-flag ${humanDiffers ? 'differs' : ''}`.trim()}>{humanDiffers ? '≠ 불일치' : '일치'}</span>
-            )}
-          </dd>
-          {review.note && (
-            <>
-              <dt>메모</dt>
-              <dd>{review.note}</dd>
-            </>
-          )}
-          {review.reviewer && (
-            <>
-              <dt>기록</dt>
-              <dd>
-                {review.reviewer.name} · {formatKst(review.reviewedAt)}
-              </dd>
-            </>
-          )}
-        </dl>
-        {review.carriedFrom && <p className="caption">이전 검사에서 이어받음 ({formatKst(review.carriedFrom.reviewedAt)})</p>}
-        {review.resetReason && (
-          <span className="badge reach-flag differs">{labelOf(reachResetReasonLabel, review.resetReason)}</span>
-        )}
-        {reviewForm ?? <p className="notice">검토 저장(API-06)은 백엔드가 연결되면 쓸 수 있어요.</p>}
-      </section>
-
-      {review.history && <ReviewHistory history={review.history} />}
+      {!actionRecordId && <>{reviewSection}{review.history && <ReviewHistory history={review.history} />}</>}
 
       {detail.sameCveFindings && detail.sameCveFindings.length > 0 && (
         <p className="caption">
@@ -464,8 +475,9 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
 }
 
 /** SCR-03 취약점 상세 패널. 주소의 finding 값으로 열고 닫는다 */
-export function ReachFindingDrawer({ findingId, onShowSameCve, onOpenVulnFunctions }: {
+export function ReachFindingDrawer({ findingId, onShowSameCve, onOpenVulnFunctions, actionOnly = false }: {
   findingId: number | null
+  actionOnly?: boolean
   onClose: () => void
   onShowSameCve?: (cve: string) => void
   onOpenVulnFunctions?: (cve: string) => void
@@ -522,6 +534,8 @@ export function ReachFindingDrawer({ findingId, onShowSameCve, onOpenVulnFunctio
               {detail.data?.sample && <p className="notice reach-sample-inline">명세 예시 데이터예요. 실제 판정 결과가 아니에요.</p>}
               <ReachFindingDetailView
                 detail={data}
+                actionOnly={actionOnly}
+                actionRecordId={detail.data?.sample ? undefined : findingId!}
                 onShowSameCve={onShowSameCve}
                 onOpenVulnFunctions={onOpenVulnFunctions}
                 vulnFunctionData={vulnFunctions.data?.items}
