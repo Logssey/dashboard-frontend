@@ -1,0 +1,33 @@
+/* Existing security workspace type, borders and spacing; no colored edge strips. */
+.action-management-tabs { margin-bottom: 20px; }
+.action-management-list { padding: 24px; }
+.action-management-list > .caption { margin: 16px 0; }
+.action-management-list .table-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 16px; }
+.action-record-panel { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px; }
+.security-detail-content > .action-record-panel { margin-top: 0; padding-top: 0; border-top: 0; }
+.action-record-content { max-width: 900px; }
+.action-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.action-section { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 20px; padding: 20px 0; border-bottom: 1px solid var(--border); }
+.action-section > h3 { margin: 0; }
+.action-section-content { min-width: 0; display: grid; gap: 12px; align-content: start; }
+.action-section-content > :is(p, .notice) { margin: 0; }
+.action-section-content > .btn { justify-self: start; }
+.action-section-content .field { display: grid; gap: 8px; max-width: 680px; }
+.action-section-content select { max-width: 360px; width: 100%; }
+.action-section-content textarea { width: 100%; resize: vertical; }
+.action-confirm { display: flex; align-items: center; gap: 8px; }
+.action-history { margin-top: 16px; }
+.action-history ol { list-style: none; margin: 0; padding: 0; }
+.action-history li { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.action-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 700px) { .action-section { grid-template-columns: 1fr; gap: 12px; } }
+
+.action-assignee-field { max-width:480px; display:grid; gap:12px; }
+.action-assignee-field .field { display:grid; gap:8px; }
+.action-assignee-field select { width:100%; }
+.action-section .secret-case-assignment { padding:0; border:0; margin:0; border-radius:0; }
+.secret-verification-choice { display:grid; gap:8px; max-width:400px; margin-bottom:24px; }
+.secret-selected-location { border-top:1px solid var(--border); margin-top:24px; padding-top:24px; }
+.secret-selected-location .field { display:grid; gap:6px; min-width:180px; }
+.secret-location-label { overflow-wrap:anywhere; margin:12px 0; }
+.secret-selected-location .secret-location-actions { margin:16px 0 24px; }

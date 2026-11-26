@@ -54,7 +54,7 @@ export const remediationTemplate: Record<string, { title: string; how: string }>
     how: 'secretsmanager:GetSecretValue 의 Resource 를 "*" 대신 이 역할이 실제로 쓰는 시크릿 ARN 으로 제한하세요.',
   },
   tfstate_bucket_policy: {
-    title: 'State 버킷 읽기 주체 줄이기',
+    title: 'State 버킷 읽기 권한이 있는 계정 줄이기',
     how: 'tfstate 버킷 정책에서 plan·apply 역할 외의 s3:GetObject 를 거부하세요.',
   },
 }
@@ -87,7 +87,7 @@ export function pullRequestBadge(pr: { status: IacRunStatus; verdict: IacVerdict
 }
 
 /**
- * S-01 D 의 한 줄 요약: 경로 변화와 State 읽기 주체.
+ * S-01 D 의 한 줄 요약: 경로 변화와 State 읽기 권한이 있는 계정.
  * 경로 수는 S-02 패널("사라진 경로 N개")과 같게 세고, 같은 자격 증명으로 묶이면 갈래 수를 덧붙인다
  */
 export function pullRequestChanges(pr: IacPullRequestSummary): string[] {
@@ -98,7 +98,7 @@ export function pullRequestChanges(pr: IacPullRequestSummary): string[] {
     const routes = pr.removedRoutes > 0 && pr.removedRoutes < pr.pathsRemoved ? ` (${pr.removedRoutes}갈래)` : ''
     parts.push(`경로 −${pr.pathsRemoved}${routes}`)
   }
-  if (pr.stateReaderIncrease) parts.push('State 읽기 주체 증가')
+  if (pr.stateReaderIncrease) parts.push('State 읽기 권한이 있는 계정 증가')
   return parts
 }
 
@@ -123,7 +123,7 @@ export const ruleTitle: Record<string, string> = {
   'path.shortened': '기존 경로가 짧아짐',
   'path.imds_v1_added': 'IMDSv1 인스턴스 추가',
   'path.removed': '경로가 사라짐',
-  'state.reader_increase': 'State 읽기 주체 증가',
+  'state.reader_increase': 'State 읽기 권한이 있는 계정 증가',
 }
 
 /** S-02 다음 할 일. 규칙별 고정 문구 */
@@ -141,7 +141,7 @@ const ruleNext: Record<string, string> = {
   'gate.module_content_changed': '모듈 출처를 확인하고, 의도한 변경이면 policy/module-hashes.txt 를 갱신하세요.',
   'gate.unscanned_file': '.tf.json 을 .tf 로 바꾸고, 커밋된 .terraform/ 은 지우세요.',
   'gate.plan_failed': 'Actions 로그에서 plan 오류를 확인하고 고친 뒤 다시 push 하세요.',
-  'path.tier1.added': '원인 리소스 변경을 되돌리거나, 아래 끊을 지점 중 하나를 같은 PR 에 넣으세요.',
+  'path.tier1.added': '원인 리소스 변경을 되돌리거나, 아래 수정할 지점 중 하나를 같은 PR 에 넣으세요.',
   'path.tier1.reach_only': '네트워크 노출(보안 그룹·로드밸런서)이 의도한 것인지 확인하세요.',
   'path.tier2.added': '원인 리소스의 권한 범위를 좁힐 수 있는지 확인하세요.',
   'path.shortened': '중간 단계를 건너뛰게 된 권한·관계가 의도한 것인지 확인하세요.',
@@ -159,7 +159,7 @@ export const pathChangeLabel: Record<string, string> = { ADDED: '새 경로', SH
 /** 원인 리소스 변경 종류 (plan action) */
 export const causeActionLabel: Record<string, string> = { CREATE: '추가', UPDATE: '변경', DELETE: '삭제', REPLACE: '교체' }
 
-/** 분석 대상 레포 (MVP 는 하나, iac_repos). 링크는 번호만 받아 만든다 */
+/** 분석 대상 저장소 (MVP 는 하나, iac_repos). 링크는 번호만 받아 만든다 */
 export const IAC_REPO = 'Logssey/infrastructure'
 
 export function pullRequestUrl(number: number): string | null {
@@ -169,7 +169,7 @@ export function pullRequestUrl(number: number): string | null {
 
 export const shortSha = (sha: string) => sha.slice(0, 7)
 
-/** 드리프트 정도 (rule-spec State·드리프트). 노이즈로 분류된 것은 API 가 내려주지 않는다 */
+/** 드리프트 정도 (rule-spec 상태 파일과 설정 변경). 노이즈로 분류된 것은 API 가 내려주지 않는다 */
 export const driftLevel: Record<string, { label: string; tone: string }> = {
   'drift.high': { label: '드리프트 높음', tone: 'critical' },
   'drift.medium': { label: '드리프트 중간', tone: 'medium' },

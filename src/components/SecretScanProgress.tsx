@@ -66,7 +66,7 @@ export function SecretScanProgress({ runId, expectedConnectionId, onComplete }: 
   const denied = progress.error instanceof ApiError && [401, 403, 404].includes(progress.error.status)
   const mismatched = progress.error instanceof ScanConnectionMismatch || !!expectedConnectionId && !!data && data.connectionId !== expectedConnectionId
   if (mismatched) return <section className="secret-scan-execution-panel" role="alert"><h2>선택한 연결과 실행이 달라요</h2><p>연결 목록에서 검사할 연결을 다시 선택하세요.</p></section>
-  if (denied) return <section className="secret-scan-execution-panel" role="alert"><h2>실행을 조회할 수 없어요</h2><p>현재 로그인과 연결 열람 권한을 확인하세요.</p><Link to="/secrets/history">스캔 이력</Link></section>
+  if (denied) return <section className="secret-scan-execution-panel" role="alert"><h2>실행을 조회할 수 없어요</h2><p>현재 로그인과 연결 열람 권한을 확인하세요.</p><Link to="/secrets/history">검사 이력</Link></section>
   if (!data) return <section className="secret-scan-execution-panel" aria-busy={progress.isPending}>
     <h2>검사 진행</h2>
     {progress.isError ? <div role="alert"><p>실행 상태를 불러오지 못했어요.</p><button className="btn outline" onClick={() => void progress.restart()}>다시 조회</button></div> : <p role="status">실제 검사 상태를 확인하고 있어요.</p>}

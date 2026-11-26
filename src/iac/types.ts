@@ -132,7 +132,7 @@ export interface IacGates {
   supplyChain: { unpinnedProviders: number; unpinnedModules: number; changedModules: number; lockChanges: number }
 }
 
-/** S-01 F. tfstate 버킷별 읽기 주체 (CHECK_STATE 결과) */
+/** S-01 F. tfstate 버킷별 읽기 권한이 있는 계정 (CHECK_STATE 결과) */
 export interface IacStateSummary {
   checkedAt: string | null
   readerCount: number

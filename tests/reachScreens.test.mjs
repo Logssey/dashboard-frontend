@@ -1,4 +1,4 @@
-// Reach 워크로드(SCR-04)·스캔(SCR-05)·검토 이력(SCR-03-14) 화면 테스트
+// Reach 워크로드(SCR-04)·검사(SCR-05)·검토 이력(SCR-03-14) 화면 테스트
 import assert from 'node:assert/strict'
 import { writeFile, unlink } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -108,13 +108,13 @@ test('workload page shows the observation, cards and attention rows first', () =
   assert.doesNotMatch(html, /오래됨/)
   assert.doesNotMatch(html, /예시 값/)
   assert.match(html, /준비된 파드 2개/)
-  assert.ok(html.indexOf('>불일치</span>') < html.indexOf('>스캔 없음</span>'))
-  assert.ok(html.indexOf('>스캔 없음</span>') < html.indexOf('>일치</span>'))
-  assert.match(html, /앱 최신 스캔 #1/)
+  assert.ok(html.indexOf('>불일치</span>') < html.indexOf('>검사 없음</span>'))
+  assert.ok(html.indexOf('>검사 없음</span>') < html.indexOf('>일치</span>'))
+  assert.match(html, /앱 최신 검사 #1/)
   assert.match(html, /준비 0/)
   assert.match(html, /logssey\/reused-api<span class="caption"> : bbbbbbb<\/span>/)
-  // 스캔 없음·불일치 행만 [스캔 요청]
-  assert.equal(html.match(/>스캔 요청</g).length, 2)
+  // 검사 없음·불일치 행만 [검사 요청]
+  assert.equal(html.match(/>검사 요청</g).length, 2)
 })
 
 test('scan request link opens the new scan dialog filled with that image', () => {
@@ -176,7 +176,7 @@ const failed = {
 const noScanFilter = { scanStatus: [], trigger: [] }
 
 test('scan rows show target, counts and running state', () => {
-  assert.equal(reach.scanCountsText(scan), '23행 · CRITICAL 5 · HIGH 11 · MEDIUM 7 · 도달 가능 0')
+  assert.equal(reach.scanCountsText(scan), '23행 · CRITICAL 5 · HIGH 11 · MEDIUM 7 · 호출 가능 0')
   assert.equal(reach.scanCountsText(failed), '결과 없음')
   assert.equal(reach.scanTargetRef(scan), 'logssey/reused-api @ a6ffffef')
   assert.equal(
@@ -187,7 +187,7 @@ test('scan rows show target, counts and running state', () => {
   assert.equal(reach.hasActiveScan([scan, { ...scan, scanStatus: 'QUEUED' }]), true)
 })
 
-test('scan page shows the history and the selected scan detail', () => {
+test('scan selection opens a full page while the history stays at its own URL', () => {
   const queryClient = client()
   queryClient.setQueryData(['reach-scans', noScanFilter], {
     pages: [{ data: { items: [failed, scan], nextCursor: null, hasNext: false, totalCount: 2 }, sample: false }],
@@ -197,9 +197,10 @@ test('scan page shows the history and the selected scan detail', () => {
   queryClient.setQueryData(['reach-scan', 2], { data: failed, sample: false })
 
   const html = renderAt(queryClient, reach.VulnerabilityScansPage, '/vulnerabilities/scans?scan=1')
-  assert.match(html, /2건 중 2건 표시/)
-  assert.match(html, /class="reach-row selected"/)
-  assert.match(html, /스캔 #1/)
+  assert.match(renderAt(queryClient, reach.VulnerabilityScansPage, '/vulnerabilities/scans'), /2건 중 2건 표시/)
+  assert.match(html, /security-detail-page/)
+  assert.doesNotMatch(html, /<aside|reach-scans-layout/)
+  assert.match(html, /검사 #1/)
   assert.match(html, /SBOM 생성/)
   assert.match(html, /L2 판정<\/span><span class="caption">완료 · 40초/)
   assert.match(html, /Trivy DB 갱신/)
@@ -227,7 +228,7 @@ test('queued scans explain why they wait and unknown tools keep a readable name'
   assert.match(html, /아직 시작하지 않았어요/)
   assert.match(html, /실행기가 연결되지 않은 환경에서는 대기에 머물러요/)
   assert.match(html, /<dt>스캐너<\/dt><dd>trivy<\/dd>/)
-  assert.match(html, /진행 중인 스캔은 10초마다/)
+  assert.match(html, /진행 중인 검사는 10초마다/)
 })
 
 test('the judgement data commit becomes a short commit link', () => {
@@ -266,8 +267,8 @@ test('new scan dialog opens from the URL with the values filled in', () => {
     pageParams: [null],
   })
   const html = renderAt(queryClient, reach.VulnerabilityScansPage, `/vulnerabilities/scans?new=image&repository=logssey%2Freused-chat&digest=${C}`)
-  assert.match(html, /아직 스캔이 없어요/)
-  assert.match(html, /id="reach-new-scan-title">새 스캔/)
+  assert.match(html, /아직 검사가 없어요/)
+  assert.match(html, /id="reach-new-scan-title">새 검사/)
   assert.match(html, /value="logssey\/reused-chat"/)
   assert.match(html, new RegExp(`value="${C}"`))
 })
@@ -294,7 +295,7 @@ test('rescan is offered for finished scans that are not PR scans', () => {
   assert.equal(reach.canRescan(scan), true)
   assert.equal(reach.canRescan({ ...scan, trigger: 'SCHEDULE' }), true)
   assert.equal(reach.canRescan({ ...scan, trigger: 'IMAGE_BUILD' }), true)
-  // PR 스캔을 다시 대조하면 수동 스캔이 되어 머지 전 코드가 기준 집계에 들어간다
+  // PR 검사를 다시 대조하면 수동 검사가 되어 머지 전 코드가 기준 집계에 들어간다
   assert.equal(reach.canRescan({ ...scan, trigger: 'PR' }), false)
   assert.equal(reach.canRescan(failed), false)
   assert.equal(reach.canRescan({ ...scan, scanStatus: 'RUNNING' }), false)
@@ -313,7 +314,7 @@ test('rescan is offered for finished scans that are not PR scans', () => {
 })
 
 test('a rescan error names the scan, not the app', () => {
-  assert.match(reach.rescanErrorText(422, 'UNPROCESSABLE', 'Unprocessable'), /성공으로 끝난 스캔만/)
+  assert.match(reach.rescanErrorText(422, 'UNPROCESSABLE', 'Unprocessable'), /성공으로 끝난 검사만/)
   assert.match(reach.rescanErrorText(422, 'UNPROCESSABLE', 'RUNNER_NOT_INSTALLED: service-backend'), /실행기가 아직 없어요/)
   assert.match(reach.rescanErrorText(503, 'UNAVAILABLE', 'x'), /지금 부를 수 없어요/)
 })
@@ -326,7 +327,7 @@ test('summary basis rows offer a rescan each', () => {
       { app: 'CHAT', targetType: 'IMAGE', targetId: 2, scanId: 28, imageDigest: C, running: true },
     ] } }, sample: false })
   const html = renderAt(queryClient, reach.VulnerabilitySummaryPage, '/vulnerabilities')
-  assert.match(html, /스캔 #27/)
+  assert.match(html, /검사 #27/)
   assert.equal(html.match(/>다시 대조</g).length, 2)
 })
 
@@ -335,28 +336,28 @@ test('pick list: running images first, then recent targets without PR scans or r
     target: { id: 5, type: 'REPO', app: 'API', image: null, repo: { name: 'service-backend', path: null, commit: 'c'.repeat(40) }, displayName: 'service-backend' } }
   const oldImage = { ...scan, id: 7, target: { ...scan.target, id: 6, image: { repository: 'logssey/reused-api', digest: 'sha256:' + 'e'.repeat(64) } } }
   const scans = [
-    { ...scan, id: 12, trigger: 'PR', target: { ...repoScan.target, id: 8 } },   // PR 스캔: 뺀다
+    { ...scan, id: 12, trigger: 'PR', target: { ...repoScan.target, id: 8 } },   // PR 검사: 뺀다
     { ...scan, id: 11, target: { ...scan.target, id: 4, image: { repository: 'logssey/reused-api', digest: A } } },   // 실행 중 목록에 있는 이미지: 뺀다
     repoScan,
     oldImage,
-    { ...oldImage, id: 6 },   // 같은 대상의 더 옛 스캔: 뺀다
+    { ...oldImage, id: 6 },   // 같은 대상의 더 옛 검사: 뺀다
   ]
   const picks = reach.scanPicks(rows, scans)
 
-  // 실행 중: 불일치 → 스캔 없음 → 일치 순, 이미지마다 한 줄
+  // 실행 중: 불일치 → 검사 없음 → 일치 순, 이미지마다 한 줄
   assert.deepEqual(picks.running.map((pick) => [pick.title, pick.ref, pick.note]), [
-    ['reused-api', 'logssey/reused-api @ bbbbbbbb', '이 이미지는 아직 스캔 없음'],
-    ['reused-chat', 'logssey/reused-chat @ cccccccc', '이 이미지는 아직 스캔 없음'],
-    ['reused-api', 'logssey/reused-api @ aaaaaaaa', '스캔 #1 있음'],
+    ['reused-api', 'logssey/reused-api @ bbbbbbbb', '이 이미지는 아직 검사 없음'],
+    ['reused-chat', 'logssey/reused-chat @ cccccccc', '이 이미지는 아직 검사 없음'],
+    ['reused-api', 'logssey/reused-api @ aaaaaaaa', '검사 #1 있음'],
   ])
   assert.deepEqual(picks.running[1].fill, { type: 'IMAGE', app: '', repository: 'logssey/reused-chat', digest: C, repoName: '', commit: '', path: '' })
   assert.equal(reach.scanPicks([rows[0], { ...rows[0], id: 9, container: 'sidecar' }], []).running.length, 1)
 
   assert.deepEqual(picks.recent.map((pick) => pick.key), ['recent:5', 'recent:6'])
   assert.equal(picks.recent[0].ref, 'service-backend @ ccccccc')
-  assert.match(picks.recent[0].note, /^스캔 #9 · /)
+  assert.match(picks.recent[0].note, /^검사 #9 · /)
   assert.deepEqual(picks.recent[0].fill, { type: 'REPO', app: 'API', repository: '', digest: '', repoName: 'service-backend', commit: 'c'.repeat(40), path: '' })
-  assert.match(picks.recent[1].note, /^스캔 #7 · /)
+  assert.match(picks.recent[1].note, /^검사 #7 · /)
 
   // 고른 줄은 양식만 보고 안다. 고르면 요청 본문이 그대로 나온다
   const form = { ...reach.emptyNewScanForm, ...picks.running[1].fill, l1: false }
@@ -384,11 +385,11 @@ test('new scan dialog lists the targets to pick and keeps manual entry folded', 
   assert.match(html, /<h3>실행 중인 이미지<\/h3>/)
   assert.match(html, /logssey\/reused-chat @ cccccccc/)
   assert.equal(html.match(/class="reach-pick"/g).length, 4)   // 실행 중 3 + 최근 1
-  assert.match(html, /<h3>최근 스캔한 대상<\/h3>/)
+  assert.match(html, /<h3>최근 검사한 대상<\/h3>/)
   assert.doesNotMatch(html, /aria-pressed="true"/)
   assert.match(html, /<details class="reach-manual">/)   // 접힌 채로 열린다
 
-  // 값을 채워서 열면(워크로드의 [스캔 요청]) 그 줄이 골라져 있고 직접 입력이 펼쳐져 있다
+  // 값을 채워서 열면(워크로드의 [검사 요청]) 그 줄이 골라져 있고 직접 입력이 펼쳐져 있다
   const filled = renderAt(queryClient, reach.VulnerabilityScansPage, `/vulnerabilities/scans?new=image&repository=logssey%2Freused-chat&digest=${C}`)
   assert.equal(filled.match(/aria-pressed="true"/g).length, 1)
   assert.match(filled, /<details class="reach-manual" open="">/)
@@ -406,7 +407,7 @@ test('new scan dialog lists the targets to pick and keeps manual entry folded', 
 test('scan request errors read as next steps', () => {
   assert.match(reach.scanRequestErrorText(503, 'UNAVAILABLE', 'x'), /잠시 뒤 다시/)
   assert.match(reach.scanRequestErrorText(422, 'UNPROCESSABLE', 'x'), /앱을 직접 골라/)
-  assert.match(reach.scanRequestErrorText(422, 'UNPROCESSABLE', 'RUNNER_NOT_INSTALLED: 이 레포에는 Reach 실행기가 없습니다.'), /Reach 실행기가 아직 없어요/)
+  assert.match(reach.scanRequestErrorText(422, 'UNPROCESSABLE', 'RUNNER_NOT_INSTALLED: 이 저장소에는 Reach 실행기가 없습니다.'), /Reach 실행기가 아직 없어요/)
   assert.match(reach.scanRequestErrorText(400, 'INVALID_INPUT', '잘못된 값'), /잘못된 값/)
 })
 
@@ -435,11 +436,38 @@ test('review history lists newest first and names server resets', () => {
   assert.match(renderToStaticMarkup(createElement(reach.ReviewHistory, { history: [] })), /아직 검토 기록이 없어요/)
 })
 
-test('sidebar lists 워크로드 and 스캔 under 취약점 관리', () => {
+test('image sidebar retains workload and scan destinations', () => {
   const html = renderAt(client(), reach.AppLayout, '/vulnerabilities/workloads')
-  assert.match(html, /href="\/vulnerabilities\/workloads"[^>]*>워크로드</)
-  assert.match(html, /href="\/vulnerabilities\/scans"[^>]*>스캔</)
-  assert.match(html, /<span>워크로드<\/span>/) // 상단 바 제목
+  assert.match(html, /href="\/vulnerabilities\/workloads"/)
+  assert.match(html, /href="\/vulnerabilities\/scans"/)
+  assert.match(html, /<span>이미지 검사<\/span>/)
+  assert.match(html, /<span>실행 중 워크로드<\/span>/) // 상단 바 제목
+})
+
+test('grouped sidebar retains every destination and selects the correct parent on details', () => {
+  const areas = [
+    ['/secrets/1', '시크릿 보안', '/secrets/findings', ['/secrets','/secrets/findings','/secrets/cases','/secrets/connections','/secrets/history','/secrets/key-patterns']],
+    ['/iac/paths/1?tab=actions', 'IaC 보안', '/iac/actions', ['/iac','/iac/prs','/iac/paths','/iac/changes','/iac/actions','/iac/checks']],
+    ['/vulnerabilities/findings/1?tab=actions', '이미지 보안', '/vulnerabilities/actions', ['/vulnerabilities','/vulnerabilities/findings','/vulnerabilities/actions','/vulnerabilities/workloads','/vulnerabilities/scans','/vulnerabilities/rules']],
+    ['/code/policy', '코드 보안', '/code/policy', ['/code','/code/policy']],
+    ['/iac/prs/1', 'IaC 보안', '/iac/prs', []],
+    ['/iac/paths/1', 'IaC 보안', '/iac/paths', []],
+    ['/iac/findings/1', 'IaC 보안', '/iac/actions', []],
+    ['/vulnerabilities/findings/1', '이미지 보안', '/vulnerabilities/findings', []],
+  ]
+  for (const [route, label, active, paths] of areas) {
+    const html = renderAt(client(), reach.AppLayout, route)
+    const sidebar = html.split('</aside>')[0]
+    assert.equal((sidebar.match(/class="nav-link security-area-link/g) ?? []).length, 6)
+    assert.equal((sidebar.match(/class="nav-link sub/g) ?? []).length, 20)
+    assert.match(sidebar, /aria-expanded="true" aria-controls="security-menu-group"/)
+    assert.doesNotMatch(html.split('</aside>')[1], /security-area-tab/)
+    const tabs = sidebar.split(`aria-label="${label} 세부 메뉴">`)[1]?.split('</div>')[0]
+    assert.ok(tabs, route)
+    assert.equal((tabs.match(/aria-current="page"/g) ?? []).length, 1)
+    assert.ok(tabs.includes(`aria-current="page" href="${active}"`), route)
+    for (const path of paths) assert.ok(tabs.includes(`href="${path}"`), path)
+  }
 })
 
 test('running basis names unscanned running images and the fallback', () => {
@@ -449,9 +477,9 @@ test('running basis names unscanned running images and the fallback', () => {
     unscannedRunning: [{ app: 'CHAT', namespace: 'reused', name: 'reused-chat', container: 'reused-chat',
       imageRepository: 'logssey/reused-chat', imageDigest: 'sha256:' + 'd'.repeat(64) }] } }, sample: false })
   const html = renderAt(running, reach.VulnerabilitySummaryPage, '/vulnerabilities')
-  assert.match(html, /실행 중인데 스캔되지 않은 이미지가 1개/)
+  assert.match(html, /실행 중인데 검사되지 않은 이미지가 1개/)
   assert.match(html, /CHAT<\/strong> reused\/reused-chat/)
-  assert.match(html, /운영에서 실행 중인 이미지의 스캔/)
+  assert.match(html, /운영에서 실행 중인 이미지의 검사/)
 
   const fallback = client()
   fallback.setQueryData(['reach-summary', 'RUNNING'], { data: { ...base, basis: { requested: 'RUNNING', applied: 'LATEST', scans: [], unscannedRunning: [] } }, sample: false })
@@ -462,10 +490,10 @@ test('summary without a single baseline scan says how the scope is chosen instea
   const queryClient = client()
   queryClient.setQueryData(['reach-summary', 'RUNNING'], { data: { ...reach.sampleReachSummary(), scope: { targetId: null, scanId: null } }, sample: false })
   const html = renderAt(queryClient, reach.VulnerabilitySummaryPage, '/vulnerabilities')
-  assert.match(html, /기준: 앱마다 최신 완료 스캔\(PR 검사 제외\)/)
+  assert.match(html, /기준: 앱마다 최신 완료 검사\(PR 검사 제외\)/)
   assert.doesNotMatch(html, /#—/)
 
   const one = client()
   one.setQueryData(['reach-summary', 'RUNNING'], { data: { ...reach.sampleReachSummary(), scope: { targetId: 1, scanId: 7 } }, sample: false })
-  assert.match(renderAt(one, reach.VulnerabilitySummaryPage, '/vulnerabilities'), /기준 스캔 #7/)
+  assert.match(renderAt(one, reach.VulnerabilitySummaryPage, '/vulnerabilities'), /기준 검사 #7/)
 })

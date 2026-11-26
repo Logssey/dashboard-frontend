@@ -1,3 +1,4 @@
+import { SecurityDetailPage } from '@/pages/SecurityDetailPages'
 import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/layout/AppLayout'
@@ -39,6 +40,7 @@ const SecretAlertDetailPage = lazy(() => import('@/pages/SecretAlertPages').then
 const SecretTriagePage = lazy(() => import('@/pages/SecretTriagePage').then((module) => ({ default: module.SecretTriagePage })))
 const SecretTriageCandidatesPage = lazy(() => import('@/pages/SecretTriageCandidatesPage').then((module) => ({ default: module.SecretTriageCandidatesPage })))
 const SecretCasesPage = lazy(() => import('@/pages/SecretCasesPage').then((module) => ({ default: module.SecretCasesPage })))
+const ActionManagementPage = lazy(() => import('@/pages/ActionManagementPage').then(module => ({default:module.ActionManagementPage})))
 const SecretCaseDetailPage = lazy(() => import('@/pages/SecretCaseDetailPage').then((module) => ({ default: module.SecretCaseDetailPage })))
 const SecretRunFindingsPage = lazy(() => import('@/pages/SecretRunFindingsPage').then((module) => ({ default: module.SecretRunFindingsPage })))
 
@@ -49,6 +51,9 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route path={OVERVIEW_PATH} element={<OverviewPage />} />
+          <Route path="/iac/actions" element={<ActionManagementPage fixedArea="IAC" />} />
+          <Route path="/vulnerabilities/actions" element={<ActionManagementPage fixedArea="IMAGE" />} />
+          <Route path="/actions" element={<ActionManagementPage />} />
           <Route path="/secrets" element={<SecretOverviewPage />} />
           <Route path="/secrets/findings" element={<SecretsPage />} />
           <Route path="/secrets/:secretId" element={<SecretPageBoundary returnTo="/secrets/findings"><SecretKeyDetailPage /></SecretPageBoundary>} />
@@ -72,6 +77,14 @@ export function App() {
           <Route path="/secrets/history/:runId" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunDetailPage /></SecretPageBoundary>} />
           <Route path="/secrets/history/:runId/findings" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunFindingsPage /></SecretPageBoundary>} />
           <Route path="/iac" element={<IacPage />} />
+          <Route path="/iac/prs" element={<IacPage />} />
+          <Route path="/iac/paths" element={<IacPage />} />
+          <Route path="/iac/changes" element={<IacPage />} />
+          <Route path="/iac/checks" element={<IacPage />} />
+          <Route path="/iac/prs/:id" element={<SecurityDetailPage kind="pr" />} />
+          <Route path="/iac/findings/:id" element={<SecurityDetailPage kind="iacFinding" />} />
+          <Route path="/iac/paths/:id" element={<SecurityDetailPage kind="path" />} />
+          <Route path="/vulnerabilities/findings/:id" element={<SecurityDetailPage kind="finding" />} />
           <Route path="/vulnerabilities" element={<VulnerabilitySummaryPage />} />
           <Route path="/vulnerabilities/findings" element={<VulnerabilityFindingsPage />} />
           <Route path="/vulnerabilities/workloads" element={<VulnerabilityWorkloadsPage />} />

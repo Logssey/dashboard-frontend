@@ -9,7 +9,7 @@ import { validLifecycleTime } from '@/lib/secretResponse'
 import { kstInput, kstInputToUtc, positiveId, scanDate } from '@/lib/secretScan'
 
 interface Props { detail: SecretCaseDetail; onReload: () => void; onStale: () => void; disabled: boolean }
-const kindLabels: Record<string, string> = { ROTATED: '키 교체', REVOKED: '키 폐기', RETIRED: '사용 종료', FIXTURE_RETIRED: '합성 표본 사용 종료' }
+const kindLabels: Record<string, string> = { ROTATED: '키 교체', REVOKED: '키 폐기', RETIRED: '사용 종료', FIXTURE_RETIRED: '테스트용 키 사용 종료' }
 const reviewReasons: Record<string, string> = { EXTERNAL_RECORD_CONFIRMED: '조치 기록과 적용 범위 확인', INSUFFICIENT_EVIDENCE: '근거 부족', WRONG_CREDENTIAL: '다른 키의 근거', CONTRADICTORY_EVIDENCE: '다른 근거와 상충' }
 const reuseReasonLabels: Record<string, string> = { ACTION_TIME_IN_FUTURE: '미래 시각의 기록', ACTION_TOO_OLD: '90일이 지난 기록', ACTION_ALREADY_SUBMITTED: '이미 연결된 기록', CASE_NOT_ACTIVE: '종료된 대응의 기록' }
 const levelLabels: Record<string, string> = { PENDING: '보안 확인 전', APPROVED_MANUAL: '수동 근거 승인', PROVIDER_VERIFIED: '공급자 확인', SELF_ATTESTED: '본인 확인 · 제한 수준', REJECTED: '근거 반려' }
@@ -79,7 +79,7 @@ export function SecretLifecycleEvidence(props: Props) {
         <div className="secret-response-section-heading"><strong>{kindLabels[item.kind] ?? '키 사용 종료 근거'}</strong><span>{levelLabels[item.verificationLevel] ?? '확인 수준 미기록'}</span></div>
         <p><SecretRecordReference value={item.evidenceRef} /> · 수행 {scanDate(item.performedAt)}</p>
         {!item.isCurrentlyApplicable && <p className="caption">과거 기록 · 현재 해결 판단에 미적용</p>}
-        {['APPROVED_MANUAL', 'SELF_ATTESTED'].includes(item.verificationLevel) && <p className="caption">{item.verificationLevel === 'SELF_ATTESTED' ? '본인이 제출·확인한 조치 기록이에요.' : '수동 승인된 조치 기록이에요.'} 공급자의 폐기·교체 상태는 미확인이에요. {item.coverageLimit === 'SIMULATION' ? '합성 표본 사용 종료' : '제한 확인 수준'}</p>}
+        {['APPROVED_MANUAL', 'SELF_ATTESTED'].includes(item.verificationLevel) && <p className="caption">{item.verificationLevel === 'SELF_ATTESTED' ? '본인이 제출·확인한 조치 기록이에요.' : '수동 승인된 조치 기록이에요.'} 공급자의 폐기·교체 상태는 미확인이에요. {item.coverageLimit === 'SIMULATION' ? '테스트용 키 사용 종료' : '제한 확인 수준'}</p>}
         {current && (item.capabilities?.canReview || item.capabilities?.canSelfAttest) && <EvidenceReview key={`${item.evidenceId}:${item.version}`} {...props} item={item} reasonCodes={evidence.data.allowedReviewReasonCodes} />}
       </li>)}</ul>}
       {current && evidence.data.capabilities?.canSubmit && <details className="secret-response-disclosure" open={evidence.data.items.length === 0}><summary>폐기·교체 근거 연결</summary><div className="secret-governance-form">

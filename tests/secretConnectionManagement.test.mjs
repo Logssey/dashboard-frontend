@@ -567,7 +567,7 @@ test('Notion retains test and scan controls while GitHub/AWS receive settings', 
     ]
   ])
   assert.match(html, /연결 테스트/)
-  assert.match(html, /스캔 요청/)
+  assert.match(html, /검사 요청/)
   assert.match(html, /\+ 연결 추가/)
   assert.doesNotMatch(html, />설정<\/button>/)
   const githubHtml = render(api.SecretConnectionsPage, {}, [
@@ -583,6 +583,25 @@ test('Notion retains test and scan controls while GitHub/AWS receive settings', 
     ]
   ])
   assert.match(githubHtml, />설정<\/button>/)
+})
+
+test('disabled connection registration does not hide existing GitHub AWS or Notion controls', () => {
+  const items = ['GITHUB', 'AWS', 'NOTION'].map((provider, index) => ({
+    connectionId: index + 1, provider, safeDisplayAlias: `연결 ${index + 1}`,
+    connectionStatus: 'PAUSED', approvedScopeCount: 1,
+    capabilities: { canTest: false, canRun: false },
+    scanBlockedReasonCode: 'CONNECTION_PAUSED',
+  }))
+  const html = render(api.SecretConnectionsPage, {}, [
+    [['secret-connection-setup-options'], { ...setup, enabled: false, canCreate: false }],
+    [['secret-connections-manage', 0, '', ''], { items, total: 3, size: 12, page: 0 }],
+  ])
+  assert.match(html, /새 연결 등록이 꺼져 있어요/)
+  assert.doesNotMatch(html, /\+ 연결 추가/)
+  for (const id of [1, 2, 3]) assert.match(html, new RegExp(`href="/secrets/connections/${id}/scopes"`))
+  assert.equal((html.match(/>키 검증 설정<\/button>/g) ?? []).length, 3)
+  assert.equal((html.match(/>설정<\/button>/g) ?? []).length, 2)
+  assert.match(html, /Notion/)
 })
 
 test('API carries credentials only in write bodies and revisions on all updates', async () => {

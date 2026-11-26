@@ -10,14 +10,14 @@ export function connectionValidationNextAction(policy: ConnectionValidationPolic
   if (policy.profileStatus !== 'ENABLED' || !policy.allowedIssuers.some((issuer) => policy.enabledIssuers.includes(issuer)))
     return '선택한 키 발급 서비스의 서버 검증 기능을 켜야 인증을 확인할 수 있어요.'
   if (policy.approvedScopeCount === 0) return '검사 대상에서 인증 확인을 허용한 뒤 키 상세에서 요청하세요.'
-  return '키 상세에서 확인 조건을 보고 ‘유효성 확인’을 요청하세요.'
+  return '키 상세에서 확인 조건을 보고 ‘키 인증 확인’을 요청하세요.'
 }
 
 export const validationReasonLabels: Record<string, string> = {
   AUTHENTICATED: '공급자 인증 확인', AUTHENTICATION_REJECTED: '인증이 거절됨 · 만료·폐기 원인은 확인되지 않음',
   DISABLED: '검증 설정이 꺼져 있어요.', PROFILE_DISABLED: '서버 검증 기능이 꺼져 있어요.', GLOBAL_DISABLED: '서버 검증 기능이 꺼져 있어요.',
   UNSUPPORTED_TYPE: '이 유형의 인증 확인은 지원하지 않아요.', UNSUPPORTED: '이 유형의 인증 확인은 지원하지 않아요.',
-  SYNTHETIC_FIXTURE: '합성 표본 키로 확인되어 공급자 호출을 생략했어요.', METADATA_ONLY: '존재 정보만 있어 인증을 확인하지 않아요.',
+  SYNTHETIC_FIXTURE: '테스트용 키 키로 확인되어 공급자 호출을 생략했어요.', METADATA_ONLY: '존재 정보만 있어 인증을 확인하지 않아요.',
   SOURCE_GUARD_BLOCKED: '당시 적용된 원천 보호 설정으로 인증 확인을 생략했어요. 합성 여부는 별도 근거로 확인해요.',
   VALIDATOR_NOT_ALLOWED: '이 연결에서 해당 키 발급 서비스의 검증을 허용하세요.',
   INCOMPLETE_CREDENTIAL: '인증에 필요한 키 구성요소가 부족해요.', INCOMPLETE_PAIR: 'AWS 키 ID와 Secret Access Key를 한 쌍으로 확인하지 못했어요.', MISSING_SESSION_TOKEN: '임시 AWS 키에 필요한 세션 토큰이 없어요.',

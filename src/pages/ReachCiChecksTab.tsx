@@ -28,22 +28,22 @@ import {
 import { VULNERABILITY_FINDINGS_PATH, VULNERABILITY_SCANS_PATH } from '@/lib/reachRoutes'
 
 // SCR-05-10 CI 검사 탭. CI가 GitHub OIDC로 검사를 등록하고 결과를 올린다(FR-11, API-12·13).
-// 검사 목록(API-12 목록)에서 고르거나 검사 ID로 찾는다. 고른 검사 ID는 스캔 화면 주소 쿼리 check에 둔다
+// 검사 목록(API-12 목록)에서 고르거나 검사 ID로 찾는다. 고른 검사 ID는 검사 화면 주소 쿼리 check에 둔다
 
 const POLL_MS = 10_000
 
-/** CI 실행 상태. 동작 = 서비스 레포 워크플로(deploy/reach/ci/reach.yml)가 돈다. 준비·계획은 새 경로를 더할 때를 위해 남겨 둔다(지금 쓰는 줄 없음) */
+/** CI 실행 상태. 동작 = 서비스 저장소 워크플로(deploy/reach/ci/reach.yml)가 돈다. 준비·계획은 새 경로를 더할 때를 위해 남겨 둔다(지금 쓰는 줄 없음) */
 export type CiPlanStatus = 'WORKING' | 'READY' | 'PLANNED'
 
 export const CI_PLAN_STATUS_LABEL: Record<CiPlanStatus, string> = { WORKING: '동작', READY: '준비', PLANNED: '계획' }
 
 /** 실행 경로 (화면 명세 "CI 검사 탭 배치", PRD FR-11). 네 경로 모두 운영에서 돈다 */
 export const CI_PLAN: { mode: ReachTrigger; when: string; what: string; status: CiPlanStatus; note?: string }[] = [
-  { mode: 'PR', when: 'PR마다', what: '레포 SBOM으로 CVE 대조와 L2 판정. 기준 스캔에 없던 Finding만 게이트로 본다', status: 'WORKING' },
+  { mode: 'PR', when: 'PR마다', what: '저장소 SBOM으로 CVE 대조와 L2 판정. 기준 검사에 없던 Finding만 게이트로 본다', status: 'WORKING' },
   {
     mode: 'IMAGE_BUILD',
     when: 'CI/CD가 PR 이미지를 ECR에 올린 뒤',
-    what: '이미지 SBOM 생성·대조·L2 판정. 서비스 레포에 시나리오가 있으면 그 이미지를 띄워 L3 실제 실행까지 기록한다',
+    what: '이미지 SBOM 생성·대조·L2 판정. 서비스 저장소에 시나리오가 있으면 그 이미지를 띄워 L3 실제 실행까지 기록한다',
     status: 'WORKING',
   },
   {
@@ -55,7 +55,7 @@ export const CI_PLAN: { mode: ReachTrigger; when: string; what: string; status: 
   {
     mode: 'MANUAL',
     when: '필요할 때',
-    what: '[새 스캔]·[다시 대조]로 요청하면 서비스 레포의 워크플로가 돌아 결과를 올린다. 앱은 띄우지 않는다',
+    what: '[새 검사]·[다시 대조]로 요청하면 서비스 저장소의 워크플로가 돌아 결과를 올린다. 앱은 띄우지 않는다',
     status: 'WORKING',
   },
 ]
@@ -92,7 +92,7 @@ export function CiCheckResult({ check }: { check: ReachCiCheck }) {
 
       <dl className="reach-ci-facts">
         <div>
-          <dt>레포</dt>
+          <dt>저장소</dt>
           <dd>{check.repository}</dd>
         </div>
         {check.headCommit && (
@@ -120,23 +120,23 @@ export function CiCheckResult({ check }: { check: ReachCiCheck }) {
           </div>
         )}
         <div>
-          <dt>스캔</dt>
+          <dt>검사</dt>
           <dd>
             <Link className="reach-link" to={`${VULNERABILITY_SCANS_PATH}?scan=${check.scanId}`}>
-              스캔 #{check.scanId}
+              검사 #{check.scanId}
             </Link>{' '}
             <ReachScanStatusBadge status={check.scanStatus} />
           </dd>
         </div>
         <div>
-          <dt>기준 스캔</dt>
+          <dt>기준 검사</dt>
           <dd>
             {check.baselineScanId ? (
               <Link className="reach-link" to={`${VULNERABILITY_SCANS_PATH}?scan=${check.baselineScanId}`}>
-                스캔 #{check.baselineScanId}
+                검사 #{check.baselineScanId}
               </Link>
             ) : (
-              <span className="caption">없음 · 모든 Finding을 새 것으로 봐요</span>
+              <span className="caption">없음 · 모든 취약점을 새 것으로 봐요</span>
             )}
           </dd>
         </div>
@@ -190,7 +190,7 @@ export function CiCheckResult({ check }: { check: ReachCiCheck }) {
         <p className="notice" role="status">
           {running
             ? '분석 결과가 아직 올라오지 않았어요. 10초마다 다시 확인해요.'
-            : '스캔이 실패해 게이트 결과가 없어요. 스캔 상세에서 실패한 단계를 확인하세요.'}
+            : '검사가 실패해 게이트 결과가 없어요. 검사 상세에서 실패한 단계를 확인하세요.'}
         </p>
       )}
     </div>
@@ -277,7 +277,7 @@ export function CiCheckTable({
         <thead>
           <tr>
             <th scope="col">검사</th>
-            <th scope="col">레포</th>
+            <th scope="col">저장소</th>
             <th scope="col">실행</th>
             <th scope="col">PR</th>
             <th scope="col">커밋</th>
@@ -427,7 +427,7 @@ function CheckList({ selectedId, onSelect }: { selectedId: number | null; onSele
         (filtered ? (
           <EmptyState title="조건에 맞는 검사가 없어요" description="필터를 바꾸거나 초기화해 보세요." />
         ) : (
-          <EmptyState title="아직 CI 검사가 없어요" description="서비스 레포의 Reach 워크플로가 PR마다 검사를 등록해요." />
+          <EmptyState title="아직 CI 검사가 없어요" description="서비스 저장소의 Reach 워크플로가 PR마다 검사를 등록해요." />
         ))}
       {items.length > 0 && <CiCheckTable items={items} selectedId={selectedId} onSelect={onSelect} />}
       {items.length > 0 && (
@@ -468,9 +468,9 @@ export function CiChecksTab({
       <section className="card reach-ci-card" id={DETAIL_ID}>
         <p className="notice" role="status">
           CI가 PR마다 검사를 등록하고 결과를 올려요(GitHub OIDC). 아래 목록에서 고르거나 검사 ID로 찾으세요. PR 검사가 만든
-          스캔은{' '}
+          검사는{' '}
           <button type="button" className="reach-row-button reach-link" onClick={onShowPrScans}>
-            스캔 이력의 PR 트리거
+            검사 이력의 PR 실행 계기
           </button>
           로도 볼 수 있어요.
         </p>

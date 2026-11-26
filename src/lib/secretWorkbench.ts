@@ -11,7 +11,7 @@ export const workbenchOptions = {
 } as const
 export const workbenchMetricLabels: Record<string, { title: string; unit: string; description: string; bucket: string }> = {
   reviewRequiredLocations: { title: '확인 필요', unit: '곳', description: '발견 검토와 대응 생성', bucket: 'REVIEW_REQUIRED' },
-  needsDecisionLocations: { title: '확인 필요', unit: '곳', description: '노출·보관 근거 확인', bucket: 'NEEDS_DECISION' },
+  needsDecisionLocations: { title: '확인 필요', unit: '곳', description: '노출 상태 근거 확인', bucket: 'NEEDS_DECISION' },
   ongoingCases: { title: '대응 중', unit: '건', description: '신규·조치 중인 대응', bucket: 'ACTION_REQUIRED' },
   revalidationPendingCases: { title: '재검사 대기', unit: '건', description: '조치 후 다시 확인할 건', bucket: 'ACTION_REQUIRED' },
   coverageGapScopes: { title: '검사 누락', unit: '범위', description: '실패·지연·미검사 확인', bucket: 'COVERAGE_GAPS' },

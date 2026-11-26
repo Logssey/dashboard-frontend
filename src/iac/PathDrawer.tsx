@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { ActionRecordPanel } from '@/components/ActionRecordPanel'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
-import { Icon } from '@/components/Icon'
 import { fetchIacPath } from './api'
 import { formatDateTime, hopLabel, remediationText, severityLabel, severityTone, tierLabel } from './labels'
 
@@ -10,41 +9,24 @@ import { formatDateTime, hopLabel, remediationText, severityLabel, severityTone,
  * 열린 경로 상세 (S-01 C). 단계마다 다음 단계로 가는 관계를 보여주고, 끊을 수 있는 관계에 수정 방법을 붙인다.
  * 수정 PR 생성은 다음 단계(FR-D2)라 안내만 한다.
  */
-export function PathDrawer({ pathId, onClose }: { pathId: number | null; onClose: () => void }) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
+export function PathDrawer({ pathId, actionOnly = false }: { pathId: number | null; onClose: () => void; actionOnly?: boolean }) {
   const detail = useQuery({
     queryKey: ['iac', 'path', pathId],
     queryFn: () => fetchIacPath(pathId!),
     enabled: pathId !== null,
   })
 
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    if (pathId !== null && !dialog.open) dialog.showModal()
-    if (pathId === null && dialog.open) dialog.close()
-  }, [pathId])
-
-  const handleBackdropClick = (event: React.MouseEvent<HTMLDialogElement>) => {
-    if (event.target !== event.currentTarget) return
-    const rect = event.currentTarget.getBoundingClientRect()
-    const outside =
-      event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom
-    if (outside) onClose()
-  }
 
   const path = detail.data?.path
   const cutPoints = detail.data?.cutPoints ?? []
+  if (actionOnly && path) return <section className="card security-detail-content"><ActionRecordPanel kind="IAC_PATH" id={path.pathId} /></section>
 
   return (
-    <dialog ref={dialogRef} className="drawer" aria-labelledby="iac-path-title" onClose={onClose} onClick={handleBackdropClick}>
+    <section className="card security-detail-content">
       {pathId !== null && (
         <>
           <div className="drawer-head">
             <h2 id="iac-path-title">공격 경로 상세</h2>
-            <button className="icon-btn" onClick={onClose} aria-label="경로 상세 닫기">
-              <Icon name="close" />
-            </button>
           </div>
 
           <div className="drawer-body">
@@ -56,6 +38,7 @@ export function PathDrawer({ pathId, onClose }: { pathId: number | null; onClose
               <>
                 <div className="row">
                   <span className="caption">경로 #{path.pathId}</span>
+                  <Badge label={path.status === 'CLOSED' ? '미발견 경로 이력' : '발견된 경로'} tone="neutral" />
                   <Badge label={severityLabel[path.severity]} tone={severityTone[path.severity]} />
                   <Badge label={tierLabel(path.tier)} tone={path.tier === 1 ? 'critical' : 'high'} />
                 </div>
@@ -64,12 +47,12 @@ export function PathDrawer({ pathId, onClose }: { pathId: number | null; onClose
                   <dd>{path.target.kind}</dd>
                   <dt>처음 확인</dt>
                   <dd>{formatDateTime(path.firstSeenAt)}</dd>
-                  <dt>마지막 확인</dt>
+                  <dt>마지막 발견</dt>
                   <dd>{formatDateTime(path.lastSeenAt)}</dd>
                 </dl>
 
                 <section>
-                  <h3>단계</h3>
+                  <h3>연결된 자산과 접근 순서</h3>
                   <ol className="iac-steps">
                     {path.hops.map((hop, index) => {
                       const label = hopLabel(hop)
@@ -80,7 +63,7 @@ export function PathDrawer({ pathId, onClose }: { pathId: number | null; onClose
                             <b>{label.kind}</b>
                             {label.name && <span>{label.name}</span>}
                           </span>
-                          {cut && <Badge label="↓ 다음 관계를 끊을 수 있음" tone="primary" />}
+                          {cut && <Badge label="↓ 다음 자산으로의 접근 제한 가능" tone="primary" />}
                         </li>
                       )
                     })}
@@ -88,9 +71,9 @@ export function PathDrawer({ pathId, onClose }: { pathId: number | null; onClose
                 </section>
 
                 <section>
-                  <h3>끊을 지점</h3>
+                  <h3>수정할 지점</h3>
                   {cutPoints.length === 0 ? (
-                    <EmptyState title="안내할 끊을 지점 없음" description="이 경로의 관계에 맞는 수정 방법이 아직 없어요." />
+                    <EmptyState title="수정 방법 준비 중" description="이 경로에 맞는 수정 방법은 아직 제공되지 않습니다." />
                   ) : (
                     <ul className="iac-cuts">
                       {cutPoints.map((point) => {
@@ -114,12 +97,9 @@ export function PathDrawer({ pathId, onClose }: { pathId: number | null; onClose
           </div>
 
           <div className="drawer-foot">
-            <button className="btn outline" onClick={onClose}>
-              닫기
-            </button>
           </div>
         </>
       )}
-    </dialog>
+    </section>
   )
 }

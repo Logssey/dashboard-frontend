@@ -54,7 +54,7 @@ function ConnectionCard({ connection, selected, result, testing, error, onTest, 
     {error && <p className="secret-connection-test-error" role="alert">{error}</p>}
     <div className="secret-connection-actions">
       <button className="btn secret-connection-test-button" disabled={testing || !connection.capabilities?.canTest} onClick={() => onTest(connection.connectionId)}>{testing ? '연결 확인 중…' : '연결 테스트'}</button>
-      <button className="btn primary" disabled={!connection.activeJob && !connection.capabilities?.canRun} onClick={() => onScan(connection)}>{connection.activeJob ? '검사 진행 중' : '스캔 요청'}</button>
+      <button className="btn primary" disabled={!connection.activeJob && !connection.capabilities?.canRun} onClick={() => onScan(connection)}>{connection.activeJob ? '검사 진행 중' : '검사 요청'}</button>
       <Link className="btn outline" to={`/secrets/connections/${connection.connectionId}/scopes`}>검사 대상</Link>
       <button className="btn outline" onClick={() => onValidationSettings(connection.connectionId)}>키 검증 설정</button>
       {(connection.provider === 'GITHUB' || connection.provider === 'AWS') && <button className="btn outline" onClick={() => onSettings(connection.connectionId)}>설정</button>}
@@ -217,11 +217,15 @@ export function SecretConnectionsPage() {
   }
 
   return <>
-    <PageHeader title="연결 관리" description="연결과 검사 대상을 확인하고 실제 스캔 진행을 추적하세요." actions={<>
+    <PageHeader title="연결 및 설정" description="연결과 검사 대상을 확인하고 실제 검사 진행을 추적하세요." actions={<>
       {setup.data?.enabled && setup.data.canCreate && <button className="btn primary" onClick={() => setManager({ connectionId: null })}>+ 연결 추가</button>}
       <Link className="btn outline" to="/secrets/connections/policies">보관 규칙</Link>
       <button className="btn outline" disabled={connections.isFetching} onClick={() => void connections.refetch()}>새로고침</button>
     </>} />
+    {import.meta.env?.MODE === 'actiondemo' && <p className="notice">로컬 시연 연결만 표시해요. 운영에 등록된 GitHub·Notion·AWS 연결과 별개인 설정 확인용 데이터예요.</p>}
+    {setup.isError ? <p className="notice" role="alert">연결 추가 설정을 불러오지 못했어요. 기존 연결은 아래에서 확인할 수 있어요. <button className="btn outline" onClick={() => void setup.refetch()}>설정 다시 조회</button></p>
+      : setup.data && !setup.data.enabled ? <p className="caption">현재 환경에서 새 연결 등록이 꺼져 있어요. 등록된 연결의 검사 대상과 키 검증 설정은 아래에서 확인하세요.</p>
+      : setup.data && !setup.data.canCreate ? <p className="caption">새 연결 등록에는 연결 운영 권한이 필요해요.</p> : null}
     <SecretFilterDisclosure label="연결 조회" fields={[{ key: 'status', label: '연결 상태', options: { '': '전체 상태', ACTIVE: '활성', PAUSED: '일시중지', ERROR: '확인 필요' }, defaultValue: '' }]}
       values={{ status }} busy={connections.isFetching} onApply={(next) => changeStatus(next.status)} onReset={() => changeStatus('')} />
     {!valid ? <p className="notice error" role="alert">조회 주소를 확인해 주세요. <button className="btn outline" onClick={() => setParams(new URLSearchParams())}>조건 초기화</button></p>
@@ -241,13 +245,13 @@ export function SecretConnectionsPage() {
         </section>
         <aside ref={progressPanel} id="secret-selected-scan" tabIndex={-1} aria-label="선택한 검사 실행">
           {compact && requestedRun && <button className="btn outline secret-connection-back" onClick={showConnections}>연결 목록으로</button>}
-          {(!compact || requestedRun) && (runId ? <SecretScanProgress key={runId} runId={runId} expectedConnectionId={selected?.connectionId ?? requestedConnection ?? undefined} onComplete={completed} /> : <section className="secret-scan-execution-panel secret-scan-execution-placeholder"><h2>검사 진행</h2><p>{selected ? '이 연결의 스캔을 요청하면 단계별 진행과 실행 내역을 확인할 수 있어요.' : '검사할 연결을 선택하세요.'}</p>{selected?.capabilities?.canRun && <button className="btn primary" onClick={() => openScan(selected)}>스캔 요청</button>}</section>)}
+          {(!compact || requestedRun) && (runId ? <SecretScanProgress key={runId} runId={runId} expectedConnectionId={selected?.connectionId ?? requestedConnection ?? undefined} onComplete={completed} /> : <section className="secret-scan-execution-panel secret-scan-execution-placeholder"><h2>검사 진행</h2><p>{selected ? '이 연결의 검사를 요청하면 단계별 진행과 실행 내역을 확인할 수 있어요.' : '검사할 연결을 선택하세요.'}</p>{selected?.capabilities?.canRun && <button className="btn primary" onClick={() => openScan(selected)}>검사 요청</button>}</section>)}
         </aside>
       </div>}
-    <SecretDetailPanel open={confirmConnection != null} title="스캔 요청" closeLabel="스캔 요청 닫기" className="secret-scan-request-dialog" onClose={() => { if (!start.isPending) setConfirmConnection(null) }}>
+    <SecretDetailPanel open={confirmConnection != null} title="검사 요청" closeLabel="검사 요청 닫기" className="secret-scan-request-dialog" onClose={() => { if (!start.isPending) setConfirmConnection(null) }}>
       {confirmConnection && <div className="secret-connection-scan-confirm"><h3>{scanPlatforms[confirmConnection.provider]} 연결을 검사할까요?</h3><p>{confirmConnection.safeDisplayAlias ?? `연결 #${confirmConnection.connectionId}`}</p><p>승인된 검사 대상 {confirmConnection.approvedScopeCount}개에서 내용을 읽고 키를 탐지해요.</p>
-        {start.isError && <p className="notice error" role="alert">{start.error instanceof ApiError && start.error.status === 409 ? '진행 중인 검사와 현재 승인 대상을 확인하세요.' : start.error instanceof ApiError && start.error.status === 403 ? '스캔 실행 권한을 확인하세요.' : '요청 결과를 확인하지 못했어요. 다시 요청하면 같은 등록 요청을 확인해요.'}</p>}
-        <div className="row"><button className="btn outline" disabled={start.isPending} onClick={() => setConfirmConnection(null)}>취소</button><button className="btn primary" disabled={start.isPending} onClick={() => start.mutate({ connectionId: confirmConnection.connectionId, idempotencyKey: request.current.key })}>{start.isPending ? '등록 중…' : '스캔 시작'}</button></div>
+        {start.isError && <p className="notice error" role="alert">{start.error instanceof ApiError && start.error.status === 409 ? '진행 중인 검사와 현재 승인 대상을 확인하세요.' : start.error instanceof ApiError && start.error.status === 403 ? '검사 실행 권한을 확인하세요.' : '요청 결과를 확인하지 못했어요. 다시 요청하면 같은 등록 요청을 확인해요.'}</p>}
+        <div className="row"><button className="btn outline" disabled={start.isPending} onClick={() => setConfirmConnection(null)}>취소</button><button className="btn primary" disabled={start.isPending} onClick={() => start.mutate({ connectionId: confirmConnection.connectionId, idempotencyKey: request.current.key })}>{start.isPending ? '등록 중…' : '검사 시작'}</button></div>
       </div>}
     </SecretDetailPanel>
     <SecretDetailPanel open={validationConnectionId != null} title="키 검증 설정" closeLabel="키 검증 설정 닫기" className="secret-connection-validation-dialog" onClose={closeValidationSettings}>

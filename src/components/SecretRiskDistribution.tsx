@@ -62,12 +62,12 @@ export function SecretRiskDistribution({ summary, filters }: { summary: Workbenc
         <Link to={reviewPath}>발견 검토 보기</Link>
       </div>}
       {hasExcludedCases && <p className="secret-risk-excluded">
-        심각도 평가 대상 외 {valueLink(excluded, 'NOT_APPLICABLE')} <span>등급 분포에서 제외해요.</span>
+        위험도 평가 대상 외 {valueLink(excluded, 'NOT_APPLICABLE')} <span>등급 분포에서 제외해요.</span>
       </p>}
       {(hasGradedCases || hasExcludedCases) && <details className="secret-risk-matrix">
         <summary>키 유효성별 상세 보기<span aria-hidden="true" /></summary>
         {!matrixAvailable || !matrix ? <p className="secret-risk-unavailable">{summaryReason(matrix?.status)}</p> : <>
-          <div className="table-scroll" tabIndex={0} role="region" aria-label="심각도와 키 유효성별 대응 건수">
+          <div className="table-scroll" tabIndex={0} role="region" aria-label="위험도와 키 유효성별 대응 건수">
             <table>
               <thead><tr>
                 <th scope="col">위험도</th>
@@ -81,7 +81,7 @@ export function SecretRiskDistribution({ summary, filters }: { summary: Workbenc
               </tr>)}</tbody>
             </table>
           </div>
-          <p className="caption">한 대응 건은 한 칸에만 집계해요. 유효성 확인은 노출·악용 판단과 별개예요.</p>
+          <p className="caption">한 대응 건은 한 칸에만 집계해요. 키 인증 확인은 노출·악용 판단과 별개예요.</p>
           {validRiskCount(matrix.staleValidationCaseCount) && matrix.staleValidationCaseCount > 0 && <p className="secret-risk-stale">
             검증 기한이 지난 {matrix.staleValidationCaseCount}건은 확인 불가에 포함해요.
           </p>}

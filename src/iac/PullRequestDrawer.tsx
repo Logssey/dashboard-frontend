@@ -1,8 +1,7 @@
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
-import { Icon } from '@/components/Icon'
 import { fetchIacPullRequest } from './api'
 import {
   causeActionLabel, formatDateTime, hopLabel, pathChangeLabel, pullRequestBadge, pullRequestUrl, ruleNextStep, ruleTitle,
@@ -14,7 +13,7 @@ function SeverityBadge({ severity }: { severity: IacSeverity | null }) {
   return severity ? <Badge label={severityLabel[severity]} tone={severityTone[severity]} /> : null
 }
 
-/** 경로 변화 한 건: 종류·심각도·등급, 단계, 원인 리소스, 시뮬레이터 결과 */
+/** 경로 변화 한 건: 종류·위험도·등급, 단계, 원인 리소스, 시뮬레이터 결과 */
 function PathChangeItem({ change }: { change: IacPathChange }) {
   return (
     <li>
@@ -68,28 +67,13 @@ function ruleIds(pr: IacPullRequest): string[] {
  * PR 상세 패널 (S-02). 판정은 백엔드가 하고 화면은 보여주기만 한다.
  * 다시 검사·예외 요청은 두지 않는다: 재실행은 GitHub 에서 하고, 대시보드는 읽기 전용으로 둔다.
  */
-export function PullRequestDrawer({ number, onClose }: { number: number | null; onClose: () => void }) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
+export function PullRequestDrawer({ number }: { number: number | null; onClose: () => void }) {
   const detail = useQuery({
     queryKey: ['iac', 'pr', number],
     queryFn: () => fetchIacPullRequest(number!),
     enabled: number !== null,
   })
 
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    if (number !== null && !dialog.open) dialog.showModal()
-    if (number === null && dialog.open) dialog.close()
-  }, [number])
-
-  const handleBackdropClick = (event: React.MouseEvent<HTMLDialogElement>) => {
-    if (event.target !== event.currentTarget) return
-    const rect = event.currentTarget.getBoundingClientRect()
-    const outside =
-      event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom
-    if (outside) onClose()
-  }
 
   const pr = detail.data
   const url = number === null ? null : pullRequestUrl(number)
@@ -103,14 +87,11 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
   }) : []
 
   return (
-    <dialog ref={dialogRef} className="drawer" aria-labelledby="iac-pr-title" onClose={onClose} onClick={handleBackdropClick}>
+    <section className="card security-detail-content">
       {number !== null && (
         <>
           <div className="drawer-head">
-            <h2 id="iac-pr-title">PR #{number} 검사 결과</h2>
-            <button className="icon-btn" onClick={onClose} aria-label="PR 상세 닫기">
-              <Icon name="close" />
-            </button>
+            <h2 id="iac-pr-title">검사 판정</h2>
           </div>
 
           <div className="drawer-body">
@@ -201,14 +182,14 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
                   )}
                 </section>
 
-                {/* State 영향 */}
+                {/* 상태 파일 접근 권한 변화 */}
                 <section>
-                  <h3>State 영향</h3>
+                  <h3>상태 파일 접근 권한 변화</h3>
                   {gateBlocked || !pr.state ? (
                     <p className="muted iac-section-text">계산하지 않았어요.</p>
                   ) : (
                     <dl className="facts">
-                      <dt>읽기 주체</dt>
+                      <dt>읽기 권한이 있는 계정</dt>
                       <dd>
                         {pr.state.readersBefore} → {pr.state.readersAfter}{' '}
                         {pr.state.readersAfter > pr.state.readersBefore && <SeverityBadge severity={pr.state.severity} />}
@@ -249,9 +230,6 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
           </div>
 
           <div className="drawer-foot">
-            <button className="btn outline" onClick={onClose}>
-              닫기
-            </button>
             {url && (
               <a className="btn primary" href={url} target="_blank" rel="noopener noreferrer">
                 PR 에서 보기
@@ -260,6 +238,6 @@ export function PullRequestDrawer({ number, onClose }: { number: number | null; 
           </div>
         </>
       )}
-    </dialog>
+    </section>
   )
 }

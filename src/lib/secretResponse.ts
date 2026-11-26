@@ -5,7 +5,7 @@ import { safeWorkbenchReturn, workbenchOptions } from './secretWorkbench'
 import { riskSeverities, riskValidities } from './secretRiskDistribution'
 import { canonicalSecretListParams, safeSecretSearch, validSecretSearch } from './secretReadSelection'
 
-export const caseStageLabels: Record<string, string> = { OPEN: '신규', IN_PROGRESS: '조치 중', REVALIDATION_PENDING: '재검사 대기', RESOLVED: '해결' }
+export const caseStageLabels: Record<string, string> = { OPEN: '신규', IN_PROGRESS: '조치 중', REVALIDATION_PENDING: '확인 대기', RESOLVED: '해결' }
 export const caseActionLabels = { ROTATED: '키 교체', REVOKED: '키 폐기', REMOVED_FROM_SOURCE: '노출 위치에서 제거', PERMISSION_REDUCED: '권한 축소' } as const
 export const caseReasonLabels = { INITIAL_ASSIGNMENT: '최초 지정', OWNERSHIP_CHANGE: '담당자 변경', TEAM_TRANSFER: '담당 팀 변경', UNASSIGNED: '지정 해제', OTHER: '운영 사유' } as const
 export const checklistLabels = { IDENTIFY_OWNER: '소유자 확인', ROTATE_OR_REVOKE: '키 교체·폐기 확인', REMOVE_EXPOSURE: '노출 위치 정리', CHECK_ACCESS_LOGS: '접근 기록 확인' } as const

@@ -22,7 +22,7 @@ const occurrence = { occurrenceId: 11, safeLocationLabel: '위치 #11', response
 const detail = { caseId: 7, version: 3, isCurrent: true, stage: 'OPEN', occurrences: [occurrence], checklist: [], capabilities: { canRecordAction: true, canAssign: true, canUpdateChecklist: true } }
 const common = { onReload() {}, onStale() {}, disabled: false }
 test('response workflow uses four stages and recommends a visible location needing action', () => {
-  assert.deepEqual(Object.values(modules.response.caseStageLabels), ['신규', '조치 중', '재검사 대기', '해결'])
+  assert.deepEqual(Object.values(modules.response.caseStageLabels), ['신규', '조치 중', '확인 대기', '해결'])
   const other = { ...occurrence, occurrenceId: 12, postActionRedetected: true }
   assert.equal(modules.response.recommendedCaseLocation({ ...detail, occurrences: [occurrence, other] }).occurrenceId, 12)
   assert.equal(modules.response.recommendedCaseLocation({ ...detail, occurrences: [] }), undefined)
@@ -61,7 +61,7 @@ test('external action references and times reject secrets, paths and stale or fu
 test('coordinator or case-wide rights do not reveal a location action form', () => {
   const html = render(modules.workflow.SecretCaseWorkflow, { detail, occurrence })
   assert.doesNotMatch(html, /외부 조치 저장|이 위치를 재검사 대기로|보안 검토|조치 시작/)
-  assert.match(html, /현재 권한과 위치 상태/)
+  assert.match(html, /변경할 권한이 없거나 현재 단계/)
 })
 test('a remediator records actual work without a duplicate review or empty start step', () => {
   const location = { ...occurrence, canRecordAction: true }
@@ -70,14 +70,14 @@ test('a remediator records actual work without a duplicate review or empty start
   assert.doesNotMatch(html, /보안 검토|조치 시작|이 위치를 재검사 대기로/)
   assert.equal(locationNextAction({ ...location, assignedUserId: null, assignedTeam: null }), '담당자 지정')
 })
-test('unassigned location opens its actual assignment while coordinator management stays collapsed', () => {
+test('assignment uses the same visible control for a location and its coordinator', () => {
   const seeds = [[['secret-case-assignees', 7, 11], { items: [] }], [['secret-case-assignees', 7, undefined], { items: [] }]]
   const location = render(modules.workflow.SecretCaseAssignment, { detail, occurrence: { ...occurrence, assignedTeam: null, assignedUserId: null } }, seeds)
   assert.match(location, /id="case-location-assignment"/)
-  assert.match(location, /<details[^>]* open=""><summary>이 위치의 담당자/)
+  assert.match(location, /action-assignee-field/); assert.match(location, /조치 담당자/); assert.doesNotMatch(location, /<details/)
   const coordinator = render(modules.workflow.SecretCaseAssignment, { detail }, seeds)
   assert.doesNotMatch(coordinator, /<details[^>]* open=/)
-  assert.match(coordinator, /대응 담당자 지정·변경/)
+  assert.match(coordinator, /action-assignee-field/); assert.match(coordinator, /조치 담당자/)
 })
 test('case workspace keeps progress visible and puts selected location work before supporting records', () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } })
@@ -85,17 +85,20 @@ test('case workspace keeps progress visible and puts selected location work befo
   client.setQueryData(['secret-case-assignees', 7, undefined], { items: [] })
   const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/secrets/cases/7?tab=work'] }, createElement(Routes, null, createElement(Route, { path: '/secrets/cases/:caseId', element: createElement(modules.workspace.SecretCaseDetailPage) })))))
   assert.ok(html.indexOf('대응 진행 단계') < html.indexOf('대응 상세 구역'))
-  assert.ok(html.indexOf('지금 할 일') < html.indexOf('조치 대상 위치'))
+  const actionSections = ['담당자', '처리 상태', '조치 내용', '확인 결과'].map((title) => html.indexOf(`aria-label="${title}"`))
+  assert.ok(actionSections.every((position, index) => position >= 0 && (index === 0 || position > actionSections[index - 1])))
+  assert.match(html, /작업할 위치/)
   assert.ok(html.indexOf('대응 상세 구역') < html.indexOf('수행한 조치 기록'))
-  assert.ok(html.indexOf('수행한 조치 기록') < html.indexOf('<summary>대응 담당자·관련 근거'))
-  assert.match(html, /<details class="card secret-case-context"><summary>/)
+  assert.doesNotMatch(html, /<summary>대응 담당자·관련 근거/)
+  assert.match(html, /tab=context/)
+  assert.doesNotMatch(html, /<h2>전체 조치 담당자/)
   assert.match(html, /열람할 수 있는 위치를 표시/)
   assert.match(html, /example\/approved-source/)
   assert.match(html, /브랜치 main/)
   assert.match(html, /fixtures\/config.env/)
   assert.match(html, /12번째 줄/)
   assert.ok(html.indexOf('fixtures/config.env') < html.indexOf('수행한 조치 기록'))
-  assert.doesNotMatch(html, /이 위치의 담당자 지정·변경/)
+  assert.doesNotMatch(html, /이 위치의 담당자 변경/)
   client.clear()
 })
 test('manual lifecycle approval is visibly distinct from provider verification', () => {
@@ -148,10 +151,10 @@ test('self assignment and internal action records are capability-gated and prese
   assert.match(self, /미배정 조치 위치 1곳에도 적용/)
   const internal = render(modules.workflow.SecretCaseWorkflow, { detail, occurrence: { ...occurrence, canRecordAction: true, canRecordInternalAction: true, canRecordAndCompleteActions: true } })
   assert.match(internal, /내부 기록으로 저장/); assert.doesNotMatch(internal, /placeholder="(?:TICKET|CHANGE):/)
-  assert.match(internal, /저장하고 재검사로/)
+  assert.match(internal, /조치 기록 완료/)
   assert.match(internal, /기록만 저장/)
   const legacy = render(modules.workflow.SecretCaseWorkflow, { detail, occurrence: { ...occurrence, canRecordAction: true } })
-  assert.doesNotMatch(legacy, /저장하고 재검사로|비워두면 내부/)
+  assert.doesNotMatch(legacy, /조치 기록 완료|비워두면 내부/)
 })
 
 test('response commands reuse stored lifecycle action and atomically complete actual work without fabricated ticket fields', async () => {

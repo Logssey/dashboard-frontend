@@ -19,7 +19,7 @@ export function RemediationSection() {
       ) : remediations.isError ? (
         <p className="notice error iac-card-body">조치 목록을 불러오지 못했어요.</p>
       ) : remediations.data.length === 0 ? (
-        <EmptyState title="제안할 조치 없음" description="열린 경로와 State 읽기 주체에서 끊을 지점을 찾지 못했어요." />
+        <EmptyState title="제안할 조치 없음" description="열린 경로와 State 읽기 권한이 있는 계정에서 수정할 지점을 찾지 못했어요." />
       ) : (
         <div className="table-scroll" tabIndex={0} role="region" aria-label="조치 표. 좁은 화면에서는 가로로 스크롤하세요.">
           <table>

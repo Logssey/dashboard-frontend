@@ -12,14 +12,14 @@ import {
   scanRequestErrorText,
 } from '@/lib/reach'
 
-// SCR-05-09 새 스캔 대화상자. [스캔 요청] → API-01. 대화상자를 열 때마다 멱등 키를 새로 만들어,
-// 같은 대화상자에서 두 번 눌러도(응답이 늦어 다시 누름) 스캔은 하나만 생긴다 (API 명세 2-7)
-// 대상은 적지 않고 고른다: 실행 중인 이미지(API-07)와 최근 스캔한 대상(API-02)을 줄로 보여 주고, 누르면 칸이 채워진다.
+// SCR-05-09 새 검사 대화상자. [검사 요청] → API-01. 대화상자를 열 때마다 멱등 키를 새로 만들어,
+// 같은 대화상자에서 두 번 눌러도(응답이 늦어 다시 누름) 검사는 하나만 생긴다 (API 명세 2-7)
+// 대상은 적지 않고 고른다: 실행 중인 이미지(API-07)와 최근 검사한 대상(API-02)을 줄로 보여 주고, 누르면 칸이 채워진다.
 // 목록에 없는 대상만 "직접 입력"을 펼쳐 적는다
 
 const NO_FILTER = { scanStatus: [], trigger: [] }
 
-/** 대상 칸을 채워서 열었는가 (워크로드의 [스캔 요청], 실패한 스캔의 [다시 실행]) */
+/** 대상 칸을 채워서 열었는가 (워크로드의 [검사 요청], 실패한 검사의 [다시 실행]) */
 function hasTarget(form: NewScanForm | null): boolean {
   return Boolean(form && (form.repository || form.digest || form.repoName || form.commit))
 }
@@ -56,7 +56,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
   const [form, setForm] = useState<NewScanForm | null>(initial)
   const [key, setKey] = useState(newKey)
   const [touched, setTouched] = useState(false)
-  // "직접 입력"을 펼쳤는가. 값을 채워서 연 경우(워크로드의 [스캔 요청], [다시 실행])는 채운 값이 보이게 펼쳐서 연다
+  // "직접 입력"을 펼쳤는가. 값을 채워서 연 경우(워크로드의 [검사 요청], [다시 실행])는 채운 값이 보이게 펼쳐서 연다
   const [manual, setManual] = useState(() => hasTarget(initial))
 
   const create = useMutation({
@@ -131,7 +131,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
     create.error instanceof ApiError
       ? scanRequestErrorText(create.error.status, create.error.code, create.error.message)
       : create.error
-        ? '스캔을 요청하지 못했어요. 연결을 확인하고 다시 시도하세요.'
+        ? '검사를 요청하지 못했어요. 연결을 확인하고 다시 시도하세요.'
         : null
 
   const submit = (event: React.FormEvent) => {
@@ -148,7 +148,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
       {form && (
         <form className="reach-dialog-body" onSubmit={submit} noValidate>
           <div className="reach-dialog-head">
-            <h2 id="reach-new-scan-title">새 스캔</h2>
+            <h2 id="reach-new-scan-title">새 검사</h2>
             <button type="button" className="btn outline small" onClick={onClose} aria-label="닫기">
               닫기
             </button>
@@ -162,10 +162,10 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
                 </p>
               )}
               <PickGroup title="실행 중인 이미지" picks={picks.running} form={form} onPick={pick} />
-              <PickGroup title="최근 스캔한 대상" picks={picks.recent} form={form} onPick={pick} />
+              <PickGroup title="최근 검사한 대상" picks={picks.recent} form={form} onPick={pick} />
               {nothingChosen && (
                 <p className="field-error" role="alert">
-                  스캔할 대상을 고르거나 직접 입력하세요.
+                  검사할 대상을 고르거나 직접 입력하세요.
                 </p>
               )}
             </div>
@@ -180,7 +180,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
                   <input type="radio" name="type" checked={form.type === 'IMAGE'} onChange={() => set('type', 'IMAGE')} /> 이미지 digest
                 </label>
                 <label className="reach-radio">
-                  <input type="radio" name="type" checked={form.type === 'REPO'} onChange={() => set('type', 'REPO')} /> 레포 커밋
+                  <input type="radio" name="type" checked={form.type === 'REPO'} onChange={() => set('type', 'REPO')} /> 저장소 커밋
                 </label>
               </fieldset>
 
@@ -213,7 +213,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
               ) : (
                 <>
                   <label className="field">
-                    레포
+                    저장소
                     <input
                       className="input"
                       value={form.repoName}
@@ -235,7 +235,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
                     {errors.commit && <span className="field-error">{errors.commit}</span>}
                   </label>
                   <label className="field">
-                    레포 안 경로 (선택)
+                    저장소 안 경로 (선택)
                     <input className="input" value={form.path} placeholder={example.path} onChange={(event) => set('path', event.target.value)} />
                   </label>
                 </>
@@ -244,7 +244,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
               <label className="field">
                 앱
                 <select className="select" value={form.app} onChange={(event) => set('app', event.target.value)}>
-                  <option value="">설정의 레포·저장소로 정하기</option>
+                  <option value="">연결된 저장소 설정으로 정하기</option>
                   {appCodes.map((code) => (
                     <option key={code} value={code}>
                       {code}
@@ -283,7 +283,7 @@ export function ReachNewScanDialog({ initial, onClose, onCreated }: {
               취소
             </button>
             <button type="submit" className="btn primary" disabled={create.isPending}>
-              {create.isPending ? '요청 중…' : '스캔 요청'}
+              {create.isPending ? '요청 중…' : '검사 요청'}
             </button>
           </div>
         </form>

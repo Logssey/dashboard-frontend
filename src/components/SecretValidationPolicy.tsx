@@ -18,7 +18,7 @@ export function SecretValidationPolicy({ scopeId }: { scopeId: number }) {
     return updateValidationPolicy(scopeId, { ...payload, idempotencyKey: idempotencyFor(key, payload) })
   }, onSuccess: () => { refreshReads(); void query.refetch(); void client.invalidateQueries({ queryKey: ['secret-validation'] }); void client.invalidateQueries({ queryKey: ['secret-connection-validation-policy'] }) } })
   const stale = mutation.error instanceof ApiError && [403, 404, 409].includes(mutation.error.status)
-  return <details ref={disclosure} tabIndex={-1} className="secret-scope-alias-editor"><summary>키 유효성 검증 설정</summary>{query.isPending ? <p role="status">검증 허용 상태를 불러오는 중이에요.</p> : query.isError ? <p role="alert">{safeMutationMessage(query.error)} <button className="btn outline" onClick={() => void query.refetch()}>다시 조회</button></p> : <>
+  return <details ref={disclosure} tabIndex={-1} className="secret-scope-alias-editor"><summary>키 키 인증 확인 설정</summary>{query.isPending ? <p role="status">검증 허용 상태를 불러오는 중이에요.</p> : query.isError ? <p role="alert">{safeMutationMessage(query.error)} <button className="btn outline" onClick={() => void query.refetch()}>다시 조회</button></p> : <>
     <p>이 범위의 인증 확인: <strong>{query.data.enabled ? '허용' : '꺼짐'}</strong></p><p className="caption">승인된 범위와 등록된 검증기만 허용해요. 수집 범위나 공급자 권한은 바뀌지 않아요.</p>
     {query.data.allowedIssuers && <p className="caption">이 연결에서 허용한 키 발급 서비스 {query.data.allowedIssuers.map((issuer) => validationIssuerLabels[issuer]).join(', ') || '없음'}</p>}
     {query.data.profileStatus !== 'ENABLED' && <p className="notice">{query.data.profileStatus === 'UNCONFIGURED' || query.data.connectionEnabled === false ? '연결의 키 검증 설정을 먼저 확인하세요.' : '서버 검증 기능이 꺼져 있어요.'} 범위 허용 설정과 실제 서버 실행 상태를 함께 확인하세요.</p>}

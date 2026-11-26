@@ -793,7 +793,7 @@ function ConnectionInfoForm({
           />
           <span>
             <strong>연결 활성화</strong>
-            <small>활성 연결에서 정기 검사와 수동 스캔을 실행해요.</small>
+            <small>활성 연결에서 정기 검사와 수동 검사를 실행해요.</small>
           </span>
         </label>
       </fieldset>
@@ -1203,7 +1203,7 @@ function ConnectionEditor({
                       displayName: settings.displayName,
                       status: 'ACTIVE'
                     }),
-                  '연결을 활성화했어요. 연결 테스트와 스캔을 시작할 수 있어요.'
+                  '연결을 활성화했어요. 연결 테스트와 검사를 시작할 수 있어요.'
                 )
               }
             >

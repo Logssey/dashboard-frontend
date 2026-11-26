@@ -5,8 +5,8 @@ import { validationReasonLabels } from './secretValidation'
 export const scanProgressStages: Record<ScanProgressStageKey, { title: string; description: string }> = {
   QUEUE: { title: '요청·작업 대기', description: '워커가 요청을 가져와 검사를 시작해요.' },
   COLLECTION: { title: '원천 수집', description: '허용된 파일·페이지·리소스를 읽어요.' },
-  DETECTION: { title: '탐지·정규화', description: '키 후보를 찾고 같은 키와 발견 위치를 정리해요.' },
-  VALIDATION: { title: '유효성 확인', description: '지원되는 키의 현재 인증 응답을 확인해요.' },
+  DETECTION: { title: '발견된 키 정리', description: '키 후보를 찾고 같은 키와 발견 위치를 정리해요.' },
+  VALIDATION: { title: '키 인증 확인', description: '지원되는 키의 현재 인증 응답을 확인해요.' },
   RESULT: { title: '결과 정리', description: '검사 범위와 발견 결과를 기록해요.' },
 }
 

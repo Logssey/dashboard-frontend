@@ -76,10 +76,10 @@ test('history keeps only answered pairs, newest six messages', () => {
 })
 
 test('every page gets at least one suggested question', () => {
-  for (const page of ['통합 현황', '키·노출 위치', '대응 관리', '연결 관리', '컴플라이언스', 'Finding 목록', '알 수 없는 화면']) {
+  for (const page of ['통합 현황', '발견된 키', '대응 관리', '연결 및 설정', '컴플라이언스', '취약점 목록', '알 수 없는 화면']) {
     assert.ok(help.suggestedQuestions(page).length > 0, page)
   }
-  for (const page of ['요약', 'Finding 목록', '워크로드', '스캔']) {
+  for (const page of ['요약', '취약점 목록', '워크로드', '검사']) {
     assert.ok(help.suggestedQuestions(page).some((q) => q.includes('Log4Shell')), page)
   }
 })
@@ -106,8 +106,8 @@ test('checklist mode is sent only when asked for', async () => {
     })
   }
   try {
-    await help.askHelp('Log4Shell 터졌어', 'Finding 목록', [], 'checklist')
-    await help.askHelp('대응 건은?', 'Finding 목록', [])
+    await help.askHelp('Log4Shell 터졌어', '취약점 목록', [], 'checklist')
+    await help.askHelp('대응 건은?', '취약점 목록', [])
     assert.equal(bodies[0].mode, 'checklist')
     assert.ok(!('mode' in bodies[1]))
   } finally {
@@ -200,13 +200,13 @@ test('CVE numbers are picked from questions and only exact ids are reused from s
 test('impact lines warn that zero is not safe and point at unscanned workloads', () => {
   const base = { cve: 'CVE-2021-44228', total: 0, running: 0, reachable: 0, runningReachable: 0, unscannedRunning: 2, basis: 'LATEST' }
   const zero = help.impactLines(base)
-  assert.deepEqual(zero.rows[0], ['Finding 전체', '0건'])
+  assert.deepEqual(zero.rows[0], ['취약점 전체', '0건'])
   assert.ok(zero.notes.some((n) => n.includes('안전하다는 뜻은 아니에요')))
-  assert.ok(zero.notes.some((n) => n.includes('스캔 없는 워크로드')))
-  assert.ok(zero.notes.some((n) => n.includes('최신 스캔 기준')))
+  assert.ok(zero.notes.some((n) => n.includes('검사 없는 워크로드')))
+  assert.ok(zero.notes.some((n) => n.includes('최신 검사 기준')))
   const hit = help.impactLines({ ...base, total: 4, running: 2, reachable: 1, runningReachable: 1, unscannedRunning: null, basis: 'RUNNING' })
   assert.equal(hit.rows.length, 4)
-  assert.ok(hit.notes[0].includes('Finding부터 처리'))
+  assert.ok(hit.notes[0].includes('취약점부터 처리'))
 })
 
 test('impact numbers never enter the history sent to the help API', async () => {
@@ -240,7 +240,7 @@ test('incident talk is recognised by fixed words only', () => {
   for (const q of ['우리 서버 뚫린 것 같아', '해킹당했어 어떡해', '랜섬웨어 걸렸어', '키가 유출된 것 같아', '이상한 접속이 보여']) {
     assert.equal(help.looksLikeIncident(q), true, q)
   }
-  for (const q of ['대응 건은 어떻게 만들어요?', 'CSV로 내보내려면?', '스캔은 어떻게 시작해요?']) {
+  for (const q of ['대응 건은 어떻게 만들어요?', 'CSV로 내보내려면?', '검사는 어떻게 시작해요?']) {
     assert.equal(help.looksLikeIncident(q), false, q)
   }
 })
@@ -466,6 +466,180 @@ test('signal polling uses the shared incident status query and never the help AP
   assert.equal(help.signalCheckTime(new Date(2026, 10, 24, 9, 5).getTime()), '09:05')
 })
 
+test('customer data is masked in the browser with the same rules as the server', () => {
+  assert.equal(help.maskPrivate('담당자 kim.dev+ops@example.co.kr 에게 알렸어요'), '담당자 [이메일] 에게 알렸어요')
+  assert.equal(help.maskPrivate('203.0.113.7 에서 접속, 내부망 10.0.0.0/8'), '[IP] 에서 접속, 내부망 [IP]')
+  assert.equal(help.maskPrivate('2001:db8::1 과 fe80::1ff:fe23:4567:890a'), '[IP] 과 [IP]')
+  assert.equal(help.maskPrivate('연락처 010-1234-5678, 02 345 6789, +82 10-9876-5432'), '연락처 [전화번호], [전화번호], [전화번호]')
+  assert.equal(help.maskPrivate('주민번호 900101-1234567'), '주민번호 [주민번호]')
+  assert.equal(help.maskPrivate('카드 4111 1111 1111 1111'), '카드 [카드번호]')
+  for (const text of ['CVE-2021-44228 우리 영향 있어?', 'log4j 2.17.1로 올렸어요', '10:30:00에 탐지가 떴어요', '2026-11-25 사고 기록',
+    'Finding 3건, 공격 경로 72개', 'Class::method 같은 코드', '포트 8080 열려 있어요']) {
+    assert.equal(help.maskPrivate(text), text, text)
+  }
+})
+
+test('earlier turns are masked again when they are resent', () => {
+  const history = help.buildHistory([
+    { role: 'user', text: '고객 lee@example.com 건이에요' },
+    { role: 'assistant', text: '010-2222-3333 으로 연락하세요' },
+  ])
+  assert.deepEqual(history.map((turn) => turn.text), ['고객 [이메일] 건이에요', '[전화번호] 으로 연락하세요'])
+})
+
+test('only yes/no signals go to the AI, and unknown sources are left out', () => {
+  const status = {
+    runtime: { unreviewedFindings: 4, affectedWorkloads: 2, topRules: [{ title: 'Shell', count: 4 }], sensors: { healthy: 0, degraded: 0, offline: 0, unknown: 6 } },
+    keys: null,
+    exposure: { openPaths: 72, tier1OpenPaths: 54, drifts: 5, stateSecrets: 0 },
+    vuln: { runningReachableSevere: 1, runningReachable: 2, unscannedRunning: 2 },
+    unavailable: [{ source: 'keys', denied: true }],
+  }
+  const signals = help.signalsForAI(status)
+  assert.deepEqual(signals, {
+    runtimeUnreviewed: true, sensorsDown: true, openPaths: true, drifts: true, severeReachable: true, unscanned: true,
+  })
+  assert.ok(Object.values(signals).every((value) => typeof value === 'boolean'))
+  assert.ok(!JSON.stringify(signals).match(/\d|Shell/), 'no counts or names')
+  assert.deepEqual(help.signalsForAI(null), {})
+})
+
+test('signals are sent only for incident questions', async () => {
+  const originalFetch = globalThis.fetch
+  const originalDocument = globalThis.document
+  const bodies = []
+  globalThis.document = { cookie: 'XSRF-TOKEN=test-csrf' }
+  globalThis.fetch = async (_path, options) => {
+    bodies.push(JSON.parse(options.body))
+    return Response.json({ answer: '답', grounded: true, sources: [], remainingToday: 1, cached: false })
+  }
+  try {
+    await help.askHelp('서버 뚫렸어', '요약', [], undefined, { sensorsDown: true })
+    await help.askHelp('로그아웃은?', '요약', [], undefined, {})
+    await help.askHelp('로그아웃은?', '요약', [])
+    assert.deepEqual(bodies[0].signals, { sensorsDown: true })
+    assert.ok(!('signals' in bodies[1]) && !('signals' in bodies[2]))
+    const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+    assert.ok(source.includes('signals: incident ? signalsForAI(signalStatus.data) : undefined'))
+    assert.ok(source.includes('const question = maskPrivate(typed)'))
+  } finally {
+    globalThis.fetch = originalFetch
+    globalThis.document = originalDocument
+  }
+})
+
+test('report draft: AI sentences plus code-filled time and Logssey numbers, notes never stored', async () => {
+  const draft = { summary: '웹 서버 2대를 격리했습니다.', checked: ['런타임 탐지를 확인했습니다.'], actions: ['14시에 웹 서버 2대를 격리했습니다.'], remaining: [] }
+  const status = {
+    runtime: { unreviewedFindings: 0, affectedWorkloads: 0, topRules: [], sensors: { healthy: 0, degraded: 0, offline: 0, unknown: 6 } },
+    keys: null,
+    exposure: { openPaths: 72, tier1OpenPaths: 54, drifts: 5, stateSecrets: 0 },
+    vuln: { runningReachableSevere: 1, runningReachable: 2, unscannedRunning: 2 },
+    unavailable: [{ source: 'keys', denied: true }],
+  }
+  const at = new Date(2026, 10, 25, 14, 3).getTime()
+  const now = new Date(2026, 10, 25, 14, 5).getTime()
+  const text = help.reportText(draft, status, at, now)
+  assert.ok(text.startsWith('보안 사고 대응 기록 (초안)\n작성 시각: 2026-11-25 14:05 (자동)'))
+  assert.ok(text.includes('Logssey 현황 (2026-11-25 14:03 조회, 자동):'))
+  assert.ok(text.includes('- 열린 공격 경로 72개(1순위 54개), 드리프트 5건'))
+  assert.ok(text.includes('- 시크릿: 볼 권한 없음'))
+  assert.ok(text.includes('요약: 웹 서버 2대를 격리했습니다.'))
+  assert.ok(text.includes('남은 일:\n- (메모에 없음)'))
+  assert.ok(text.includes('담당 부서와 확인'))
+
+  const originalFetch = globalThis.fetch
+  const originalDocument = globalThis.document
+  const calls = []
+  globalThis.document = { cookie: 'XSRF-TOKEN=test-csrf' }
+  globalThis.fetch = async (path, options) => {
+    calls.push({ path, body: JSON.parse(options.body) })
+    return Response.json({ ...draft, remainingToday: 3 })
+  }
+  try {
+    await help.draftReport('14시 격리')
+    assert.equal(calls[0].path, '/api/v1/help/report')
+    assert.deepEqual(calls[0].body, { memo: '14시 격리' })
+  } finally {
+    globalThis.fetch = originalFetch
+    globalThis.document = originalDocument
+  }
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  const block = source.slice(source.indexOf('// 사고 보고서 초안'), source.indexOf('const copyReport'))
+  assert.ok(source.includes('const preview = reportPreview(memo)'))
+  assert.ok(!/sessionStorage|saveHelpMessages|setMessages/.test(block), 'notes stay on this screen only')
+})
+
+test('digests and commit hashes are not treated as keys, other long tokens still are', () => {
+  const digest = 'sha256:' + '4f9e2c1a7b3d5e6f'.repeat(4)
+  const commit = '9c1e4b7a2d5f8e3c6b9a1d4e7f2a5c8b3e6d9f1a'
+  assert.equal(help.looksLikeSecret(`이미지 ${digest} 검사 결과는?`), false)
+  assert.equal(help.looksLikeSecret(`커밋 ${commit} 기준으로 검사`), false)
+  assert.equal(help.maskPrivate(digest), digest)
+  assert.equal(help.maskPrivate(commit), commit)
+  assert.equal(help.looksLikeSecret('값 ' + '4f9e2c1a7b3d5e6f'.repeat(4)), true)
+  assert.equal(help.looksLikeSecret(`값 ${commit}a`), true)
+  assert.equal(help.looksLikeSecret(`sha256:${randomText(48)}`), true)
+})
+
+test('digits glued to letters are not masked as phone or card numbers', () => {
+  assert.equal(help.maskPrivate('build a01012345678b'), 'build a01012345678b')
+  assert.equal(help.maskPrivate('id x4111111111111111y'), 'id x4111111111111111y')
+  assert.equal(help.maskPrivate('전화 010-1234-5678로'), '전화 [전화번호]로')
+})
+
+test('playbook-only answers are labelled as not written by AI', async () => {
+  const store = new Map()
+  const originalStorage = globalThis.sessionStorage
+  globalThis.sessionStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) }
+  try {
+    store.set('logssey.help.chat', JSON.stringify([{ role: 'assistant', text: '고정 10단계', withoutAi: true }, { role: 'assistant', text: 'x', withoutAi: 'yes' }]))
+    const [fixed, odd] = help.loadHelpMessages()
+    assert.equal(fixed.withoutAi, true)
+    assert.ok(!('withoutAi' in odd))
+  } finally {
+    globalThis.sessionStorage = originalStorage
+  }
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  assert.ok(source.includes("...(response.withoutAi === true ? { withoutAi: true } : {})"))
+  assert.ok(source.includes('AI가 만든 답이 아니에요'))
+})
+
+test('the send notice is always shown under the question box and the report notes box', async () => {
+  assert.equal(help.SEND_NOTICE,
+    '입력한 내용은 외부 AI(Anthropic)로 전송됩니다. 이름, 호스트 이름, 계정 ID는 자동으로 가려지지 않으니 직접 지우고 보내 주세요.')
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  const notice = '<p className="help-send-notice">{SEND_NOTICE}</p>'
+  assert.equal(source.split(notice).length - 1, 2, 'once for questions, once for report notes')
+  // Each notice sits right after its textarea, outside any condition.
+  const question = source.indexOf('id="help-question"')
+  const memo = source.indexOf('id="help-report-memo"')
+  for (const start of [question, memo]) {
+    const close = source.indexOf('/>', source.indexOf('onChange', start))
+    const after = source.indexOf(notice, start)
+    assert.ok(close > start && after > close, 'notice comes after its textarea')
+    assert.equal(source.slice(close + 2, after).trim(), '', 'nothing (no condition) between the textarea and the notice')
+  }
+})
+
+test('report notes are previewed as they will be sent and go out only after confirming', async () => {
+  const preview = help.reportPreview('  14시 서버 격리, 담당 kim@example.com, 010-1234-5678  ')
+  assert.deepEqual(preview, { notes: '14시 서버 격리, 담당 [이메일], [전화번호]', changed: true })
+  assert.deepEqual(help.reportPreview('14시 서버 격리'), { notes: '14시 서버 격리', changed: false })
+  assert.equal(help.reportPreview('   ').error, 'MEMO_INVALID')
+  assert.equal(help.reportPreview('가'.repeat(help.REPORT_MEMO_MAX + 1)).error, 'MEMO_INVALID')
+  assert.equal(help.reportPreview(`교체한 키 ghp_${randomText(36)}`).error, 'QUESTION_REJECTED')
+
+  const source = await readFile('src/components/HelpChat.tsx', 'utf8')
+  const previewFn = source.slice(source.indexOf('const previewReport'), source.indexOf('const confirmReport'))
+  const confirmFn = source.slice(source.indexOf('const confirmReport'), source.indexOf('const copyReport'))
+  assert.ok(!previewFn.includes('mutate'), 'previewing never sends')
+  assert.ok(confirmFn.includes('report.mutate(reportPending.notes)'), 'confirming sends exactly the previewed text')
+  assert.ok(source.includes('가린 뒤 실제로 전송될 내용') && source.includes('확인하고 보내기'))
+  const memoBox = source.slice(source.indexOf('id="help-report-memo"'), source.indexOf('<p className="help-send-notice">{SEND_NOTICE}</p>', source.indexOf('id="help-report-memo"')))
+  assert.ok(memoBox.includes('setReportPending(null)'), 'editing the notes drops an old preview')
+})
+
 async function filesUnder(dir) {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true })
   return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath ?? entry.path, entry.name))
@@ -481,4 +655,15 @@ test('frontend source and build output never reference the Claude API or its key
       assert.ok(!/x-api-key|ANTHROPIC_API_KEY|VITE_[A-Z_]*(ANTHROPIC|CLAUDE)/i.test(text), file)
     }
   }
+})
+
+test('questions may be up to 1,000 characters, matching the server', () => {
+  assert.equal(help.HELP_QUESTION_MAX, 1000)
+  assert.equal(help.helpErrorMessages.INVALID_INPUT, '질문은 1~1000자로 입력해 주세요.')
+})
+
+test('the compliance screen suggests an ISMS-P evidence question', () => {
+  const questions = help.suggestedQuestions('컴플라이언스')
+  assert.ok(questions.includes('ISMS-P 2.11.2는 어디서 증적을 봐요?'), questions.join(' / '))
+  for (const q of questions) assert.ok(q.length <= help.HELP_QUESTION_MAX)
 })

@@ -1,0 +1,85 @@
+/* Existing Logssey palette and Pretendard, shared by the three security areas. */
+:root { --text-small: 12px; --text-body-size: 13px; --text-control: 13px; }
+/* Compact local preview: 18 / 15 / 14 headings, 13 body, 12 supporting text. */
+.security-workspace { font-size: var(--text-body-size); line-height: 1.5; }
+.security-workspace h1 { font-size: 18px !important; line-height: 1.5; font-weight: 600; }
+.security-workspace h2 { font-size: 15px !important; line-height: 1.5; font-weight: 600; }
+.security-workspace :is(h3, h4) { font-size: 14px !important; line-height: 1.5; font-weight: 600; }
+.security-workspace .notice { font-size: var(--text-body-size); }
+.security-workspace :is(.facts, .reach-kv, .secret-location-facts) dd { font-size: var(--text-body-size); line-height: 1.5; }
+.security-workspace :is(table, input, select, textarea, .input, .select, .field, .subtitle) { font-size: var(--text-body-size); }
+.security-workspace :is(.caption, small, .asset, .footer, .field-error, .table-foot, dt) { font-size: var(--text-small); line-height: 1.5; }
+.security-workspace .muted { font-size: var(--text-body-size); line-height: 1.5; }
+.security-workspace :is(.btn, .btn.small, .tab, summary, .finding-link, .secret-key-tabs button) { font-size: var(--text-control); min-height: 32px; }
+.security-workspace :is(input:not([type=checkbox]):not([type=radio]), select, textarea) { min-height: 32px; }
+.security-workspace :is(input, select, textarea) { font-family: var(--font); }
+.security-workspace :is(.badge, .status, .reach-chip, .secret-location-status) { font-size: var(--text-small); line-height: 1.5; padding: 2px 8px; border: 0; border-radius: 6px; box-shadow: none; }
+.security-workspace .badge.reach-severity.critical { color: var(--critical); background: var(--critical-soft); }
+.security-workspace .badge.reach-severity.high { color: var(--high); background: var(--high-soft); }
+.security-workspace .badge.reach-severity.medium { color: var(--medium); background: var(--medium-soft); }
+.security-workspace .badge.reach-severity.low { color: var(--success); background: var(--success-soft); }
+.security-workspace :is(.card, .reach-metric, .iac-metric, .secret-metric-card) { border: 1px solid var(--border); box-shadow: none; }
+.security-workspace :is(.reach-metric, .iac-metric, .secret-metric-card) { border-radius: var(--radius-md); }
+.security-workspace :is(.metric-number, .reach-metric-value, .reach-big, .iac-metric > strong, .secret-summary-value, .secret-workbench-card > strong, .secret-workbench-stages a > strong, .secret-location-summary strong, .secret-history-metric strong, .secret-overview-metric strong) { font-size: 22px; line-height: 1.25; font-weight: 600; }
+.security-workspace :is(th, td) { padding: 12px 16px; vertical-align: top; }
+.security-workspace th { font-size: var(--text-body-size); font-weight: 600; }
+.security-workspace td { font-size: var(--text-body-size); }
+.security-workspace :is(pre, code, .reach-mono) { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.security-workspace pre { max-width: 100%; overflow: auto; }
+.security-workspace .table-scroll { max-width: 100%; }
+.security-workspace .security-findings-table { min-width: 940px; table-layout: fixed; }
+.security-workspace .security-findings-table th:nth-child(1) { width: 11%; }
+.security-workspace .security-findings-table th:nth-child(2) { width: 25%; }
+.security-workspace .security-findings-table th:nth-child(3) { width: 20%; }
+.security-workspace .security-findings-table th:nth-child(4) { width: 17%; }
+.security-workspace .security-findings-table th:nth-child(5) { width: 27%; }
+.security-workspace .security-findings-table .reach-evidence-cell { min-width: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.security-assignment-form { display: grid; gap: 12px; min-width: 200px; max-width: 480px; }
+.security-workspace .secret-governance-form { max-width: 680px; }
+.security-workspace .finding-link { text-align: left; overflow-wrap: anywhere; }
+.security-workspace details > summary { cursor: pointer; padding: 10px 0; font-weight: 600; }
+.security-workspace .security-more { position: relative; }
+.security-workspace .security-more[open] > .btn { margin: 4px 8px 4px 0; }
+.security-workspace .security-filters { min-width: 120px; }
+.security-workspace .security-filters[open] { flex-basis: 100%; }
+.security-workspace .security-filters > .row { padding: 8px 0; }
+.security-workspace .reach-kpi { border: 1px solid var(--border); border-radius: var(--radius-md); }
+.security-back { display: inline-flex; align-items: center; min-height: 32px; margin-bottom: 16px; color: var(--primary-text); font-size: var(--text-control); }
+.security-detail-page { min-width: 0; }
+.security-workspace .security-detail-content { width: 100%; max-width: none; padding: 28px; }
+.security-workspace .security-detail-content .drawer-head { padding: 0 0 24px; border-bottom: 1px solid var(--border); }
+.security-workspace .security-detail-content .drawer-body { overflow: visible; padding: 24px 0 0; max-height: none; }
+.security-workspace .reach-scan-panel { width: 100%; max-width: none; position: static; max-height: none; overflow: visible; }
+.security-workspace .secret-location-evidence { display: grid; grid-template-columns: 1fr; gap: 24px; }
+.security-workspace .secret-location-evidence > div { min-width: 0; }
+/* User-requested compact sidebar: one step below the deployed type sizes. */
+.sidebar .nav-link { font-size: 13px; min-height: 36px; line-height: 1.5; }
+.sidebar .nav-label { font-size: 11px; }
+.sidebar .workspace small { font-size: 12px; }
+/* Four primary entries; all six security areas and their existing pages remain available. */
+.sidebar .security-menu-toggle { width: 100%; border: 0; background: transparent; text-align: left; font-family: inherit; cursor: pointer; }
+.sidebar .security-menu-toggle.active { background: var(--primary-soft); }
+.security-menu-toggle > span { flex: 1; }
+.security-menu-toggle > .icon:last-child { width: 14px; height: 14px; transition: transform 180ms ease; }
+.security-menu-toggle[aria-expanded=true] > .icon:last-child { transform: rotate(90deg); }
+.sidebar .security-area-link { margin-left: 12px; }
+.sidebar .security-subnav { margin: 2px 0 10px 24px; }
+.sidebar .nav-link.sub { min-height: 36px; gap: 8px; padding: 8px 12px; margin: 2px 0; font-size: 12px; }
+.sidebar .nav-link.sub .icon { width: 16px; height: 16px; }
+.sidebar .nav-link.sub > span:nth-child(2) { flex: 1; }
+.nav-expansion { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows 240ms ease, opacity 180ms ease, visibility 0s 240ms; }
+.nav-expansion.is-open { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-delay: 0s; }
+.nav-expansion-content { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .nav-expansion, .security-menu-toggle > .icon:last-child { transition: none; } }
+@media (max-width: 1200px) {
+  .security-workspace { padding: 28px 24px; }
+  .security-workspace .iac-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .security-workspace .reach-filters { align-items: stretch; }
+}
+@media (max-width: 700px) {
+  .security-workspace { padding: 20px 16px; }
+  .security-workspace .page-head { align-items: flex-start; flex-wrap: wrap; }
+  .security-workspace .security-detail-content { padding: 20px; }
+  .security-workspace .iac-metrics { grid-template-columns: 1fr; }
+  .security-workspace :is(.btn, .tab, .finding-link, .secret-key-tabs button), .sidebar .nav-link { min-height: 40px; }
+}

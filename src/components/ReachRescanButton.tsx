@@ -4,17 +4,17 @@ import { ApiError } from '@/api/client'
 import { createReachScan, type ReachScan } from '@/api/reach'
 import { newIdempotencyKey, rescanErrorText } from '@/lib/reach'
 
-// SCR-05-08 [다시 대조]. 성공한 스캔을 한 번 눌러 다시 대조한다 (API-01 rescanOf).
-// 대상을 다시 적지 않는다: 서버가 원래 스캔의 대상으로 띄우고, 실행기는 보관한 SBOM을 최신 취약점 DB·판정 데이터와 다시 맞춘다.
+// SCR-05-08 [다시 대조]. 성공한 검사를 한 번 눌러 다시 대조한다 (API-01 rescanOf).
+// 대상을 다시 적지 않는다: 서버가 원래 검사의 대상으로 띄우고, 실행기는 보관한 SBOM을 최신 취약점 DB·판정 데이터와 다시 맞춘다.
 // 누가 보일지는 부르는 쪽이 canRescan으로 정한다
 
 export function ReachRescanButton({ scanId, onCreated }: {
   scanId: number
-  /** 새로 생긴 스캔. 보통 그 스캔의 상세로 옮긴다 */
+  /** 새로 생긴 검사. 보통 그 검사의 상세로 옮긴다 */
   onCreated: (scan: ReachScan) => void
 }) {
   const queryClient = useQueryClient()
-  // 같은 버튼을 두 번 눌러도(응답이 늦어 다시 누름) 스캔은 하나만 생기게 요청이 끝날 때까지 같은 키를 쓴다
+  // 같은 버튼을 두 번 눌러도(응답이 늦어 다시 누름) 검사는 하나만 생기게 요청이 끝날 때까지 같은 키를 쓴다
   const [key, setKey] = useState(newIdempotencyKey)
   const create = useMutation({
     mutationFn: () => createReachScan({ rescanOf: scanId }, key),
@@ -36,7 +36,7 @@ export function ReachRescanButton({ scanId, onCreated }: {
       <button
         type="button"
         className="btn outline small"
-        title="이 스캔의 대상을 보관한 SBOM으로 다시 대조해요. 새 취약점과 새 판정 데이터가 반영돼요."
+        title="이 검사의 대상을 보관한 SBOM으로 다시 대조해요. 새 취약점과 새 판정 데이터가 반영돼요."
         disabled={create.isPending}
         onClick={() => create.mutate()}
       >

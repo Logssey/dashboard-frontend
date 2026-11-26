@@ -1,10 +1,11 @@
 import type { PriorityFinding } from '@/api/types'
-import { priorityEnvironment, priorityFindingKey, prioritySeverity, priorityStatus, secretPriorityPath } from '@/lib/overviewPresentation'
+import { partPriorityPath, priorityEnvironment, priorityFindingKey, prioritySeverity, priorityStatus, secretPriorityPath } from '@/lib/overviewPresentation'
 import { Link } from 'react-router-dom'
 import { Badge } from './Badge'
 
 /** 자산 칸: "이름 · 종류", 자산이 없으면 빈칸 (02 기능 설계 3.5) */
 export function assetText(finding: PriorityFinding): string {
+  if (finding.sourceType === 'PART_FINDING') return [finding.displayId, finding.evidence].filter(Boolean).join(' · ')
   return finding.asset ? `${finding.asset.name} · ${finding.asset.assetType}` : ''
 }
 
@@ -24,14 +25,14 @@ export function FindingTable({ items, onSelect }: { items: PriorityFinding[]; on
         <tbody>
           {items.map((item) => {
             const reviewed = item.reviewStatus === 'REVIEWED'
-            const grade = prioritySeverity(item), secretPath = secretPriorityPath(item)
+            const grade = prioritySeverity(item), secretPath = secretPriorityPath(item) ?? partPriorityPath(item)
             return (
               <tr key={priorityFindingKey(item)}>
                 <td>
                   <Badge label={grade.label} tone={grade.tone} />
                 </td>
                 <td>
-                  {secretPath ? <Link className="finding-link" to={secretPath}>{item.title}</Link> : item.sourceType === 'SECRET_CASE' ? <span>{item.title}</span> : <button className="finding-link" onClick={() => onSelect(item)}>
+                  {secretPath ? <Link className="finding-link" to={secretPath}>{item.title}</Link> : item.sourceType === 'SECRET_CASE' || item.sourceType === 'PART_FINDING' ? <span>{item.title}</span> : <button className="finding-link" onClick={() => onSelect(item)}>
                     {item.title}
                   </button>}
                   <span className="asset">{assetText(item)}</span>

@@ -1,6 +1,6 @@
-import type { CveImpact, HelpCard, HelpSource, HelpTurn, IncidentSource, IncidentStatus } from '@/api/help'
+import type { CveImpact, HelpCard, HelpReportDraft, HelpSource, HelpTurn, IncidentSource, IncidentStatus } from '@/api/help'
 
-export const HELP_QUESTION_MAX = 500
+export const HELP_QUESTION_MAX = 1000
 const HISTORY_MESSAGES = 6
 const STORAGE_KEY = 'logssey.help.chat'
 
@@ -21,6 +21,10 @@ export interface HelpMessage {
   incidentStatus?: boolean
   /** 정해진 낱말로 고른 사고 유형 키 (INCIDENT_TYPES) */
   incidentTypes?: string[]
+  /** 보내기 전에 고객 정보를 가렸다 (설계 문서 18.1) */
+  masked?: boolean
+  /** AI 연결이 안 돼 대응 절차 문서의 고정 10단계로 만든 답 (설계 문서 18.7) */
+  withoutAi?: boolean
 }
 
 /**
@@ -69,9 +73,9 @@ export function incidentRows(status: IncidentStatus): Array<{ title: string; row
       ? {
           title: '열린 취약점',
           rows: [
-            ['실행 중 + 도달 가능 (Critical·High)', `${vuln.runningReachableSevere}건`],
-            ['실행 중 + 도달 가능 (전체)', `${vuln.runningReachable}건`],
-            ...(vuln.unscannedRunning !== null ? [['스캔 없는 실행 중 워크로드', `${vuln.unscannedRunning}개`] as [string, string]] : []),
+            ['실행 중 + 호출 가능 (Critical·High)', `${vuln.runningReachableSevere}건`],
+            ['실행 중 + 호출 가능 (전체)', `${vuln.runningReachable}건`],
+            ...(vuln.unscannedRunning !== null ? [['검사 없는 실행 중 워크로드', `${vuln.unscannedRunning}개`] as [string, string]] : []),
           ],
         }
       : { title: '열린 취약점', rows: [], note: noteFor('vuln') },
@@ -247,12 +251,12 @@ export function incidentPriorities(status: IncidentStatus, types: readonly strin
   if (vuln) {
     if (vuln.runningReachableSevere > 0) {
       list.push({
-        text: `실행 중이면서 도달 가능한 Critical·High Finding ${vuln.runningReachableSevere}건이 있어요. 바깥에서 닿는지 보고 고치세요 (4·9번).`,
+        text: `실행 중이면서 호출 가능한 Critical·High Finding ${vuln.runningReachableSevere}건이 있어요. 바깥에서 닿는지 보고 고치세요 (4·9번).`,
         screen: 'VULN_FINDINGS',
         topic: 'vuln',
       })
     } else if (vuln.runningReachable > 0) {
-      list.push({ text: `실행 중이면서 도달 가능한 Finding ${vuln.runningReachable}건을 확인하세요 (4번).`, screen: 'VULN_FINDINGS', topic: 'vuln' })
+      list.push({ text: `실행 중이면서 호출 가능한 Finding ${vuln.runningReachable}건을 확인하세요 (4번).`, screen: 'VULN_FINDINGS', topic: 'vuln' })
     }
   }
   if (exposure && exposure.drifts > 0) {
@@ -264,7 +268,7 @@ export function incidentPriorities(status: IncidentStatus, types: readonly strin
   }
   if (vuln?.unscannedRunning) {
     list.push({
-      text: `스캔 없는 실행 중 워크로드 ${vuln.unscannedRunning}개는 위 숫자에 빠져 있어요. 먼저 스캔하세요 (3번).`,
+      text: `검사 없는 실행 중 워크로드 ${vuln.unscannedRunning}개는 위 숫자에 빠져 있어요. 먼저 검사하세요 (3번).`,
       screen: 'VULN_WORKLOADS',
       topic: 'coverage',
     })
@@ -305,17 +309,17 @@ export function usableCve(value: unknown): string | undefined {
 /** 영향 조회 결과를 사람이 읽는 줄로 바꾼다. 숫자는 서버 조회 값 그대로이고 AI가 만든 문장이 아니다 */
 export function impactLines(impact: CveImpact): { rows: Array<[string, string]>; notes: string[] } {
   const rows: Array<[string, string]> = [
-    ['Finding 전체', `${impact.total}건`],
+    ['취약점 전체', `${impact.total}건`],
     ['실행 중인 곳', `${impact.running}건`],
-    ['도달 가능 판정', `${impact.reachable}건`],
-    ['실행 중 + 도달 가능', `${impact.runningReachable}건`],
+    ['호출 가능 판정', `${impact.reachable}건`],
+    ['실행 중 + 호출 가능', `${impact.runningReachable}건`],
   ]
-  if (impact.unscannedRunning !== null) rows.push(['스캔 없는 실행 중 워크로드', `${impact.unscannedRunning}개`])
+  if (impact.unscannedRunning !== null) rows.push(['검사 없는 실행 중 워크로드', `${impact.unscannedRunning}개`])
   const notes: string[] = []
-  if (impact.runningReachable > 0) notes.push('실행 중이면서 도달 가능한 Finding부터 처리하세요.')
-  if (impact.total === 0) notes.push('0건이라고 안전하다는 뜻은 아니에요. 스캔하지 않은 이미지는 목록에 나오지 않아요.')
-  if (impact.unscannedRunning) notes.push('스캔 없는 워크로드는 이 숫자에 빠져 있어요. 워크로드 화면에서 먼저 스캔하세요.')
-  if (impact.basis === 'LATEST') notes.push('실행 중 정보가 없어 최신 스캔 기준으로 셌어요.')
+  if (impact.runningReachable > 0) notes.push('실행 중이면서 호출 가능한 취약점부터 처리하세요.')
+  if (impact.total === 0) notes.push('0건이라고 안전하다는 뜻은 아니에요. 검사하지 않은 이미지는 목록에 나오지 않아요.')
+  if (impact.unscannedRunning) notes.push('검사 없는 워크로드는 이 숫자에 빠져 있어요. 워크로드 화면에서 먼저 검사하세요.')
+  if (impact.basis === 'LATEST') notes.push('실행 중 정보가 없어 최신 검사 기준으로 셌어요.')
   return { rows, notes }
 }
 
@@ -328,14 +332,14 @@ export const CHECKLIST_DEFAULT_QUESTION = '침해사고가 났을 때 무엇부�
  * OUTSIDE(Logssey 밖)는 경로가 없어 버튼을 그리지 않는다.
  */
 export const HELP_SCREEN_ROUTES: Readonly<Record<string, { path: string; title: string } | null>> = Object.freeze({
-  VULN_SUMMARY: { path: '/vulnerabilities', title: '취약점 관리' },
-  VULN_FINDINGS: { path: '/vulnerabilities/findings', title: 'Finding 목록' },
-  VULN_WORKLOADS: { path: '/vulnerabilities/workloads', title: '워크로드' },
-  VULN_SCANS: { path: '/vulnerabilities/scans', title: '스캔' },
+  VULN_SUMMARY: { path: '/vulnerabilities', title: '이미지 보안' },
+  VULN_FINDINGS: { path: '/vulnerabilities/findings', title: '취약점 목록' },
+  VULN_WORKLOADS: { path: '/vulnerabilities/workloads', title: '실행 중 워크로드' },
+  VULN_SCANS: { path: '/vulnerabilities/scans', title: '이미지 검사' },
   RUNTIME: { path: '/runtime', title: '런타임 보안' },
   IAC: { path: '/iac', title: 'IaC 보안' },
-  SECRET_FINDINGS: { path: '/secrets/findings', title: '키·노출 위치' },
-  SECRET_CASES: { path: '/secrets/cases', title: '대응 관리' },
+  SECRET_FINDINGS: { path: '/secrets/findings', title: '발견된 키' },
+  SECRET_CASES: { path: '/secrets/cases', title: '조치 관리' },
   COMPLIANCE: { path: '/configuration', title: '컴플라이언스' },
   OUTSIDE: null,
 })
@@ -366,6 +370,8 @@ export function usableCards(cards: unknown): HelpCard[] | undefined {
 const KNOWN_FORMATS =
   /sk-ant-[A-Za-z0-9_-]{8,}|\bgh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|\b(?:ntn|secret)_[A-Za-z0-9]{20,}|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|-----BEGIN [A-Z ]*PRIVATE KEY-----|\bxox[abposr]-[A-Za-z0-9-]{10,}|\bAIza[0-9A-Za-z_-]{35}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./
 const LONG_TOKEN = /[A-Za-z0-9+/_=-]{32,}/g
+// 이미지 다이제스트(sha256: + 64자 16진수)와 커밋 해시(40자 16진수)는 공개 식별자라 키로 보지 않는다 (서버와 같은 규칙)
+const PUBLIC_HASHES = /(?<![A-Za-z0-9+/_=-])(?:sha256:[0-9a-fA-F]{64}|[0-9a-fA-F]{40})(?![A-Za-z0-9+/_=-])/g
 
 function entropy(value: string): number {
   const counts = new Map<string, number>()
@@ -380,7 +386,7 @@ function entropy(value: string): number {
 
 export function looksLikeSecret(text: string): boolean {
   if (KNOWN_FORMATS.test(text)) return true
-  for (const match of text.matchAll(LONG_TOKEN)) {
+  for (const match of text.replace(PUBLIC_HASHES, ' ').matchAll(LONG_TOKEN)) {
     const token = match[0]
     if (/\d/.test(token) && /[A-Za-z]/.test(token) && entropy(token) >= 3.5) return true
   }
@@ -394,7 +400,8 @@ export function buildHistory(messages: HelpMessage[]): HelpTurn[] {
     const user = messages[i]
     const assistant = messages[i + 1]
     if (user.role === 'user' && assistant.role === 'assistant' && !assistant.error) {
-      pairs.push({ role: 'user', text: user.text }, { role: 'assistant', text: assistant.text })
+      // 예전에 저장된 대화에 고객 정보가 남아 있어도 다시 보낼 때 가린다 (설계 문서 18.1)
+      pairs.push({ role: 'user', text: maskPrivate(user.text) }, { role: 'assistant', text: maskPrivate(assistant.text) })
       i++
     }
   }
@@ -403,14 +410,14 @@ export function buildHistory(messages: HelpMessage[]): HelpTurn[] {
 
 const suggestions: Array<{ match: (page: string) => boolean; questions: string[] }> = [
   { match: (p) => p === '통합 현황', questions: ['환경별로 보려면 어떻게 해요?', '위험 기준 점수는 어떻게 계산돼요?'] },
-  { match: (p) => p === '키·노출 위치' || p === '키 상세', questions: ['CSV로 내보내려면 어떻게 해요?', '키 유효성 확인은 어떻게 해요?'] },
+  { match: (p) => p === '발견된 키' || p === '키 상세', questions: ['CSV로 내보내려면 어떻게 해요?', '키 유효성 확인은 어떻게 해요?'] },
   { match: (p) => ['확인 대기열', '위치 확인', '추가 조사', '실키 경고'].includes(p), questions: ['대응 건은 어떻게 만들어요?', '추가 조사는 어떻게 종료해요?'] },
-  { match: (p) => p === '대응 관리' || p === '대응 상세', questions: ['담당자는 어떻게 바꿔요?', '대응 건을 해결로 바꾸려면?'] },
-  { match: (p) => p === '연결 관리' || p === '연결 범위', questions: ['GitHub 연결은 어떻게 추가해요?', '연결 테스트 결과는 어떻게 읽어요?'] },
-  { match: (p) => p === '스캔 이력' || p === '스캔 상세', questions: ['스캔은 어떻게 시작해요?'] },
+  { match: (p) => p === '조치 관리' || p === '대응 상세', questions: ['담당자는 어떻게 바꿔요?', '대응 건을 해결로 바꾸려면?'] },
+  { match: (p) => p === '연결 및 설정' || p === '연결 범위', questions: ['GitHub 연결은 어떻게 추가해요?', '연결 테스트 결과는 어떻게 읽어요?'] },
+  { match: (p) => p === '검사 이력' || p === '검사 상세', questions: ['검사는 어떻게 시작해요?'] },
   { match: (p) => p === '키 형식 등록', questions: ['사내 키 형식은 어떻게 등록해요?'] },
-  { match: (p) => p === '컴플라이언스', questions: ['컴플라이언스 점검은 어떻게 시작해요?'] },
-  { match: (p) => ['요약', '취약점 관리', 'Finding 목록', '워크로드', '스캔'].includes(p), questions: ['Log4Shell 같은 취약점이 터지면 무엇부터 봐요?', 'CVE-2021-44228 우리 영향 있어?','취약점 스캔은 어떻게 요청해요?', 'Finding 검토는 어떻게 저장해요?'] },
+  { match: (p) => p === '컴플라이언스', questions: ['컴플라이언스 점검은 어떻게 시작해요?', 'ISMS-P 2.11.2는 어디서 증적을 봐요?'] },
+  { match: (p) => ['요약', '현황', '이미지 보안', '취약점 목록', '워크로드', '실행 중 워크로드', '검사', '이미지 검사', '검사 기준', '이미지 취약점 상세'].includes(p), questions: ['Log4Shell 같은 취약점이 터지면 무엇부터 봐요?', 'CVE-2021-44228 우리 영향 있어?','취약점 검사는 어떻게 요청해요?', 'Finding 검토는 어떻게 저장해요?'] },
 ]
 
 /** 답 아래 근거 목록은 기본으로 접어 두고, 이 문구를 눌러 펼친다 */
@@ -429,6 +436,8 @@ export const helpErrorMessages: Record<string, string> = {
   DAILY_LIMIT: '오늘 질문 한도를 모두 썼어요. 내일 다시 이용해 주세요.',
   BUSY: '이전 질문에 답하는 중이에요. 잠시 후 다시 보내 주세요.',
   INVALID_INPUT: `질문은 1~${HELP_QUESTION_MAX}자로 입력해 주세요.`,
+  MEMO_INVALID: '조치 메모는 1~1500자로 입력해 주세요.',
+  REPORT_BLOCKED: '초안을 만들지 못했어요. 메모를 조금 고쳐 다시 시도해 주세요.',
 }
 
 export function loadHelpMessages(): HelpMessage[] {
@@ -438,7 +447,7 @@ export function loadHelpMessages(): HelpMessage[] {
     if (!Array.isArray(parsed)) return []
     return (parsed as HelpMessage[]).slice(-40).map((message) => {
       if (message === null || typeof message !== 'object') return message
-      const { impactCve, impactCves, incidentName, incidentStatus, incidentTypes: storedTypes, ...rest } = message
+      const { impactCve, impactCves, incidentName, incidentStatus, incidentTypes: storedTypes, masked, withoutAi, ...rest } = message
       const types = Array.isArray(storedTypes)
         ? [...new Set(storedTypes.filter((type) => INCIDENT_TYPES.some((entry) => entry.key === type)))]
         : []
@@ -453,6 +462,8 @@ export function loadHelpMessages(): HelpMessage[] {
         ...(name ? { incidentName: name } : {}),
         ...(incidentStatus === true ? { incidentStatus: true } : {}),
         ...(incidentStatus === true && types.length ? { incidentTypes: types } : {}),
+        ...(masked === true ? { masked: true } : {}),
+        ...(withoutAi === true ? { withoutAi: true } : {}),
       }
     })
   } catch {
@@ -549,7 +560,7 @@ export function incidentSignals(seen: SignalSnapshot, now: SignalSnapshot): Inci
     })
   }
   const exposureParts = [
-    grew(now.severeReachable, seen.severeReachable) ? `실행 중+도달 가능 Critical·High +${now.severeReachable! - seen.severeReachable!}` : '',
+    grew(now.severeReachable, seen.severeReachable) ? `실행 중+호출 가능 Critical·High +${now.severeReachable! - seen.severeReachable!}` : '',
     grew(now.tier1Paths, seen.tier1Paths) ? `1순위 공격 경로 +${now.tier1Paths! - seen.tier1Paths!}` : '',
     grew(now.drifts, seen.drifts) ? `드리프트 +${now.drifts! - seen.drifts!}` : '',
   ].filter(Boolean)
@@ -609,4 +620,111 @@ export function saveSeenSignals(snapshot: SignalSnapshot): void {
   } catch {
     // 저장소를 쓸 수 없으면 이번 화면에서만 유지한다
   }
+}
+
+/**
+ * 고객 정보 가리기 (설계 문서 18.1). 서버(HelpPrivacyMask)와 같은 규칙을 브라우저에서 먼저 적용한다.
+ * 질문과 다시 보내는 최근 대화 모두에 쓴다.
+ */
+const PRIVACY_RULES: Array<[RegExp, string]> = [
+  [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[이메일]'],
+  // 글자에 붙은 숫자(해시·토큰·다이제스트 안)는 가리지 않는다
+  [/(?<![0-9A-Za-z])\d{6}\s?-\s?[1-8]\d{6}(?![0-9A-Za-z])/g, '[주민번호]'],
+  [/(?<![0-9A-Za-z])(?:\d{4}[ -]?){3}\d{4}(?![0-9A-Za-z])/g, '[카드번호]'],
+  [/(?<![0-9.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\/\d{1,2})?(?![0-9.])/g, '[IP]'],
+  [/(?<![0-9a-z:])(?:(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|(?:[0-9a-f]{1,4}:){1,6}:(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,5})?)(?![0-9a-z:])/gi, '[IP]'],
+  [/(?<![0-9A-Za-z])(?:\+82[ -]?1\d|0\d{1,2})[ .-]?\d{3,4}[ .-]?\d{4}(?![0-9A-Za-z])/g, '[전화번호]'],
+]
+
+export function maskPrivate(text: string): string {
+  return PRIVACY_RULES.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text)
+}
+
+/**
+ * AI에 넘기는 예/아니오 신호 (설계 문서 18.3). 숫자·이름은 넘기지 않는다. 불러오지 못한 곳은 빼서 "모름"으로 둔다.
+ * 키 이름은 서버 HelpSignals.LABELS와 같다.
+ */
+export function signalsForAI(status: IncidentStatus | undefined | null): Record<string, boolean> {
+  const signals: Record<string, boolean> = {}
+  if (!status) return signals
+  if (status.runtime) {
+    signals.runtimeUnreviewed = status.runtime.unreviewedFindings > 0
+    signals.sensorsDown = status.runtime.sensors.healthy === 0
+  }
+  if (status.keys) {
+    signals.liveKeys = status.keys.validKeyCases > 0 || status.keys.crossEnvironmentAlerts > 0
+    signals.keyExposure = (status.keys.reviewRequiredLocations ?? 0) > 0 || (status.exposure?.stateSecrets ?? 0) > 0
+  }
+  if (status.exposure) {
+    signals.openPaths = status.exposure.tier1OpenPaths > 0
+    signals.drifts = status.exposure.drifts > 0
+  }
+  if (status.vuln) {
+    signals.severeReachable = status.vuln.runningReachableSevere > 0
+    if (status.vuln.unscannedRunning !== null) signals.unscanned = status.vuln.unscannedRunning > 0
+  }
+  return signals
+}
+
+export const REPORT_MEMO_MAX = 1500
+
+/** 입력칸 아래에 늘 보이는 전송 고지 (설계 문서 18.9). 질문과 보고서 메모 모두 */
+export const SEND_NOTICE =
+  '입력한 내용은 외부 AI(Anthropic)로 전송됩니다. 이름, 호스트 이름, 계정 ID는 자동으로 가려지지 않으니 직접 지우고 보내 주세요.'
+
+/**
+ * 보고서 메모를 보내기 전에 보여 줄 내용 (설계 문서 18.9). 실제로 전송될 글(가린 뒤)과, 보낼 수 없는 이유가 있으면 그 코드.
+ * 미리보기를 확인해야만 이 글이 그대로 전송된다.
+ */
+export function reportPreview(memo: string): { notes: string; changed: boolean; error?: 'MEMO_INVALID' | 'QUESTION_REJECTED' } {
+  const typed = memo.trim()
+  if (!typed || typed.length > REPORT_MEMO_MAX) return { notes: '', changed: false, error: 'MEMO_INVALID' }
+  const notes = maskPrivate(typed)
+  if (looksLikeSecret(typed) || looksLikeSecret(notes)) return { notes: '', changed: false, error: 'QUESTION_REJECTED' }
+  return { notes, changed: notes !== typed }
+}
+
+function reportTime(epochMs: number): string {
+  const t = new Date(epochMs)
+  const two = (n: number) => String(n).padStart(2, '0')
+  return `${t.getFullYear()}-${two(t.getMonth() + 1)}-${two(t.getDate())} ${two(t.getHours())}:${two(t.getMinutes())}`
+}
+
+/**
+ * 사고 보고서 초안 글 (설계 문서 18.4). 문장은 AI가 메모로 쓴 것, 시각과 숫자는 코드가 Logssey 조회 값으로 채운다.
+ * AI 응답에는 숫자를 넣을 자리가 없고, 서버가 메모에 없던 숫자를 막는다.
+ */
+export function reportText(
+  draft: Pick<HelpReportDraft, 'summary' | 'checked' | 'actions' | 'remaining'>,
+  status: IncidentStatus | null | undefined,
+  statusAt: number | null,
+  now: number,
+): string {
+  const lines = ['보안 사고 대응 기록 (초안)', `작성 시각: ${reportTime(now)} (자동)`, '']
+  if (status) {
+    lines.push(`Logssey 현황${statusAt ? ` (${reportTime(statusAt)} 조회, 자동)` : ' (자동)'}:`)
+    if (status.runtime) {
+      const total = status.runtime.sensors.healthy + status.runtime.sensors.degraded + status.runtime.sensors.offline + status.runtime.sensors.unknown
+      lines.push(`- 검토 안 한 런타임 탐지 ${status.runtime.unreviewedFindings}건, 정상 런타임 센서 ${status.runtime.sensors.healthy}/${total}`)
+    }
+    if (status.keys) {
+      lines.push(`- 살아 있는 키 대응 건 ${status.keys.validKeyCases}건, 실키 경고 ${status.keys.crossEnvironmentAlerts}건${status.keys.reviewRequiredLocations !== null ? `, 확인 필요 노출 위치 ${status.keys.reviewRequiredLocations}곳` : ''}`)
+    }
+    if (status.exposure) {
+      lines.push(`- 열린 공격 경로 ${status.exposure.openPaths}개(1순위 ${status.exposure.tier1OpenPaths}개), 드리프트 ${status.exposure.drifts}건`)
+    }
+    if (status.vuln) {
+      lines.push(`- 실행 중+호출 가능 Critical·High ${status.vuln.runningReachableSevere}건${status.vuln.unscannedRunning !== null ? `, 검사 없는 실행 중 워크로드 ${status.vuln.unscannedRunning}개` : ''}`)
+    }
+    const sourceNames: Record<IncidentSource, string> = { runtime: '런타임', keys: '시크릿', exposure: 'IaC', vuln: '취약점' }
+    for (const missing of status.unavailable) lines.push(`- ${sourceNames[missing.source]}: ${missing.denied ? '볼 권한 없음' : '불러오지 못함'}`)
+    lines.push('')
+  }
+  lines.push(`요약: ${draft.summary}`, '')
+  for (const [title, items] of [['확인한 것', draft.checked], ['조치한 것', draft.actions], ['남은 일', draft.remaining]] as const) {
+    lines.push(`${title}:`, ...(items.length ? items.map((item) => `- ${item}`) : ['- (메모에 없음)']), '')
+  }
+  lines.push('외부 신고: 필요 여부와 기한, 방법은 담당 부서와 확인합니다.')
+  lines.push('※ 문장은 AI가 조치 메모로 쓴 초안이고, 시각과 숫자는 Logssey가 채웠습니다. 보내기 전에 꼭 확인하세요.')
+  return lines.join('\n')
 }

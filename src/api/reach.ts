@@ -27,7 +27,7 @@ export type ReachResetReason = 'VERDICT_CHANGED' | 'EVIDENCE_CHANGED'
 
 /**
  * L3 능동 관측이 닿은 곳 (PRD FR-14). 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드 쪽으로 어디까지 실행됐나.
- * 판정(L2) 옆에 놓는 근거다. 실행이 그 CVE의 조건을 보여 주면 서버가 판정을 raiseLimit까지 올리고 근거에 RUNTIME 한 줄을 남긴다.
+ * 취약 함수 호출 가능 여부 옆에 놓는 근거다. 실행이 그 CVE의 조건을 보여 주면 서버가 판정을 raiseLimit까지 올리고 근거에 RUNTIME 한 줄을 남긴다.
  * REGION 취약 구간 실행 / FUNCTION 취약 함수까지 / NONE 모두 확인했고 실행 없음 / NOT_RECORDED 확인하지 못한 것이 있음
  */
 export type ReachL3Level = 'REGION' | 'FUNCTION' | 'NONE' | 'NOT_RECORDED'
@@ -43,7 +43,7 @@ export interface ReachL3Summary {
   reached: ReachL3Level
   regionsChecked: boolean
   startupOnly: boolean
-  /** 서버가 이 칸을 주기 전 응답이면 없다(그때는 구간 실행 = 도달 가능까지로 본다) */
+  /** 서버가 이 칸을 주기 전 응답이면 없다(그때는 구간 실행 = 호출 가능까지로 본다) */
   raiseLimit?: ReachL3RaiseLimit | null
 }
 
@@ -86,7 +86,7 @@ export interface ReachL3Run {
   build?: { imageDigest?: string; jarSha256?: string } | null
   configKeys?: Array<{ name: string; enabled: boolean }> | null
   invocations?: Array<{ segment: ReachL3Segment; name: string; request: string; count?: number; ok?: number; failed?: number; skipped?: number }> | null
-  /** true면 앱을 다시 띄운 것이 아니라 보관한 실행 기록을 scanId 스캔에서 다시 대조한 결과다. observedAt은 처음 관측한 때 */
+  /** true면 앱을 다시 띄운 것이 아니라 보관한 실행 기록을 scanId 검사에서 다시 대조한 결과다. observedAt은 처음 관측한 때 */
   rematch?: boolean
 }
 
@@ -154,7 +154,7 @@ export interface ReachEvidence {
   l2Status?: ReachStatus
 }
 
-/** API-05 Finding 상세 */
+/** API-05 취약점 상세 */
 export interface ReachFindingDetail {
   id: number
   scanId: number
@@ -222,7 +222,7 @@ export interface ReachFindingDetail {
 
 /**
  * 검토 이력 한 줄 (SCR-03-14). changeKind는 백엔드가 더한 값이다:
- * HUMAN(사람이 남김) / CARRIED(이전 스캔에서 이어받음) / RESET(판정·근거가 바뀌어 서버가 되돌림)
+ * HUMAN(사람이 남김) / CARRIED(이전 검사에서 이어받음) / RESET(판정·근거가 바뀌어 서버가 되돌림)
  */
 export interface ReachReviewHistoryEntry {
   reviewState: ReachReviewState
@@ -236,7 +236,7 @@ export interface ReachReviewHistoryEntry {
 }
 
 /** API-08 요약 (3-9) */
-/** 기본 범위의 기준 (API-04·08 basis). RUNNING은 앱마다 실행 중 이미지의 스캔을 먼저 쓴다 */
+/** 기본 범위의 기준 (API-04·08 basis). RUNNING은 앱마다 실행 중 이미지의 검사를 먼저 쓴다 */
 export type ReachBasis = 'RUNNING' | 'LATEST'
 
 /** API-08 basis. 기본 범위(target·scanId 없음)일 때만 온다 */
@@ -245,7 +245,7 @@ export interface ReachSummaryBasis {
   /** RUNNING을 요청해도 L1이 꺼졌거나 신선한 조회가 없으면 LATEST */
   applied: ReachBasis
   scans: Array<{ app: string; targetType: 'REPO' | 'IMAGE'; targetId: number; scanId: number; imageDigest: string | null; running: boolean }>
-  /** 실행 중인데 스캔이 없는 워크로드. 그 앱은 최신 스캔으로 대신 집계됐다 */
+  /** 실행 중인데 검사가 없는 워크로드. 그 앱은 최신 검사로 대신 집계됐다 */
   unscannedRunning: Array<{
     app: string | null
     namespace: string
@@ -267,7 +267,7 @@ export interface ReachSummary {
   byMethod: Record<ReachMethod, number>
   byReviewState: Record<ReachReviewState, number>
   byDeployment: Record<ReachDeployment, number>
-  /** include=matrix일 때. 심각도 × 상태이고 0인 칸은 빠진다 */
+  /** include=matrix일 때. 위험도 × 상태이고 0인 칸은 빠진다 */
   severityByStatus?: Partial<Record<ReachSeverity, Partial<Record<ReachStatus, number>>>>
   noiseReduction: { unreachable: number; judged: number; ratio?: number }
   coverage: { judged: number; total: number; ratio?: number }
@@ -282,7 +282,7 @@ export interface ReachFindingFilter {
   cveContains: string
   /** L3 도달 수준. 고르면 L3 결과가 없는 Finding은 빠진다 */
   l3?: ReachL3Level[]
-  /** 특정 스캔의 결과만 볼 때 (SCR-05 [결과 보기]). 없으면 기본 범위 */
+  /** 특정 검사의 결과만 볼 때 (SCR-05 [결과 보기]). 없으면 기본 범위 */
   scanId?: number | null
   /** 기본 범위의 기준. 없으면 RUNNING(서버 기본) */
   basis?: ReachBasis
@@ -451,7 +451,7 @@ export const fetchReachWorkloads = () =>
     return { observations, items }
   }, sampleReachWorkloads)
 
-// ---- 스캔 (API-01·02·03, SCR-05) ----
+// ---- 검사 (API-01·02·03, SCR-05) ----
 
 export type ReachScanStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
 export type ReachTrigger = 'MANUAL' | 'PR' | 'IMAGE_BUILD' | 'SCHEDULE'
@@ -464,7 +464,7 @@ export interface ReachScanStage {
   durationSeconds?: number
 }
 
-/** API-03 스캔 (3-1, 3-2). counts는 SUCCEEDED, failure는 FAILED일 때만 */
+/** API-03 검사 (3-1, 3-2). counts는 SUCCEEDED, failure는 FAILED일 때만 */
 export interface ReachScan {
   id: number
   scanStatus: ReachScanStatus
@@ -488,7 +488,7 @@ export interface ReachScan {
     byReviewState?: Record<ReachReviewState, number>
   } | null
   failure?: { code: string; stage?: string | null; message?: string | null } | null
-  /** 이 스캔이 앱을 띄워 봤을 때만 (L3). FAILED여도 스캔은 실패가 아니다 */
+  /** 이 검사가 앱을 띄워 봤을 때만 (L3). FAILED여도 검사는 실패가 아니다 */
   l3?: {
     runStatus: 'SUCCEEDED' | 'FAILED'
     error?: string | null
@@ -539,7 +539,7 @@ export const fetchReachScan = (scanId: number) =>
 /**
  * API-01 본문. target과 rescanOf 중 하나만 준다.
  * target: app을 안 주면 서버가 저장소 이름으로 정한다(모르면 422).
- * rescanOf: 성공한 스캔의 ID. 그 스캔의 대상을 보관한 SBOM으로 다시 대조한다(성공한 스캔이 아니면 422)
+ * rescanOf: 성공한 검사의 ID. 그 검사의 대상을 보관한 SBOM으로 다시 대조한다(성공한 검사가 아니면 422)
  */
 export type ReachScanInput =
   | {
@@ -550,7 +550,7 @@ export type ReachScanInput =
     }
   | { rescanOf: number }
 
-/** API-01. 응답은 API-03과 같은 스캔(202). 같은 멱등 키로 다시 보내면 처음 응답을 다시 준다. 예시 데이터로 대신하지 않는다 */
+/** API-01. 응답은 API-03과 같은 검사(202). 같은 멱등 키로 다시 보내면 처음 응답을 다시 준다. 예시 데이터로 대신하지 않는다 */
 export const createReachScan = (input: ReachScanInput, idempotencyKey: string) =>
   apiRequest<ReachScan>('/api/v1/reach/scans', {
     method: 'POST',
@@ -666,7 +666,7 @@ export async function fetchReachRuleData(): Promise<ReachRuleData> {
 }
 
 /**
- * API-10만 끝까지 받는다. Finding 상세의 취약 함수 카드(SCR-03-10)가 API-05 include=vulnFunctions를
+ * API-10만 끝까지 받는다. 취약점 상세의 취약 함수 카드(SCR-03-10)가 API-05 include=vulnFunctions를
  * 아직 채우지 않는 서버에서 vulnFunctionIds로 함수를 찾을 때 쓴다
  */
 export async function fetchReachVulnFunctions(): Promise<{ items: ReachVulnFunction[]; version: string | null }> {
@@ -678,7 +678,7 @@ const RULE_FINDING_MAX_PAGES = 20
 const emptyFindingFilter: ReachFindingFilter = { status: [], severity: [], reviewState: [], deployment: [], cveContains: '' }
 
 /**
- * 규칙별 주 방식·적용 Finding을 세려고 기본 범위(앱·대상 종류마다 최신 완료 스캔, PR 제외)의 Finding을 모두 받는다 (SCR-06-03·09).
+ * 규칙별 주 방식·적용 취약점을 세려고 기본 범위(앱·대상 종류마다 최신 완료 검사, PR 제외)의 취약점을 모두 받는다 (SCR-06-03·09).
  * Finding API가 없는 개발 서버에서는 명세 예시 값으로 대신한다
  */
 export const fetchReachRuleFindings = () =>
@@ -720,7 +720,7 @@ export interface ReachCiCheck {
   scanStatus: ReachScanStatus
   policy: ReachCiPolicy
   baselineScanId: number | null
-  /** 스캔이 SUCCEEDED일 때만 있다 */
+  /** 검사가 SUCCEEDED일 때만 있다 */
   gate: {
     result: ReachGateResult
     exitCode: number

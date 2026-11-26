@@ -1,6 +1,6 @@
 import type { RunFilters } from '../api/secretRuns'
 
-export const scanTypes = { ALL: '전체 실행', SCHEDULED: '정기 전체 스캔', MANUAL: '수동 전체 스캔', REVALIDATION: '위치별 재검증' } as const
+export const scanTypes = { ALL: '전체 실행', SCHEDULED: '정기 전체 검사', MANUAL: '수동 전체 검사', REVALIDATION: '위치별 재검증' } as const
 export const scanPlatforms = { GITHUB: 'GitHub', AWS: 'AWS', NOTION: 'Notion', KUBERNETES: 'Kubernetes' } as const
 export const scanStatuses = { PENDING: '대기', RUNNING: '진행 중', SUCCEEDED: '정상 종료', PARTIAL: '부분 실패', FAILED: '실패', CANCELLED: '취소' } as const
 export const terminalRunStatuses = new Set(['SUCCEEDED', 'PARTIAL', 'FAILED', 'CANCELLED'])
@@ -98,9 +98,9 @@ export function scanReason(code: string | null | undefined): string {
   const reasonLabels: Record<string, string> = {
     NO_OBJECTS: '검사할 수집 항목 없음',
     NO_CANDIDATES: '유효성을 확인할 키 후보 없음',
-    NO_SUPPORTED_VALIDATOR: '지원되는 유효성 확인 방식 없음',
+    NO_SUPPORTED_VALIDATOR: '지원되는 키 인증 확인 방식 없음',
     DETECTION_NOT_RUN: '탐지 단계 미실행',
-    VALIDATION_ATTEMPT_FAILED: '유효성 확인 시도 실패',
+    VALIDATION_ATTEMPT_FAILED: '키 인증 확인 시도 실패',
     VALIDATION_INCONCLUSIVE: '키 인증 여부 확인 불가',
     SOURCE_GUARD_BLOCKED: '당시 원천 보호 설정에 따른 검증 생략',
     VALIDATOR_NOT_ALLOWED: '이 연결에서 해당 키 발급 서비스의 검증을 허용하지 않았어요.',
@@ -122,7 +122,7 @@ export function scanReason(code: string | null | undefined): string {
     NOTION_MALFORMED_RESPONSE: 'Notion 응답 형식을 확인하지 못해 검사를 마치지 못했어요.',
     NOTION_RESPONSE_TOO_LARGE: 'Notion 응답이 읽기 크기 제한을 초과했어요.',
     NOTION_IN_TRASH: '승인 페이지가 휴지통에 있어 본문을 확인하지 못했어요.',
-    NOTION_CONTENT_CHANGED: '검사 중 Notion 페이지가 변경됐어요. 다시 스캔해 확인하세요.',
+    NOTION_CONTENT_CHANGED: '검사 중 Notion 페이지가 변경됐어요. 다시 검사해 확인하세요.',
     NOTION_UNSUPPORTED_BLOCK: '지원 범위 밖 블록이 있어 일부 내용을 검사하지 못했어요.',
     NOTION_BLOCK_LIMIT: '블록 수 제한에 도달해 나머지 내용을 확인하지 못했어요.',
     NOTION_DEPTH_LIMIT: '블록 중첩 깊이 제한에 도달해 일부 내용을 확인하지 못했어요.',
