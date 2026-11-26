@@ -26,7 +26,7 @@ function inView(item: ReachWorkload, view: MatchView | null): boolean {
   return true
 }
 
-/** 스캔 화면의 새 스캔 대화상자를 이 이미지로 채워서 연다 (SCR-04-07) */
+/** 검사 화면의 새 검사 대화상자를 이 이미지로 채워서 연다 (SCR-04-07) */
 export function scanRequestLink(item: ReachWorkload): string {
   const params = new URLSearchParams({ new: 'image', repository: item.image.repository, digest: item.image.digest })
   if (item.app) params.set('app', item.app)
@@ -76,9 +76,9 @@ function SummaryCards({ items, view, onView }: { items: ReachWorkload[]; view: M
         aria-pressed={view === 'MATCH'}
         onClick={() => toggle('MATCH')}
       >
-        <span className="caption">스캔한 digest와 일치</span>
+        <span className="caption">검사한 digest와 일치</span>
         <strong className="reach-big">{counts.match}</strong>
-        <span className="caption">스캔 판정을 그대로 쓸 수 있어요</span>
+        <span className="caption">검사 판정을 그대로 쓸 수 있어요</span>
       </button>
       <button
         type="button"
@@ -86,11 +86,11 @@ function SummaryCards({ items, view, onView }: { items: ReachWorkload[]; view: M
         aria-pressed={view === 'ATTENTION'}
         onClick={() => toggle('ATTENTION')}
       >
-        <span className="caption">스캔 없음 · 불일치</span>
+        <span className="caption">검사 없음 · 불일치</span>
         <strong className="reach-big">
           {counts.noScan} · {counts.mismatch}
         </strong>
-        <span className="caption">배포된 이미지를 스캔해야 해요</span>
+        <span className="caption">배포된 이미지를 검사해야 해요</span>
       </button>
     </div>
   )
@@ -120,7 +120,7 @@ export function ReachWorkloadTable({ items }: { items: ReachWorkload[] }) {
             <th scope="col">이미지</th>
             <th scope="col">파드</th>
             <th scope="col">배포</th>
-            <th scope="col">스캔 연결</th>
+            <th scope="col">검사 연결</th>
           </tr>
         </thead>
         <tbody>
@@ -157,12 +157,12 @@ export function ReachWorkloadTable({ items }: { items: ReachWorkload[] }) {
                     <ReachScanMatchBadge status={item.scanMatch.status} />
                     {item.scanMatch.scanId !== undefined && (
                       <Link className="reach-link" to={`${VULNERABILITY_SCANS_PATH}?scan=${item.scanMatch.scanId}`}>
-                        {item.scanMatch.status === 'MATCH' ? `스캔 #${item.scanMatch.scanId}` : `앱 최신 스캔 #${item.scanMatch.scanId}`}
+                        {item.scanMatch.status === 'MATCH' ? `검사 #${item.scanMatch.scanId}` : `앱 최신 검사 #${item.scanMatch.scanId}`}
                       </Link>
                     )}
                     {item.scanMatch.status !== 'MATCH' && (
                       <Link className="btn outline small" to={scanRequestLink(item)}>
-                        스캔 요청
+                        검사 요청
                       </Link>
                     )}
                   </div>
@@ -199,7 +199,7 @@ export function VulnerabilityWorkloadsPage() {
     <>
       <PageHeader
         title="워크로드"
-        description="운영 클러스터에서 실행 중인 이미지가 스캔한 이미지와 같은지 확인하세요."
+        description="운영 클러스터에서 실행 중인 이미지가 검사한 이미지와 같은지 확인하세요."
         actions={
           <button type="button" className="btn outline small" onClick={() => void workloads.refetch()} disabled={workloads.isFetching}>
             {workloads.isFetching ? '불러오는 중…' : '새로 고침'}
@@ -233,7 +233,7 @@ export function VulnerabilityWorkloadsPage() {
         <section className="card">
           <EmptyState
             title="클러스터 조회 기록이 없어요"
-            description="클러스터 안 수집기가 운영 파드를 조회해 올리면 실행 중인 이미지와 스캔 연결을 여기에 보여줘요."
+            description="클러스터 안 수집기가 운영 파드를 조회해 올리면 실행 중인 이미지와 검사 연결을 여기에 보여줘요."
           />
         </section>
       )}
@@ -245,7 +245,7 @@ export function VulnerabilityWorkloadsPage() {
           <section className="card list-card">
             <div className="toolbar reach-filters">
               <span className="caption">
-                {view ? `${items.length}개 중 ${shown.length}개` : `${items.length}개`} · 불일치 → 스캔 없음 → 일치 순
+                {view ? `${items.length}개 중 ${shown.length}개` : `${items.length}개`} · 불일치 → 검사 없음 → 일치 순
               </span>
               {view && (
                 <button type="button" className="btn outline small" onClick={() => setView(null)}>

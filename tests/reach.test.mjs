@@ -109,7 +109,7 @@ test('summary view shows fractions and reasons and never calls results safe', ()
   assert.match(html, /14\/23/)
   assert.match(html, /14\/14/)
   assert.match(html, /판정하지 않은 사본 7 · OS 패키지 2/)
-  assert.match(html, /모두 도달 불가/)
+  assert.match(html, /모두 취약 조건 미충족/)
   assert.doesNotMatch(html, /안전|해결됨/)
   assert.doesNotMatch(html, /%/)
   assert.doesNotMatch(html, /아직 연결되지 않았어요/)
@@ -127,8 +127,8 @@ test('summary view shows fractions and reasons and never calls results safe', ()
     },
     onOpen: () => {},
   }))
-  assert.match(withBasis, /스캔 #9.*운영에서 실행 중/s)
-  assert.match(withBasis, /스캔 #4.*최신 커밋/s)
+  assert.match(withBasis, /검사 #9.*운영에서 실행 중/s)
+  assert.match(withBasis, /검사 #4.*최신 커밋/s)
   const summary = reach.sampleReachSummary()
   assert.match(html, new RegExp(`실행 중</span><strong>${summary.byDeployment.RUNNING}건`))
 })
@@ -137,7 +137,7 @@ test('copy rows show the pending proposal next to the reason', () => {
   const copy = reach.sampleReachFindings({ ...noFilter, cveContains: '89407', status: ['NOT_ANALYZED'] }, null, 50).items[0]
   const text = reach.reachEvidenceText(copy)
   assert.match(text, /^판정하지 않은 사본/)
-  assert.match(text, /제안\(확정 대기\): 도달 불가/)
+  assert.match(text, /제안\(확정 대기\): 취약 조건 미충족/)
 })
 
 test('detail view lists facts used for the verdict before informational facts', () => {
@@ -145,7 +145,7 @@ test('detail view lists facts used for the verdict before informational facts', 
   assert.ok(html.indexOf('F-dto.floating.tokens') < html.indexOf('F-dto.floating.any'))
   assert.match(html, /참고/)
   assert.match(html, /후보 경로, 실제와 다를 수 있음/)
-  assert.match(html, /결정 전\(팀 결정\)/)
+  assert.match(html, /수정 버전은 팀에서 선택합니다/)
 })
 
 /** 요약·목록 응답을 캐시에 넣어 둔 QueryClient. sample은 "예시 값으로 대신 그렸는지" */
@@ -169,12 +169,12 @@ test('summary and finding list are separate pages without in-page tabs', () => {
 
   const summaryHtml = renderAt(client, reach.VulnerabilitySummaryPage, '/vulnerabilities')
   assert.match(summaryHtml, /실제 판정 결과가 아니에요/)
-  assert.match(summaryHtml, /<strong>요약<\/strong>/)
-  assert.match(summaryHtml, /상태 × 심각도/)
+  assert.match(summaryHtml, /<strong>현황<\/strong>/)
+  assert.match(summaryHtml, /상태 × 위험도/)
   assert.doesNotMatch(summaryHtml, /class="tabs"/)
 
   const findingsHtml = renderAt(client, reach.VulnerabilityFindingsPage, '/vulnerabilities/findings')
-  assert.match(findingsHtml, /<strong>상태별 개수, Finding 목록<\/strong>/)
+  assert.match(findingsHtml, /<strong>상태별 개수, 취약점 목록<\/strong>/)
   assert.match(findingsHtml, /23건 중 23건 표시/)
   assert.match(findingsHtml, /CVE-2026-85091/)
   assert.doesNotMatch(findingsHtml, /더 보기/)
@@ -185,22 +185,22 @@ test('notice names only the parts that are still sample data', () => {
   // 요약 API는 붙었고 목록 API는 아직 없는 상황
   const client = seededClient({ summarySample: false, listSample: true })
   assert.doesNotMatch(renderAt(client, reach.VulnerabilitySummaryPage, '/vulnerabilities'), /실제 판정 결과가 아니에요/)
-  assert.match(renderAt(client, reach.VulnerabilityFindingsPage, '/vulnerabilities/findings'), /<strong>Finding 목록<\/strong>/)
+  assert.match(renderAt(client, reach.VulnerabilityFindingsPage, '/vulnerabilities/findings'), /<strong>취약점 목록<\/strong>/)
 })
 
-test('sidebar opens 요약 and Finding 목록 under 취약점 관리 only while inside it', () => {
+test('sidebar opens 요약 and 취약점 목록 under 이미지 보안 only while inside it', () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   client.setQueryData(reach.ME_QUERY_KEY, { userId: 1, displayName: 'Security Admin', role: 'ADMIN' })
 
   const inside = renderAt(client, reach.AppLayout, '/vulnerabilities/findings')
   assert.match(inside, /class="nav-link active" href="\/vulnerabilities"/)
-  assert.match(inside, /class="nav-link sub" href="\/vulnerabilities"[^>]*>요약</)
+  assert.match(inside, /class="nav-link sub" href="\/vulnerabilities"[^>]*>현황</)
   // NavLink가 active를 한 번 더 붙인다 (인프라·시크릿 하위 메뉴와 같음)
-  assert.match(inside, /class="nav-link sub active[^"]*" href="\/vulnerabilities\/findings"[^>]*>Finding 목록</)
-  assert.match(inside, /<span>Finding 목록<\/span>/) // 상단 바 제목
+  assert.match(inside, /class="nav-link sub active[^"]*" href="\/vulnerabilities\/findings"[^>]*>취약점 목록</)
+  assert.match(inside, /<span>취약점 목록<\/span>/) // 상단 바 제목
 
   const outside = renderAt(client, reach.AppLayout, '/overview')
-  assert.doesNotMatch(outside, /href="\/vulnerabilities\/findings"/)
+  assert.match(outside, /id="submenu-vulnerabilities" class="nav-expansion" inert="" aria-hidden="true"/)
   assert.equal(reach.isVulnerabilityPath('/vulnerabilities/findings'), true)
   assert.equal(reach.isVulnerabilityPath('/vulnerabilitiesx'), false)
 })

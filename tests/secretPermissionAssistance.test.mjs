@@ -80,7 +80,7 @@ test('missing independent proof links the exact existing investigation and the r
 test('GitHub observations identify reused validation facts without implying a fresh permissions lookup', () => {
   const data = { ...context, identity: { ...context.identity, provider: 'GITHUB', principalType: 'GITHUB_USER' }, latestObservation: { ...preview, sourceBasis: 'RECENT_VALIDATION_METADATA' } }
   const html = render(api.SecretPermissionAssistance, { occurrenceId: 8, evidenceRevision: 3, onReload() {} }, [[['secret-permission-assistance', 8, 3], data]])
-  assert.match(html, /최근 유효성 확인에서 수집한 토큰 정보/); assert.match(html, /자료 관측/); assert.doesNotMatch(html, /secret-sentinel|principal_ref|principal_id/)
+  assert.match(html, /최근 키 인증 확인에서 수집한 토큰 정보/); assert.match(html, /자료 관측/); assert.doesNotMatch(html, /secret-sentinel|principal_ref|principal_id/)
   const first = api.permissionConfirmationFacts(preview, 3, input, now), retry = api.permissionConfirmationFacts(preview, 3, input, now + 1000)
   assert.deepEqual(first, retry); assert.equal(first.observedAt, input.attestedAt)
 })
@@ -115,7 +115,7 @@ test('ordered prerequisites guide the current occurrence and wait for identity b
   const data = { ...context, identity: { ...context.identity, status: 'UNAVAILABLE' }, collectorOptions: [], latestObservation: null, capabilities: { canRequest: false, blockedReasonCodes: ['FRESH_IDENTITY_VALIDATION_REQUIRED'] }, requestReadiness: { nextAction: 'VALIDATE_CREDENTIAL', checks: [{ code: 'COLLECTOR', status: 'WAITING', action: null }] } }
   const html = render(api.SecretPermissionAssistance, { occurrenceId: 8, evidenceRevision: 3, location, onReload() {}, onValidate() {} }, [[['secret-permission-assistance', 8, 3], data]])
   assert.match(html, /권한 확인 순서/); assert.doesNotMatch(html, /시험 출처/)
-  assert.match(html, /키 유효성 확인으로 이동/); assert.match(html, /유효성 확인 후 판별/)
+  assert.match(html, /키 키 인증 확인으로 이동/); assert.match(html, /키 인증 확인 후 판별/)
   assert.match(html, /href="\/secrets\/connections\/42\/scopes\/67\?settings=validation&amp;origin=TEST"/)
   assert.doesNotMatch(html, /현재 선택할 수 있는 승인된 IAM 읽기 연결이 없어요/)
   assert.equal(api.permissionPrerequisites(data, '').canRequest, false)
@@ -133,7 +133,7 @@ test('validation action and collector selection use the existing actionable cont
   const elements = []
   function walk(node) { if (Array.isArray(node)) return node.forEach(walk); if (!node || typeof node !== 'object') return; elements.push(node); walk(node.props?.children) }
   walk(view)
-  const validate = elements.find((node) => node.type === 'button' && node.props.children === '키 유효성 확인으로 이동')
+  const validate = elements.find((node) => node.type === 'button' && node.props.children === '키 키 인증 확인으로 이동')
   assert.ok(validate); validate.props.onClick(); assert.equal(validationOpened, true)
   const selector = elements.find((node) => node.type === 'select')
   selector.props.onChange({ target: { value: '2' } }); assert.equal(selected, '2')
@@ -146,14 +146,14 @@ test('confirmed synthetic fixtures cannot expose validation or permission reques
   const data = { ...context, collectorOptions: [], latestObservation: null, capabilities: { canRequest: true, blockedReasonCodes: ['SYNTHETIC_FIXTURE'] } }
   const html = render(api.SecretPermissionAssistance, { occurrenceId: 8, evidenceRevision: 3, onReload() {}, onValidate() {} }, [[['secret-permission-assistance', 8, 3], data]])
   assert.match(html, /실제 공급자 인증·권한 조회를 실행하지 않으며/); assert.match(html, /disabled="">권한 정보 가져오기/)
-  assert.doesNotMatch(html, /키 유효성 확인으로 이동|승인된 조회 연결 선택/)
+  assert.doesNotMatch(html, /키 키 인증 확인으로 이동|승인된 조회 연결 선택/)
   assert.equal(api.permissionPrerequisites(data, '2').canRequest, false)
   assert.equal(api.permissionPrerequisites({ ...context, requestReadiness: { nextAction: 'CONTACT_OPERATIONS', checks: [] }, capabilities: { canRequest: false, blockedReasonCodes: ['WORKER_NOT_CONFIGURED'] } }, '2').blocker, '운영 담당자에게 권한 조회 기능과 워커 설정을 확인해 달라고 요청하세요.')
 })
 test('another occurrence location never supplies the validation route, synthetic status or source label', () => {
   const location = { occurrenceId: 999, connectionId: 42, scopeId: 67, origin: 'TEST', fixtureStatus: 'VERIFIED_SYNTHETIC', safeLocationLabel: 'other-location-sentinel', capabilities: { canViewCoverage: true } }
   const html = render(api.SecretPermissionAssistance, { occurrenceId: 8, evidenceRevision: 3, location, onReload() {}, onValidate() {} }, [[['secret-permission-assistance', 8, 3], context]])
-  assert.doesNotMatch(html, /other-location-sentinel|scopes\/67|승인된 합성 표본이에요/)
+  assert.doesNotMatch(html, /other-location-sentinel|scopes\/67|승인된 테스트용 키이에요/)
   assert.equal(api.permissionReason('__proto__'), '조회 범위와 부족한 근거를 확인해 주세요.')
 })
 

@@ -31,7 +31,7 @@ const TOMCAT = 'org.apache.tomcat.embed'
 const JACKSON3 = 'tools.jackson.core'
 const JACKSON2 = 'com.fasterxml.jackson.core'
 
-const NO_TRIGGER = '도달 불가(발동 조건 없음)'
+const NO_TRIGGER = '취약 조건 미충족(발동 조건 없음)'
 const COPY_REFERENCE = '규칙명세서 9-1, PoC 작업 기록 15-7절'
 
 type Row = {
@@ -82,8 +82,8 @@ const rows: Row[] = [
   judged('MEDIUM', 'CVE-2026-83557', 'jackson-databind', JACKSON3, '3.1.5', ['3.1.6'], 'RULE', 'CONFIRMED', '@JsonTypeInfo 사용 없음'),
   jackson2Copy('HIGH', 'CVE-2026-68497', 'jackson-databind', ['2.21.6'], NO_TRIGGER),
   jackson2Copy('HIGH', 'CVE-2026-89407', 'jackson-core', ['2.18.11', '2.21.7', '2.22.3'],
-    '도달 불가. 운영 기본에서 외부 입력을 Jackson 2로 읽는 경로가 없다. anthropic을 켜도 SDK 매퍼가 문자열→숫자 변환을 막는다'),
-  jackson2Copy('HIGH', 'CVE-2026-89425', 'jackson-core', ['2.21.7'], '도달 불가'),
+    '취약 조건 미충족. 운영 기본에서 외부 입력을 Jackson 2로 읽는 경로가 없다. anthropic을 켜도 SDK 매퍼가 문자열→숫자 변환을 막는다'),
+  jackson2Copy('HIGH', 'CVE-2026-89425', 'jackson-core', ['2.21.7'], '취약 조건 미충족'),
   jackson2Copy('HIGH', 'CVE-2026-91776', 'jackson-databind', ['2.21.7'], NO_TRIGGER),
   jackson2Copy('HIGH', 'CVE-2026-91777', 'jackson-databind', ['2.21.7'], NO_TRIGGER),
   jackson2Copy('MEDIUM', 'CVE-2026-19032', 'jackson-databind', ['2.21.6'], NO_TRIGGER),
@@ -153,7 +153,7 @@ const detailExtras: Record<string, Partial<ReachFindingDetail> & { verdictExtra?
       callgraph: { packageReached: false, vulnFunctionReached: false },
       evidence: [
         { order: 1, kind: 'RULE', ruleId: 'RULE-CVE-2026-68525', matchedCondition: 'UNREACHABLE', summary: 'FORM 인증(LoginConfig) 설정 없음', checkedAbsent: ['FormAuthenticator', 'LoginConfig'] },
-        { order: 2, kind: 'NOTE', summary: "호출 그래프상 패키지 도달은 '아니요'다. Spring Boot가 Tomcat을 리플렉션으로 띄워 그래프에 잡히지 않을 뿐 실제로는 쓰인다. 판정은 규칙이 정했다" },
+        { order: 2, kind: 'NOTE', summary: "호출 그래프상 패키지 사용은 '아니요'다. Spring Boot가 Tomcat을 리플렉션으로 띄워 그래프에 잡히지 않을 뿐 실제로는 쓰인다. 판정은 규칙이 정했다" },
       ],
     },
     upgrade: {
@@ -171,7 +171,7 @@ const detailExtras: Record<string, Partial<ReachFindingDetail> & { verdictExtra?
     verdictExtra: {
       callgraph: { packageReached: true, vulnFunctionPresent: true, vulnFunctionReached: false, weakOnly: false },
       evidence: [
-        { order: 1, kind: 'PATH', pathTarget: 'PACKAGE', candidate: true, summary: '패키지 도달 후보 경로. 가장 짧은 후보이며 실제 경로와 다를 수 있다', path: ['PasswordEncoderConfig', 'Argon2PasswordEncoder', '…', 'Argon2BytesGenerator'] },
+        { order: 1, kind: 'PATH', pathTarget: 'PACKAGE', candidate: true, summary: '패키지 사용 후보 경로. 가장 짧은 후보이며 실제 경로와 다를 수 있다', path: ['PasswordEncoderConfig', 'Argon2PasswordEncoder', '…', 'Argon2BytesGenerator'] },
         { order: 2, kind: 'NOTE', summary: '패키지 수준으로는 닿지만(Spring Security의 Argon2), 함수 수준으로는 취약 기능(GOST CTR)에 닿지 않는다' },
       ],
     },
@@ -187,7 +187,7 @@ const detailExtras: Record<string, Partial<ReachFindingDetail> & { verdictExtra?
       evidence: [
         { order: 1, kind: 'FACT', factId: 'F-dto.floating.tokens', value: false, checkedCount: 97, summary: 'Jackson에 타입을 알려줄 수 있는 자리(tokens) 97개에서 필드를 따라갔다. 실수형 필드 없음' },
         { order: 2, kind: 'FACT', factId: 'F-dto.floating.any', informational: true, value: true, summary: '앱 전체로 보면 실수형 필드가 있다. 응답 전용 record의 Double averageRating이며 판정에는 쓰지 않는다', locations: [{ symbol: 'SellerBriefResponse.averageRating' }, { symbol: 'SellerProfileResponse.averageRating' }] },
-        { order: 3, kind: 'RULE', ruleId: 'RULE-CVE-2026-89407', matchedCondition: 'UNREACHABLE', summary: '도달 불가 조건에 맞음' },
+        { order: 3, kind: 'RULE', ruleId: 'RULE-CVE-2026-89407', matchedCondition: 'UNREACHABLE', summary: '취약 조건 미충족 판정에 맞음' },
       ],
     },
   },
@@ -238,12 +238,12 @@ export function sampleReachFinding(findingId: number): ReachFindingDetail {
   }
 }
 
-// ---- 워크로드·스캔 예시 (API 명세 API-03·API-07 예시, PoC 값) ----
+// ---- 워크로드·검사 예시 (API 명세 API-03·API-07 예시, PoC 값) ----
 
 const OBSERVED_AT = '2026-11-07T03:17:05Z'
 const API_DIGEST = 'sha256:a6ffffef7fc1f9e876f02884ff708d90cb223d8ece7ddab7b8690441d10529d5'
 
-/** API-07 예시. reused-api는 스캔한 digest가 그대로 돌고 있고, chat·web은 아직 스캔이 없다 */
+/** API-07 예시. reused-api는 검사한 digest가 그대로 돌고 있고, chat·web은 아직 검사가 없다 */
 export function sampleReachWorkloads(): ReachWorkloadList {
   const base = {
     cluster: 'reused-prod',
@@ -323,7 +323,7 @@ const SAMPLE_SCAN: ReachScan = {
   finishedAt: '2026-10-11T01:01:20Z',
 }
 
-/** API-02 예시. 스캔은 PoC 스캔 하나다 */
+/** API-02 예시. 검사는 PoC 검사 하나다 */
 export function sampleReachScans(filter: ReachScanFilter): ReachScanPage {
   const items = [SAMPLE_SCAN].filter(
     (scan) =>
@@ -335,6 +335,6 @@ export function sampleReachScans(filter: ReachScanFilter): ReachScanPage {
 
 /** API-03 예시. 없는 id는 백엔드처럼 NOT_FOUND */
 export function sampleReachScan(scanId: number): ReachScan {
-  if (scanId !== SAMPLE_SCAN.id) throw new ApiError(404, 'NOT_FOUND', '스캔을 찾을 수 없어요.')
+  if (scanId !== SAMPLE_SCAN.id) throw new ApiError(404, 'NOT_FOUND', '검사를 찾을 수 없어요.')
   return SAMPLE_SCAN
 }

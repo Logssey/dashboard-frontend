@@ -12,13 +12,13 @@ const priorities: Record<string, string> = { IMMEDIATE: '즉시 대응', PRIORIT
 export const criterionStatusLabel = (status: string) => Object.hasOwn(criterionStatuses, status) ? criterionStatuses[status] : '상태 확인 필요'
 export const priorityLabel = (level: string) => Object.hasOwn(priorities, level) ? priorities[level] : '우선순위 확인 필요'
 const priorityReasons: Record<string, string> = {
-  CONFIRMED_INCIDENT: '확인된 사고 근거', UNRESOLVED_CRITICAL: '미해결 치명적 노출', UNRESOLVED_HIGH: '미해결 높은 심각도',
+  CONFIRMED_INCIDENT: '확인된 사고 근거', UNRESOLVED_CRITICAL: '미해결 치명적 노출', UNRESOLVED_HIGH: '미해결 높은 위험도',
   PUBLIC_VALID_CREDENTIAL: '공개 원문과 인증 성공 확인', PUBLIC_PRIVILEGED_CANDIDATE: '공개 위치의 높은 권한 후보',
-  MEDIUM_SEVERITY: '보통 심각도', LOW_SEVERITY: '낮은 심각도', EVIDENCE_REQUIRED: '평가 근거 보완 필요',
+  MEDIUM_SEVERITY: '보통 위험도', LOW_SEVERITY: '낮은 위험도', EVIDENCE_REQUIRED: '평가 근거 보완 필요',
   AUTHORIZED_STORAGE: '보관 허용', METADATA_ONLY: '키 존재 정보',
   PUBLIC_CREDENTIAL_REQUIRES_INVESTIGATION: '원천 공개 관측과 인증·권한 자료를 함께 확인해야 해요.',
-  NO_OPEN_EXPOSURE_ACTION: '현재 미해결 노출 조치 없음', LOW_EXPOSURE: '낮은 노출 심각도',
-  EVIDENCE_REQUIRES_REVIEW: '평가 근거 보완 필요', MEDIUM_EXPOSURE: '보통 노출 심각도',
+  NO_OPEN_EXPOSURE_ACTION: '현재 미해결 노출 조치 없음', LOW_EXPOSURE: '낮은 노출 위험도',
+  EVIDENCE_REQUIRES_REVIEW: '평가 근거 보완 필요', MEDIUM_EXPOSURE: '보통 노출 위험도',
 }
 export const priorityReason = (code: string) => Object.hasOwn(priorityReasons, code) ? priorityReasons[code] : null
 export function experienceReason(experience: RiskExperience): string {

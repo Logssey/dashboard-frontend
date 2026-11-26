@@ -72,7 +72,7 @@ test('the headline says how far the run got and never calls "no run" unreachable
   assert.match(l3.l3Headline({ reached: 'FUNCTION', regionsChecked: true, startupOnly: false }), /취약 구간은 실행되지 않았어요/)
   assert.match(l3.l3Headline({ reached: 'FUNCTION', regionsChecked: false, startupOnly: false }), /확인하지 못했어요/)
   assert.match(l3.l3Headline({ reached: 'FUNCTION', regionsChecked: false, startupOnly: true }), /앱이 뜨는 동안에만/)
-  assert.match(l3.l3Headline({ reached: 'NONE', regionsChecked: true, startupOnly: false }), /도달 불가의 근거는 아니에요/)
+  assert.match(l3.l3Headline({ reached: 'NONE', regionsChecked: true, startupOnly: false }), /취약 조건 미충족의 근거는 아니에요/)
   assert.match(l3.l3Headline({ reached: 'NOT_RECORDED', regionsChecked: false, startupOnly: false }), /확인하지 못했어요/)
 })
 
@@ -147,7 +147,7 @@ test('a verdict raised by L3 shows the tag and the L2 verdict it replaced', () =
     l3: region }
   const html = renderToStaticMarkup(createElement(l3.ReachFindingDetailView, { detail: raised }))
   assert.match(html, />L3로 올림</)
-  assert.match(html, /L3가 실제 실행을 확인해 판정을 올렸어요\(코드 분석 L2 판정: 도달 불가\)/)
+  assert.match(html, /L3가 실제 실행을 확인해 판정을 올렸어요\(코드 분석 L2 판정: 취약 조건 미충족\)/)
   assert.doesNotMatch(html, /≠ 판정/)
   assert.doesNotMatch(renderToStaticMarkup(createElement(l3.ReachFindingDetailView, { detail })), /L3로 올림/)
 })
@@ -161,7 +161,7 @@ test('the list sends the l3 filter and the table shows the level next to the ver
   items[0] = { ...items[0], verdict: { ...items[0].verdict, status: 'UNREACHABLE' }, l3: { reached: 'REGION', regionsChecked: true, startupOnly: false } }
   items[1] = { ...items[1], l3: { reached: 'FUNCTION', regionsChecked: false, startupOnly: true } }
   const html = renderToStaticMarkup(createElement(l3.ReachFindingTable, { items, onSelect: () => {} }))
-  assert.match(html, /<th[^>]*>실행<\/th>/)
+  assert.match(html, /<th[^>]*>실행 상태<\/th>/)
   assert.match(html, /reach-l3 region[^>]*>구간 실행</)
   assert.match(html, /≠ 판정/)
   assert.match(html, /reach-l3 function[^>]*title="[^"]*기동 중에만[^"]*"[^>]*>함수까지 실행</)
@@ -182,7 +182,7 @@ test('running images come first and the table marks where the deployment changes
 
   const html = renderToStaticMarkup(createElement(l3.ReachFindingTable, { items, onSelect: () => {} }))
   assert.equal((html.match(/reach-group-row/g) ?? []).length, 3)
-  assert.match(html, /colSpan="9"|colspan="9"/)
+  assert.match(html, /colSpan="5"|colspan="5"/)
   assert.ok(html.indexOf('지금 돌고 있는 이미지') < html.indexOf('실행 여부를 모르는 대상'))
 
   // one deployment only (a single scan, or the deployment filter): no group rows
@@ -208,7 +208,7 @@ test('the detail shows the request, the functions, the executed lines and the ru
 test('a result matched again from a kept record says the app was not run again', () => {
   const again = renderToStaticMarkup(createElement(l3.ReachL3Section, { l3: { ...region, run: { ...run, scanId: 12, rematch: true } } }))
   assert.match(again, /앱을 다시 띄운 것이 아니에요/)
-  assert.match(again, /스캔 #12에서 지금의 판정 데이터로 다시 대조/)
+  assert.match(again, /검사 #12에서 지금의 판정 데이터로 다시 대조/)
   assert.doesNotMatch(renderToStaticMarkup(createElement(l3.ReachL3Section, { l3: region })), /다시 띄운 것이 아니에요/)
 })
 
@@ -247,7 +247,7 @@ test('without an L3 result the detail says so and the verdict band shows a dash'
   assert.match(renderToStaticMarkup(createElement(l3.ReachL3Section, { l3: null })), /띄워 시나리오를 보낸 결과가 없어요/)
   const detail = l3.sampleReachFinding(8)
   const html = renderToStaticMarkup(createElement(l3.ReachFindingDetailView, { detail }))
-  assert.match(html, /<dt>실행\(L3\)<\/dt>/)
+  assert.match(html, /<dt>실제 실행 기록<\/dt>/)
   const withL3 = renderToStaticMarkup(createElement(l3.ReachFindingDetailView, { detail: { ...detail, l3: region } }))
-  assert.match(withL3, /<dt>실행\(L3\)<\/dt><dd><span class="badge reach-l3 region"/)
+  assert.match(withL3, /<dt>실제 실행 기록<\/dt><dd><span class="badge reach-l3 region"/)
 })

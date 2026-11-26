@@ -32,7 +32,7 @@ test('gate failure always shows as blocked, even without a verdict', () => {
 test('PR change line lists path and State changes', () => {
   assert.deepEqual(labels.pullRequestChanges(summary({})), [])
   assert.deepEqual(labels.pullRequestChanges(summary({ pathsAdded: 6, stateReaderIncrease: true })),
-    ['경로 +6', 'State 읽기 주체 증가'])
+    ['경로 +6', 'State 읽기 권한이 있는 계정 증가'])
   assert.deepEqual(labels.pullRequestChanges(summary({ removedRoutes: 1, pathsRemoved: 60 })), ['경로 −60 (1갈래)'])
   assert.deepEqual(labels.pullRequestChanges(summary({ removedRoutes: 2, pathsRemoved: 2 })), ['경로 −2'])
   assert.deepEqual(labels.pullRequestChanges(summary({ status: 'GATE_FAILED' })), ['plan 전 검사 차단, 경로 계산 안 함'])

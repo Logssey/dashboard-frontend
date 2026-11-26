@@ -19,11 +19,11 @@ export function reachEvidenceText(item: ReachFindingListItem): string {
 /** 배포 묶음 제목의 설명. 목록은 실행 중 이미지부터 온다 (API-04 기본 정렬, SCR-02) */
 const deploymentGroupHint: Record<ReachDeployment, string> = {
   RUNNING: '운영 클러스터에서 지금 돌고 있는 이미지',
-  UNKNOWN: '레포 스캔이거나 클러스터 조회가 없어 실행 여부를 모르는 대상',
+  UNKNOWN: '저장소 검사거나 클러스터 조회가 없어 실행 여부를 모르는 대상',
   NOT_RUNNING: '클러스터를 조회했는데 돌고 있지 않은 이미지',
 }
 
-/** 배포 상태가 둘 이상 섞였을 때만 묶음 제목을 단다. 스캔 하나나 배포 필터 하나면 모두 같아서 달지 않는다 */
+/** 배포 상태가 둘 이상 섞였을 때만 묶음 제목을 단다. 검사 하나나 배포 필터 하나면 모두 같아서 달지 않는다 */
 export function deploymentGroupStarts(items: ReachFindingListItem[]): Set<number> {
   const starts = new Set<number>()
   if (new Set(items.map((item) => item.deployment)).size < 2) return starts
@@ -33,22 +33,18 @@ export function deploymentGroupStarts(items: ReachFindingListItem[]): Set<number
   return starts
 }
 
-/** SCR-02 Finding 표. 같은 CVE라도 패키지 사본이 다르면 다른 행이다 */
+/** SCR-02 취약점 목록. 같은 CVE라도 패키지 사본이 다르면 다른 행이다 */
 export function ReachFindingTable({ items, onSelect }: { items: ReachFindingListItem[]; onSelect: (id: number) => void }) {
   const groupStarts = deploymentGroupStarts(items)
   return (
-    <div className="table-scroll" tabIndex={0} role="region" aria-label="Finding 표. 좁은 화면에서는 가로로 스크롤하세요.">
-      <table className="reach-table">
+    <div className="table-scroll" tabIndex={0} role="region" aria-label="취약점 목록. 좁은 화면에서는 가로로 스크롤하세요.">
+      <table className="reach-table security-findings-table">
         <thead>
           <tr>
-            <th scope="col">심각도</th>
-            <th scope="col">CVE</th>
-            <th scope="col">패키지·버전</th>
-            <th scope="col">상태</th>
-            <th scope="col">방식</th>
-            <th scope="col">검토</th>
-            <th scope="col">배포</th>
-            <th scope="col" title="L3: 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드가 실행됐는지. 실행이 그 취약점의 조건을 보여 주는 만큼 판정을 올려요(도달 가능까지, 확인 못 함까지, 또는 올리지 않음)">실행</th>
+            <th scope="col">위험도</th>
+            <th scope="col">취약점과 패키지</th>
+            <th scope="col">호출 가능 여부</th>
+            <th scope="col">실행 상태</th>
             <th scope="col">근거 요약</th>
           </tr>
         </thead>
@@ -59,7 +55,7 @@ export function ReachFindingTable({ items, onSelect }: { items: ReachFindingList
               <Fragment key={item.id}>
                 {groupStarts.has(item.id) && (
                   <tr className="reach-group-row">
-                    <th scope="colgroup" colSpan={9}>
+                    <th scope="colgroup" colSpan={5}>
                       <ReachDeploymentBadge deployment={item.deployment} />
                       <span className="caption">{deploymentGroupHint[item.deployment]}</span>
                     </th>
@@ -80,22 +76,17 @@ export function ReachFindingTable({ items, onSelect }: { items: ReachFindingList
                     >
                       {item.vulnerability.id}
                     </button>
-                  </td>
-                  <td title={item.component.purl}>
-                    <strong>{item.component.name}</strong>
+                    <div title={item.component.purl}>
+                    <span className="asset">{item.component.name}</span>
                     <span className="caption reach-group"> · {packageGroup(item.component.purl)}</span>
                     <span className="asset">
                       {item.component.version}
                       {fix ? ` → ${fix}` : ''}
-                    </span>
+                    </span></div>
                   </td>
                   <td>
                     <ReachStatusBadge status={item.verdict.status} />
-                  </td>
-                  <td>
-                    <ReachMethodTag method={item.verdict.method} />
-                  </td>
-                  <td>
+                    <span className="asset"><ReachMethodTag method={item.verdict.method} /></span>
                     <ReachReviewBadge state={item.review.reviewState} />
                     {item.review.disagreesWithTool && <span className="badge reach-flag">≠ 불일치</span>}
                     {item.review.resetReason && (
@@ -104,9 +95,7 @@ export function ReachFindingTable({ items, onSelect }: { items: ReachFindingList
                   </td>
                   <td>
                     <ReachDeploymentBadge deployment={item.deployment} />
-                  </td>
-                  <td>
-                    <ReachL3Badge l3={item.l3} />
+                    <span className="asset"><ReachL3Badge l3={item.l3} /></span>
                     {l3DiffersFromL2(item.verdict.status, item.l3) && <span className="badge reach-flag differs">≠ 판정</span>}
                   </td>
                   <td>

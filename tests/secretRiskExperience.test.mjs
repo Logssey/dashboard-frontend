@@ -16,7 +16,7 @@ const api = await import(pathToFileURL(modulePath).href)
 after(() => unlink(modulePath))
 const readAt = '2026-11-07T04:00:00Z'
 const experience = {
-  version: 'risk-experience-v1', readAt, severityLabel: '시크릿 노출 심각도', sourcePresenceObservedAt: '2026-11-07T03:00:00Z',
+  version: 'risk-experience-v1', readAt, severityLabel: '시크릿 노출 위험도', sourcePresenceObservedAt: '2026-11-07T03:00:00Z',
   summary: { status: 'UNASSESSED', reasonCode: 'RULE_R99', ruleId: 'R99', severity: null },
   criteria: [
     { axis: 'exposure', value: 'ABNORMAL', status: 'CONFIRMED', evidenceIds: [1], reasonCodes: [], nextAction: 'NONE' },
@@ -91,12 +91,12 @@ test('unsupported cross-source and Notion permission assistance never display a 
 test('stale and metadata summaries do not present retained grades as fresh automatic results', () => {
   const stale = render(api.SecretRiskExperience, { ...props, experience: { ...experience, summary: { ...experience.summary, status: 'STALE', severity: 'HIGH' } } })
   assert.match(stale, /다시 확인 필요/)
-  assert.doesNotMatch(stale, /<strong>높음<\/strong>|현재 근거 기준/)
+  assert.doesNotMatch(stale, /<strong>High<\/strong>|현재 근거 기준/)
   const metadata = render(api.SecretRiskExperience, { ...props, experience: { ...experience, summary: { status: 'METADATA_ONLY', reasonCode: 'METADATA_ONLY', ruleId: null, severity: null }, missingFacts: [] } })
   assert.match(metadata, /원문 노출 평가 대상 아님/)
   assert.doesNotMatch(metadata, /<strong>낮음<\/strong>/)
   const held = render(api.SecretRiskExperience, { ...props, experience: { ...experience, summary: { ...experience.summary, severity: 'HIGH', automaticSeverity: null, held: true } } })
-  assert.match(held, /<strong>높음<\/strong>/)
+  assert.match(held, /<strong>High<\/strong>/)
   assert.match(held, /기존 높은 판단 유지/)
   assert.match(held, /최근 자동 평가 미평가/)
 })
@@ -117,7 +117,7 @@ test('current summary, evidence editing and history replace each other instead o
   assert.doesNotMatch(current, /부족한 자료 보완|근거 보완·재평가·독립 검토<\/summary>/)
   const evidence = render(api.SecretRiskPanel, { occurrenceId: 8 }, [[['secret-risk', 8], risk]], '/secrets/12?occurrence=8&riskView=evidence')
   assert.match(evidence, /부족한 자료 보완/)
-  assert.doesNotMatch(evidence, /이 항목만 확인하세요|시크릿 노출 심각도 요약/)
+  assert.doesNotMatch(evidence, /이 항목만 확인하세요|시크릿 노출 위험도 요약/)
   const history = render(api.SecretRiskPanel, { occurrenceId: 8 }, [[['secret-risk', 8], risk], [['secret-assessment-history', 8, 0], { items: [], total: 0, page: 0, size: 20 }]], '/secrets/12?occurrence=8&riskView=history')
   assert.match(history, /저장된 평가 이력이 없어요/)
   assert.doesNotMatch(history, /이 항목만 확인하세요|부족한 자료 보완/)

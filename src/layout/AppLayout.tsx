@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { iacPages } from '@/iac/IacPage'
+import '@/styles/security-workspace.css'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
@@ -10,17 +12,21 @@ import { sanitizedSecretSearchParams, secretSearchErrorMessage } from '@/lib/sec
 import { Icon, type IconName } from '@/components/Icon'
 import { HelpChat } from '@/components/HelpChat'
 import { clearHelpMessages } from '@/lib/helpChat'
-import { infrastructurePaths, LOGIN_PATH, OVERVIEW_PATH, pageTitle, sectionPages } from '@/lib/routes'
+import { LOGIN_PATH, OVERVIEW_PATH, pageTitle } from '@/lib/routes'
 import { isVulnerabilityPath, vulnerabilityPages } from '@/lib/reachRoutes'
 import { codePages, isCodePath } from '@/code/routes'
 import { ME_QUERY_KEY, useMe } from './useMe'
 
+const scrollPositions = new Map<string, number>()
+
 const navigation: Array<{ path: string; icon: IconName; label: string }> = [
   { path: OVERVIEW_PATH, icon: 'grid', label: '통합 현황' },
-  { path: '/secrets', icon: 'key', label: '시크릿' },
-  { path: '/configuration', icon: 'cloud', label: '인프라 보안' },
-  { path: '/vulnerabilities', icon: 'shield', label: '취약점 관리' },
-  { path: '/code', icon: 'code', label: '코드 취약점' },
+  { path: '/secrets', icon: 'key', label: '시크릿 보안' },
+  { path: '/iac', icon: 'cloud', label: 'IaC 보안' },
+  { path: '/vulnerabilities', icon: 'shield', label: '이미지 보안' },
+  { path: '/code', icon: 'code', label: '코드 보안' },
+  { path: '/runtime', icon: 'shield', label: '런타임 보안' },
+  { path: '/configuration', icon: 'list', label: '컴플라이언스' },
   { path: '/reports', icon: 'list', label: '리포트' },
 ]
 
@@ -40,7 +46,14 @@ export function AppLayout() {
   const queryClient = useQueryClient()
   const [menuOpen, setMenuOpen] = useState(false)
   const title = pageTitle(location.pathname)
-  const inInfrastructure = infrastructurePaths.includes(location.pathname)
+  const scrollKey = location.pathname + location.search
+  useLayoutEffect(() => {
+    const frame = requestAnimationFrame(() => window.scrollTo(0, scrollPositions.get(scrollKey) ?? 0))
+    const save = () => scrollPositions.set(scrollKey, window.scrollY)
+    window.addEventListener('scroll', save, { passive: true })
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', save) }
+  }, [scrollKey])
+  const inIac = location.pathname === '/iac' || location.pathname.startsWith('/iac/')
   const inSecrets = location.pathname === '/secrets' || location.pathname.startsWith('/secrets/')
   const inVulnerabilities = isVulnerabilityPath(location.pathname)
   const inCode = isCodePath(location.pathname)
@@ -101,19 +114,22 @@ export function AppLayout() {
         <p className="nav-label">보안 워크스페이스</p>
         <nav aria-label="보안 메뉴">
           {navigation.map((item) => {
-            const isInfrastructure = item.path === '/configuration'
+            const isIac = item.path === '/iac'
             const isSecrets = item.path === '/secrets'
-            const active = isInfrastructure ? inInfrastructure : isSecrets ? inSecrets
+            const hasSubmenu = isSecrets || isIac || item.path === '/vulnerabilities' || item.path === '/code'
+            const submenuId = `submenu-${item.path.slice(1)}`
+            const active = isIac ? inIac : isSecrets ? inSecrets
               : item.path === '/vulnerabilities' ? inVulnerabilities
               : item.path === '/code' ? inCode
               : item.path === '/reports' ? location.pathname.startsWith('/reports') : location.pathname === item.path
             return (
               <div key={item.path}>
-                <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={item.path} end>
+                <NavLink className={`nav-link ${active ? 'active' : ''}`.trim()} to={item.path} end aria-expanded={hasSubmenu ? active : undefined} aria-controls={hasSubmenu ? submenuId : undefined}>
                   <Icon name={item.icon} />
                   {item.label}
                 </NavLink>
-                {isSecrets && inSecrets && (
+                {hasSubmenu && <div id={submenuId} className={`nav-expansion${active ? ' is-open' : ''}`} inert={!active} aria-hidden={!active}><div className="nav-expansion-content">
+                {isSecrets && (
                   <div className="secret-subnav" role="group" aria-label="시크릿 세부 메뉴">
                     {secretNavigation.map((page) => (
                       <Link
@@ -131,31 +147,22 @@ export function AppLayout() {
                     ))}
                   </div>
                 )}
-                {item.path === '/vulnerabilities' && inVulnerabilities &&
+                {item.path === '/vulnerabilities' &&
                   vulnerabilityPages.map((page) => (
-                    <NavLink key={page.path} className={`nav-link sub ${location.pathname === page.path ? 'active' : ''}`.trim()} to={page.path} end>
+                    <NavLink key={page.path} className={`nav-link sub ${(location.pathname === page.path || location.pathname.startsWith(page.path + '/')) && (page.path !== '/vulnerabilities' || location.pathname === page.path) ? 'active' : ''}`.trim()} to={page.path} end>
                       {page.title}
                     </NavLink>
                   ))}
-                {item.path === '/code' && inCode &&
+                {item.path === '/code' &&
                   codePages.map((page) => (
-                    <NavLink key={page.path} className={`nav-link sub ${location.pathname === page.path ? 'active' : ''}`.trim()} to={page.path} end>
+                    <NavLink key={page.path} className={`nav-link sub ${(location.pathname === page.path || location.pathname.startsWith(page.path + '/')) && (page.path !== '/vulnerabilities' || location.pathname === page.path) ? 'active' : ''}`.trim()} to={page.path} end>
                       {page.title}
                     </NavLink>
                   ))}
-                {isInfrastructure &&
-                  active &&
-                  sectionPages
-                    .filter((page) => infrastructurePaths.includes(page.path))
-                    .map((page) => (
-                      <NavLink
-                        key={page.path}
-                        className={`nav-link sub ${location.pathname === page.path ? 'active' : ''}`.trim()}
-                        to={page.path}
-                      >
-                        {page.title}
-                      </NavLink>
-                    ))}
+                {isIac && iacPages.map((page) => (
+                  <NavLink key={page.path} className={`nav-link sub ${location.pathname === page.path || (page.path !== '/iac' && location.pathname.startsWith(page.path + '/')) ? 'active' : ''}`} to={page.path} end>{page.title}</NavLink>
+                ))}
+                </div></div>}
               </div>
             )
           })}
@@ -197,7 +204,8 @@ export function AppLayout() {
             </button>
           </div>
         </header>
-        <main id="main" tabIndex={-1}>
+        <main id="main" className={inSecrets || inIac || inVulnerabilities ? 'security-workspace' : undefined} tabIndex={-1}>
+          {import.meta.env?.VITE_READ_ONLY_PREVIEW === 'true' && <p className="notice page-notice" role="status">로컬 미리보기 · 운영 조회 결과를 임시 보관해 보여줍니다. 저장, 검사 실행 등 운영 데이터를 바꾸는 작업은 차단됩니다.</p>}
           {inSecrets && safeNavigation.get('searchRejected') === '1' && !['/secrets/findings', '/secrets/cases', '/secrets/triage'].includes(location.pathname)
             && <p className="notice error" role="alert">{secretSearchErrorMessage}</p>}
           <Outlet />

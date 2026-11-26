@@ -1,10 +1,11 @@
+import { securitySeverityLabel } from '@/lib/securityLabels'
 import { useCallback, useEffect, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { fetchReachFindings, fetchReachSummary, type ReachBasis, type ReachFindingFilter, type ReachSummary } from '@/api/reach'
 import { EmptyState } from '@/components/EmptyState'
 import { PageHeader } from '@/components/PageHeader'
-import { ReachFindingDrawer } from '@/components/ReachFindingDrawer'
+
 import { ReachFindingTable } from '@/components/ReachFindingTable'
 import { ReachRescanButton } from '@/components/ReachRescanButton'
 import { ReachStatusBadge } from '@/components/ReachBadges'
@@ -24,7 +25,7 @@ import {
 import { VULNERABILITY_FINDINGS_PATH, VULNERABILITY_RULES_PATH, VULNERABILITY_SCANS_PATH, VULNERABILITY_WORKLOADS_PATH } from '@/lib/reachRoutes'
 import './reach.css'
 
-// 취약점 관리(Reach). 사이드바 하위 메뉴로 요약(/vulnerabilities)과 Finding 목록(/vulnerabilities/findings)을 나눈다.
+// 취약점 관리(Reach). 사이드바 하위 메뉴로 요약(/vulnerabilities)과 취약점 목록(/vulnerabilities/findings)을 나눈다.
 // 목록의 필터와 열린 Finding은 주소 쿼리에 둔다 (SCR-02-03 "고른 값은 주소 쿼리에 남는다")
 
 const FILTER_KEYS = ['status', 'severity', 'review', 'deployment', 'l3', 'cve', 'scan'] as const
@@ -86,13 +87,13 @@ function ScopeLine({ summary }: { summary: ReachSummary | undefined }) {
   if (!summary) return null
   const basis = summary.basis
   const text = summary.scope.scanId
-    ? `기준 스캔 #${summary.scope.scanId}`
+    ? `기준 검사 #${summary.scope.scanId}`
     : basis?.applied === 'RUNNING'
-      ? '기준: 앱마다 운영에서 실행 중인 이미지의 스캔(없으면 최신 완료 스캔, PR 검사 제외)'
-      : '기준: 앱마다 최신 완료 스캔(PR 검사 제외)'
+      ? '기준: 앱마다 운영에서 실행 중인 이미지의 검사(없으면 최신 완료 검사, PR 검사 제외)'
+      : '기준: 앱마다 최신 완료 검사(PR 검사 제외)'
   return (
     <p className="caption reach-scope">
-      {/* 대상을 고르지 않으면 앱·대상 종류마다 기준 스캔이 있어 하나가 아니다 (API 명세 3-9 scope, basis) */}
+      {/* 대상을 고르지 않으면 앱·대상 종류마다 기준 검사가 있어 하나가 아니다 (API 명세 3-9 scope, basis) */}
       {text} · 집계 {formatKst(summary.generatedAt)}
     </p>
   )
@@ -117,7 +118,7 @@ function BasisToggle({ basis, onChange }: { basis: ReachBasis; onChange: (basis:
   )
 }
 
-/** 운영 중 기준을 고를 수 없을 때, 실행 중인데 스캔되지 않은 이미지가 있을 때 알린다 */
+/** 운영 중 기준을 고를 수 없을 때, 실행 중인데 검사되지 않은 이미지가 있을 때 알린다 */
 function BasisNotice({ summary, onOpenWorkloads }: { summary: ReachSummary | undefined; onOpenWorkloads: () => void }) {
   const basis = summary?.basis
   if (!basis || basis.requested !== 'RUNNING') return null
@@ -132,9 +133,9 @@ function BasisNotice({ summary, onOpenWorkloads }: { summary: ReachSummary | und
   return (
     <div className="notice reach-unscanned" role="status">
       <p>
-        운영에서 실행 중인데 스캔되지 않은 이미지가 {basis.unscannedRunning.length}개 있어요. 그 앱은 최신 빌드의 스캔으로 대신 집계했어요.
+        운영에서 실행 중인데 검사되지 않은 이미지가 {basis.unscannedRunning.length}개 있어요. 그 앱은 최신 빌드의 검사로 대신 집계했어요.
       </p>
-      <ul>
+      <details className="security-more"><summary>검사되지 않은 이미지 보기</summary><ul>
         {basis.unscannedRunning.map((w) => (
           <li key={`${w.namespace}/${w.name}/${w.container}/${w.imageDigest}`}>
             <strong>{w.app ?? '앱 모름'}</strong> {w.namespace}/{w.name} · {w.imageRepository} @ <code>{w.imageDigest.slice(7, 19)}</code>
@@ -142,8 +143,8 @@ function BasisNotice({ summary, onOpenWorkloads }: { summary: ReachSummary | und
         ))}
       </ul>
       <button type="button" className="btn outline small" onClick={onOpenWorkloads}>
-        워크로드에서 스캔 요청
-      </button>
+        워크로드에서 검사 요청
+      </button></details>
     </div>
   )
 }
@@ -190,7 +191,7 @@ function FilterSelect<T extends string>({ label, values, options, optionLabel, o
   )
 }
 
-/** SCR-01 요약 (/vulnerabilities). 카드·표 칸을 누르면 그 조건으로 Finding 목록을 연다 */
+/** SCR-01 요약 (/vulnerabilities). 카드·표 칸을 누르면 그 조건으로 취약점 목록을 연다 */
 export function VulnerabilitySummaryPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -219,11 +220,11 @@ export function VulnerabilitySummaryPage() {
   return (
     <>
       <PageHeader
-        title="취약점 관리"
-        description="스캐너가 찾은 취약점이 실제로 우리 코드에 닿는지, 판정 근거와 함께 확인하세요."
+        title="이미지 보안"
+        description="발견한 취약점의 호출 가능 여부와 실행 기록을 확인하세요."
         actions={<Link className="btn outline" to="/reports?new=1&part=VULNERABILITY">리포트 만들기</Link>}
       />
-      <SampleNotice parts={[summary.data?.sample ? '요약' : null]} />
+      <SampleNotice parts={[summary.data?.sample ? '현황' : null]} />
       <div className="reach-scope-row">
         <ScopeLine summary={summaryData} />
         <BasisToggle basis={basis} onChange={setBasis} />
@@ -244,7 +245,7 @@ export function VulnerabilitySummaryPage() {
           onOpen={openFindings}
           onNavigate={navigate}
           scanAction={(scanId) => (
-            // 요청한 뒤에는 새 스캔의 상세로 옮긴다. 거기서 진행 상태가 10초마다 갱신된다
+            // 요청한 뒤에는 새 검사의 상세로 옮긴다. 거기서 진행 상태가 10초마다 갱신된다
             <ReachRescanButton key={scanId} scanId={scanId} onCreated={(scan) => navigate(`${VULNERABILITY_SCANS_PATH}?scan=${scan.id}`)} />
           )}
         />
@@ -253,7 +254,7 @@ export function VulnerabilitySummaryPage() {
   )
 }
 
-/** SCR-02 Finding 목록 (/vulnerabilities/findings). 행을 누르면 오른쪽 상세 패널(SCR-03)을 연다 */
+/** SCR-02 취약점 목록 (/vulnerabilities/findings). 행을 누르면 오른쪽 상세 패널(SCR-03)을 연다 */
 export function VulnerabilityFindingsPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -298,13 +299,17 @@ export function VulnerabilityFindingsPage() {
     return () => window.clearTimeout(timer)
   }, [cveInput, filter.cveContains, update])
 
+  if (findingId) {
+    const back = new URLSearchParams(searchParams); back.delete('finding')
+    return <Navigate replace to={`/vulnerabilities/findings/${findingId}`} state={{ from: `/vulnerabilities/findings?${back}` }} />
+  }
   return (
     <>
-      <PageHeader title="Finding 목록" description="판정 상태와 근거로 취약점을 걸러 보세요." />
+      <PageHeader title="취약점 목록" description="판정 상태와 근거로 취약점을 걸러 보세요." />
       <SampleNotice
         parts={[
           summary.data?.sample ? '상태별 개수' : null,
-          findings.data?.pages.some((page) => page.sample) ? 'Finding 목록' : null,
+          findings.data?.pages.some((page) => page.sample) ? '취약점 목록' : null,
         ]}
       />
       <div className="reach-scope-row">
@@ -314,7 +319,7 @@ export function VulnerabilityFindingsPage() {
       {!filter.scanId && <BasisNotice summary={summaryData} onOpenWorkloads={() => navigate(VULNERABILITY_WORKLOADS_PATH)} />}
       {filter.scanId && (
         <p className="notice reach-scan-scope" role="status">
-          스캔 #{filter.scanId}의 결과만 보고 있어요. 위 상태별 개수는 기본 범위 기준이에요.{' '}
+          검사 #{filter.scanId}의 결과만 보고 있어요. 위 상태별 개수는 기본 범위 기준이에요.{' '}
           <button type="button" className="btn outline small" onClick={() => update({ scan: null })}>
             기본 범위로
           </button>
@@ -345,11 +350,12 @@ export function VulnerabilityFindingsPage() {
         <section className="card list-card">
           <div className="toolbar reach-filters">
             <div className="row reach-filter-row">
-              <FilterSelect label="상태" values={filter.status} options={reachStatusOrder} optionLabel={(v) => reachStatusLabel[v]} onChange={setOne('status')} />
-              <FilterSelect label="심각도" values={filter.severity} options={reachSeverityOrder} optionLabel={(v) => v} onChange={setOne('severity')} />
+              <details className="security-filters" open={filtered || undefined}><summary>필터{filtered ? ' · 적용 중' : ''}</summary><div className="row">              <FilterSelect label="상태" values={filter.status} options={reachStatusOrder} optionLabel={(v) => reachStatusLabel[v]} onChange={setOne('status')} />
+              <FilterSelect label="위험도" values={filter.severity} options={reachSeverityOrder} optionLabel={(v) => securitySeverityLabel[v] ?? v} onChange={setOne('severity')} />
               <FilterSelect label="검토 상태" values={filter.reviewState} options={reachReviewOrder} optionLabel={(v) => reachReviewLabel[v]} onChange={setOne('review')} />
               <FilterSelect label="배포 상태" values={filter.deployment} options={reachDeploymentOrder} optionLabel={(v) => reachDeploymentLabel[v]} onChange={setOne('deployment')} />
-              <FilterSelect label="실행(L3)" values={filter.l3 ?? []} options={reachL3Order} optionLabel={(v) => reachL3Label[v]} onChange={setOne('l3')} />
+              <FilterSelect label="실제 실행 기록" values={filter.l3 ?? []} options={reachL3Order} optionLabel={(v) => reachL3Label[v]} onChange={setOne('l3')} />
+</div></details>
               <input
                 className="input reach-cve-input"
                 type="search"
@@ -366,7 +372,7 @@ export function VulnerabilityFindingsPage() {
 
           {findings.isError && (
             <p className="notice error reach-table-notice" role="alert">
-              Finding 목록을 불러오지 못했어요.{' '}
+              취약점 목록을 불러오지 못했어요.{' '}
               <button type="button" className="btn outline small" onClick={() => void findings.refetch()}>
                 다시 시도
               </button>
@@ -377,21 +383,21 @@ export function VulnerabilityFindingsPage() {
 
           {findings.isSuccess && items.length === 0 && (
             filtered ? (
-              <EmptyState title="조건에 맞는 Finding이 없어요" description="필터를 바꾸거나 초기화해 보세요." />
+              <EmptyState title="조건에 맞는 취약점이 없어요" description="필터를 바꾸거나 초기화해 보세요." />
             ) : (
-              <EmptyState title="이 대상에서 찾은 취약점이 없어요" description="스캔 결과가 들어오면 여기에 보여줘요." />
+              <EmptyState title="이 대상에서 찾은 취약점이 없어요" description="검사 결과가 들어오면 여기에 보여줘요." />
             )
           )}
 
           {items.length > 0 && (
             <p className="caption reach-sort-note">
-              운영에서 실행 중인 이미지의 Finding부터 보여 줘요(실행 중 → 확인 못 함 → 실행 안 함). 같은 배포 상태 안에서는
-              도달 가능 → 미확인 → 도달 불가 → 분석 대상 아님, 그다음 심각도·CVE 순이에요.
+              운영에서 실행 중인 이미지의 취약점부터 보여 줘요(실행 중 → 확인 못 함 → 실행 안 함). 같은 배포 상태 안에서는
+              호출 가능 → 미확인 → 취약 조건 미충족 → 분석 대상 아님, 그다음 위험도·CVE 순이에요.
             </p>
           )}
 
           {items.length > 0 && (
-            <ReachFindingTable items={items} onSelect={(id) => update({ finding: String(id) }, { replace: true })} />
+            <ReachFindingTable items={items} onSelect={(id) => navigate(`/vulnerabilities/findings/${id}`, { state: { from: `/vulnerabilities/findings?${searchParams}` } })} />
           )}
 
           {items.length > 0 && (
@@ -413,12 +419,7 @@ export function VulnerabilityFindingsPage() {
       </div>
 
       {/* 상세 패널은 열고 닫을 때 방문 기록을 남기지 않는다 (뒤로 가기가 패널을 다시 열지 않게) */}
-      <ReachFindingDrawer
-        findingId={findingId}
-        onClose={() => update({ finding: null }, { replace: true })}
-        onShowSameCve={(cve) => setSearchParams(new URLSearchParams({ cve }))}
-        onOpenVulnFunctions={(cve) => navigate(`${VULNERABILITY_RULES_PATH}?${new URLSearchParams({ tab: 'functions', cve })}`)}
-      />
+
     </>
   )
 }

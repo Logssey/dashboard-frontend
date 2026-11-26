@@ -70,13 +70,13 @@ test('an empty unified work queue provides discovery and history entry without f
 test('severity exclusions use only the server count and stay separate from graded cases', () => {
   const data = { ...summary, caseSummary: { ...summary.caseSummary, severityStatus: 'AVAILABLE', severityCounts: { CRITICAL: 0, HIGH: 1, MEDIUM: 0, LOW: 0, UNASSESSED: 0 }, notApplicableCaseCount: 2 } }
   const html = render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], data]])
-  assert.match(html, /심각도 평가 대상 외.*?2.*?건.*?등급 분포에서 제외/)
+  assert.match(html, /위험도 평가 대상 외.*?2.*?건.*?등급 분포에서 제외/)
   for (const value of [null, undefined, -1, 1.5]) {
     const unavailable = { ...data, caseSummary: { ...data.caseSummary, notApplicableCaseCount: value } }
-    assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], unavailable]]), /심각도 평가 대상 외/)
+    assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], unavailable]]), /위험도 평가 대상 외/)
   }
   const denied = { ...data, caseSummary: { ...data.caseSummary, severityStatus: 'NOT_AUTHORIZED' } }
-  assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], denied]]), /심각도 평가 대상 외/)
+  assert.doesNotMatch(render(modules.overview.SecretOverviewPage, `/secrets?${query}`, [[['secret-summary', filters], denied]]), /위험도 평가 대상 외/)
 })
 test('denied metrics are unavailable rather than a clickable zero', () => {
   const denied = { ...summary, metrics: [metric('needsDecisionLocations', 'Occurrence', null, 'NOT_AUTHORIZED')], workPreviews: { response: { status: 'NOT_AUTHORIZED', items: [], total: null, snapshotId }, decision: { status: 'NOT_AUTHORIZED', items: [], total: null, snapshotId }, revalidation: { status: 'NOT_AUTHORIZED', items: [], total: null, snapshotId } }, collectionHealth: { status: 'NOT_AUTHORIZED' }, setupSummary: { status: 'NOT_AUTHORIZED' }, normalInventory: { status: 'NOT_AUTHORIZED', value: null }, crossEnvironmentAlerts: { status: 'NOT_AUTHORIZED', value: null, items: [] }, caseSummary: { status: 'NOT_AUTHORIZED', actionCounts: null, severityStatus: 'LEGACY_UNAVAILABLE' } }

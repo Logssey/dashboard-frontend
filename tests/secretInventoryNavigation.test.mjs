@@ -50,7 +50,7 @@ test('key detail keeps inventory snapshot, origin, filters and page with an allo
   assert.equal(inventoryReturnPath(new URLSearchParams('origin=evil'), 12), '/secrets/findings')
 })
 test('independent key detail displays present, missing and unknown together without declaring resolution', () => {
-  const params = new URLSearchParams('origin=TEST&detailVersion=v1&occurrence=2')
+  const params = new URLSearchParams('origin=TEST&detailVersion=v1&occurrence=2&locationPanel=closed')
   const { filters } = parseLocationFilters(params)
   const locations = { credentialSetId: 12, credential: item, detailVersion: 'v1', items: [location(1, 'PRESENT'), location(2, 'MISSING'), location(3, 'UNKNOWN')], total: 3, visibleLocationCount: 3, page: 0, size: 20, origin: 'TEST', locationStateCounts: { presence: { PRESENT: 1, MISSING: 1, UNKNOWN: 1 }, exposure: { UNKNOWN: 3 } }, restrictedCoverage: true, readAt: '2026-10-21T01:00:00Z' }
   const html = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [
@@ -65,6 +65,7 @@ test('independent key detail displays present, missing and unknown together with
   assert.doesNotMatch(html, /해결에 필요한 근거|조치 후 위치 미발견<\/dt>/)
   assert.doesNotMatch(html, /must-not-render|키 전체 노출|해결 완료<\/button>|원문 보기/)
   const linked = { ...locations, items: locations.items.map((row) => row.occurrenceId === 2 ? { ...row, caseId: 7, capabilities: { ...row.capabilities, canViewCase: true } } : row) }
+  params.delete('locationPanel')
   const linkedHtml = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [
     [['secret-detail', 12, 'ALL'], item], [['secret-key-locations', 12, filters, 0], linked],
   ])
@@ -129,7 +130,8 @@ test('keys without a current case expose a closed provider procedure after the e
     assert.equal(client.getQueryCache().getAll().some((query) => ['secret-case-guide', 'secret-case'].includes(query.queryKey[0])), false)
     client.clear()
     const linked = { ...key, currentCaseId: 7, casesByOrigin: [{ origin: 'TEST', caseId: 7 }] }
-    const linkedHtml = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [[['secret-detail', 12, 'ALL'], linked], [['secret-key-locations', 12, filters, 0], { ...locations, credential: linked }]])
+    params.delete('locationPanel')
+  const linkedHtml = renderPage(SecretKeyDetailPage, '/secrets/:secretId', `/secrets/12?${params}`, [[['secret-detail', 12, 'ALL'], linked], [['secret-key-locations', 12, filters, 0], { ...locations, credential: linked }]])
     assert.doesNotMatch(linkedHtml, /secret-key-action-guide/)
   }
 })

@@ -77,7 +77,7 @@ test('unassigned location opens its actual assignment while coordinator manageme
   assert.match(location, /<details[^>]* open=""><summary>이 위치의 담당자/)
   const coordinator = render(modules.workflow.SecretCaseAssignment, { detail }, seeds)
   assert.doesNotMatch(coordinator, /<details[^>]* open=/)
-  assert.match(coordinator, /대응 담당자 지정·변경/)
+  assert.match(coordinator, /대응 담당자 변경/)
 })
 test('case workspace keeps progress visible and puts selected location work before supporting records', () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } } })
@@ -95,7 +95,7 @@ test('case workspace keeps progress visible and puts selected location work befo
   assert.match(html, /fixtures\/config.env/)
   assert.match(html, /12번째 줄/)
   assert.ok(html.indexOf('fixtures/config.env') < html.indexOf('수행한 조치 기록'))
-  assert.doesNotMatch(html, /이 위치의 담당자 지정·변경/)
+  assert.doesNotMatch(html, /이 위치의 담당자 변경/)
   client.clear()
 })
 test('manual lifecycle approval is visibly distinct from provider verification', () => {

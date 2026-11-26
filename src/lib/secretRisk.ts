@@ -7,12 +7,12 @@ export const riskReasonLabels: Record<string, string> = {
   ASSET_CLASSIFICATION_UNKNOWN: '대상 자원의 운영·민감도 분류가 필요해요.', UNSUPPORTED_IMPACT_ANALYSIS: '이 유형의 영향 자동 분석은 지원하지 않아요.',
   STALE_EVIDENCE: '근거의 확인 기한이 지났어요.', TIME_UNCERTAIN: '근거의 관측 시각을 확인해야 해요.', CONFLICTING_EVIDENCE: '같은 사실에 대한 근거가 서로 충돌해요.',
   EXPOSURE_INCIDENT_CONFLICT: '정상 보관 주장과 연결된 사고 근거가 충돌해 재검토가 필요해요.', DOWNGRADE_REVIEW_REQUIRED: '기존 높은 등급을 낮추기 전에 반증과 독립 검토가 필요해요.',
-  STALE_BASELINE: '평가 기준이 바뀌어 최신 근거로 다시 평가해야 해요.', METADATA_ONLY: '메타데이터만 확인해 심각도 평가 대상이 아니에요.',
+  STALE_BASELINE: '평가 기준이 바뀌어 최신 근거로 다시 평가해야 해요.', METADATA_ONLY: '메타데이터만 확인해 위험도 평가 대상이 아니에요.',
   OVERRIDE_EXPIRED_REVIEW_REQUIRED: '수동 판단의 기간이 끝났어요. 기존 높은 등급의 하향 검토는 별도로 필요해요.', INVESTIGATE_CONFLICT: '충돌하는 근거 재검토',
   ABUSE_LINKAGE_UNVERIFIED: '제출한 사고 자료를 실제 키·노출에 연결할 자동 확인을 지원하지 않아요. 자료 수용만으로 악용 확인이나 CRITICAL이 되지 않아요.',
   REVIEW_EVIDENCE: '부족한 근거 확인', SUBMIT_EVIDENCE: '자료 보완', REQUEST_ASSESSMENT: '현재 근거로 다시 평가', REVIEW_OVERRIDE: '수동 판단 검토',
   CONFIRMED_INCIDENT: '해당 노출에 연결된 중대한 악용이 확인됐어요.',
-  INITIAL_ASSESSMENT_REQUIRED: '이 위치는 아직 심각도를 평가하지 않았어요.',
+  INITIAL_ASSESSMENT_REQUIRED: '이 위치는 아직 위험도를 평가하지 않았어요.',
   EVIDENCE_APPLICABILITY_UNCONFIRMED: '발견 당시에도 적용되는 사실인지 확인이 필요해요.',
   EVIDENCE_APPLICABILITY_MISMATCH: '자료의 적용 기간에 원문이 관찰된 시각이 포함되지 않아요.',
   SOURCE_REVISION_UNCONFIRMED: '자료와 원문 버전의 연결을 확인해야 해요.',
@@ -29,8 +29,8 @@ export const riskReasonLabels: Record<string, string> = {
 }
 export const riskReason = (code: string) => Object.hasOwn(riskReasonLabels, code) ? riskReasonLabels[code] : '판단에 필요한 근거 또는 적용 조건을 확인해 주세요.'
 export function severityText(severity?: string | null, status?: AssessmentStatus | string): string {
-  if (status === 'NOT_APPLICABLE') return '심각도 적용 대상 아님'
-  return ({ CRITICAL: '치명적', HIGH: '높음', MEDIUM: '보통', LOW: '낮음' } as Record<string, string>)[severity ?? ''] ?? '미평가'
+  if (status === 'NOT_APPLICABLE') return '위험도 적용 대상 아님'
+  return ({ CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' } as Record<string, string>)[severity ?? ''] ?? '미평가'
 }
 export const riskAxisLabels: Record<string, string> = { exposure: '보관·공유 적정성', exposureRange: '접근 가능 범위', credential: '키 구성 확인', impact: '권한과 자원 영향', abuse: '중대한 사고 근거', validity: '현재 인증 상태' }
 const axisValues: Record<string, Record<string, string>> = {

@@ -22,7 +22,7 @@ const reasonLabels: Record<string, string> = {
   RESTRICTIONS_UNKNOWN: '적용 제한을 확인하지 못했어요.', TARGETS_UNKNOWN: '접근 가능한 전체 대상을 확인하지 못했어요.',
   CLASSIFICATION_UNKNOWN: '대상 자산의 중요도 분류가 필요해요.', HUMAN_CONFIRMATION_REQUIRED: '수동 검토를 거쳐야 평가 근거로 사용할 수 있어요.',
   READ_ONLY_OBSERVATION: '권한 조회 자료이며 실제 접근·영향을 확정하지 않아요.', PARTIAL_POLICY_VISIBILITY: '권한 정책의 일부만 확인했어요.',
-  ACTIVE_REQUEST_EXISTS: '진행 중인 요청의 결과를 먼저 확인하세요.', SYNTHETIC_FIXTURE: '합성 표본에는 실제 공급자 권한 조회를 실행하지 않아요.',
+  ACTIVE_REQUEST_EXISTS: '진행 중인 요청의 결과를 먼저 확인하세요.', SYNTHETIC_FIXTURE: '테스트용 키에는 실제 공급자 권한 조회를 실행하지 않아요.',
   WORKER_NOT_CONFIGURED: '권한 조회 워커가 꺼져 있어요. 운영 담당자에게 실행 설정을 확인하세요.', SECURITY_REQUIRED: '이 위치의 보안 담당자에게 권한 자료 검토를 요청하세요.',
   UNSUPPORTED_TYPE: '이 키 유형은 현재 권한 정보를 자동으로 가져올 수 없어요. 근거 보완에서 확인 자료를 기록하세요.',
   COMPLETE_IDENTITY_REQUIRED: '키 구성이 완전하지 않아요. 원천에서 필요한 구성요소를 확인하세요.', FRESH_IDENTITY_VALIDATION_REQUIRED: '현재 키의 유효성을 먼저 확인해 주체를 연결하세요.',
@@ -32,7 +32,7 @@ const reasonLabels: Record<string, string> = {
   COLLECTOR_APPROVAL_CHANGED: '조회 연결의 승인 범위가 바뀌었어요. 현재 조건에서 자료를 다시 가져오세요.',
   AUTOMATIC_IMPACT_UNSUPPORTED: '권한 자료를 자동으로 읽어도 실제 영향도와 등급은 자동 확정하지 않아요.',
   ASSET_CLASSIFICATION_REQUIRED: '현재 자산 분류 자료를 먼저 등록·수용하세요.', PERMISSION_ASSERTION_REQUIRED: '추가 조사에서 권한·대상 확인 자료를 등록·수용하세요.',
-  RESTRICTION_PROOF_REQUIRED: '추가 조사에서 제한 조건 확인 자료를 등록·수용하세요.', IDENTITY_PROOF_REQUIRED: '현재 키의 유효성 확인이 필요해요.',
+  RESTRICTION_PROOF_REQUIRED: '추가 조사에서 제한 조건 확인 자료를 등록·수용하세요.', IDENTITY_PROOF_REQUIRED: '현재 키의 키 인증 확인이 필요해요.',
   EFFECTIVE_PERMISSION_NOT_PROVEN: '정책의 허용 구문을 읽었으며 실제 허용 권한을 확정한 결과는 아니에요.',
   ORGANIZATION_LIMITS_UNOBSERVED: '조직 정책이 추가로 제한하는 범위를 확인하지 못했어요.', RESOURCE_POLICY_UNOBSERVED: '리소스 자체의 접근 정책은 함께 평가하지 않았어요.',
   SESSION_POLICY_UNOBSERVED: '임시 세션에 붙은 추가 제한을 확인하지 못했어요.', POLICY_DOCUMENT_LIMIT: '정책 문서의 처리 한도를 넘어 일부만 확인했어요.',
@@ -65,7 +65,7 @@ export function permissionPrerequisites(context: PermissionAssistance, collector
     COLLECT_COMPLETE_CREDENTIAL: '현재 위치의 키 구성요소가 부족해요. 승인된 원천에서 같은 구성의 키 쌍과 필요한 세션 토큰을 확인하세요.',
     REVIEW_CONNECTION: '현재 위치의 원천 연결과 검사 범위가 활성 상태이고 열람 가능한지 확인하세요.',
   }
-  const blocker = isSynthetic ? '합성 표본에는 실제 공급자 권한 조회를 실행하지 않아요.'
+  const blocker = isSynthetic ? '테스트용 키에는 실제 공급자 권한 조회를 실행하지 않아요.'
     : (Object.hasOwn(actionHelp, context.requestReadiness?.nextAction ?? '') ? actionHelp[context.requestReadiness!.nextAction] : '') || (
     !supported ? '이 키 유형은 자동 권한 조회를 지원하지 않아요. 확인한 자료를 직접 기록하세요.'
       : !identityReady ? '1단계에서 현재 위치의 키 유효성을 확인하세요. 인증한 주체가 연결되어야 다음 단계로 진행할 수 있어요.'

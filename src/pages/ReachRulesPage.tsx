@@ -42,8 +42,8 @@ const RULE_DATA_QUERY_KEY = ['reach-rule-data']
 const RULE_FINDINGS_QUERY_KEY = ['reach-rule-findings']
 
 const stepLabel: Record<EvaluationStep, string> = {
-  REACHABLE: '도달 가능',
-  UNREACHABLE: '도달 불가',
+  REACHABLE: '호출 가능',
+  UNREACHABLE: '취약 조건 미충족',
   UNKNOWN: '미확인',
   DEFAULT: '기본값',
 }
@@ -157,7 +157,7 @@ function RuleList({
           <tr>
             <th scope="col">규칙</th>
             <th scope="col">방식</th>
-            <th scope="col" title="기본 범위(앱마다 최신 완료 스캔)에서 이 규칙이 적용되는 Finding 수">
+            <th scope="col" title="기본 범위(앱마다 최신 완료 검사)에서 이 규칙이 적용되는 취약점 수">
               적용 Finding
             </th>
           </tr>
@@ -209,7 +209,7 @@ function RuleDetail({ rule, data, findings }: { rule: ReachRule; data: ReachRule
       <div className="reach-section">
         <h4>평가 순서</h4>
         <EvaluationTable rule={rule} />
-        <p className="caption">위에서부터 처음 맞는 줄이 판정이에요. 어느 줄로 판정됐는지는 Finding 상세의 적용 규칙에서 볼 수 있어요.</p>
+        <p className="caption">위에서부터 처음 맞는 줄이 판정이에요. 어느 줄로 판정됐는지는 취약점 상세의 적용 규칙에서 볼 수 있어요.</p>
       </div>
 
       <div className="reach-section">
@@ -248,9 +248,9 @@ function RuleDetail({ rule, data, findings }: { rule: ReachRule; data: ReachRule
       <div className="reach-section">
         <h4>적용 Finding</h4>
         {applied === null ? (
-          <p className="caption">Finding을 불러오지 못해 적용 Finding을 보여줄 수 없어요.</p>
+          <p className="caption">취약점을 불러오지 못해 적용 취약점을 보여줄 수 없어요.</p>
         ) : applied.length === 0 ? (
-          <p className="caption">이 규칙을 쓴 Finding이 아직 없어요.</p>
+          <p className="caption">이 규칙을 쓴 취약점이 아직 없어요.</p>
         ) : (
           <ul className="reach-applied">
             {applied.map((finding) => (
@@ -540,7 +540,7 @@ export function VulnerabilityRulesPage() {
       />
       {findings.data?.sample && (
         <p className="notice page-notice" role="status">
-          백엔드에 Finding 목록 API(API-04)가 없어 적용 Finding은 명세 예시 값으로 세고 있어요.
+          백엔드에 취약점 목록 API(API-04)가 없어 적용 Finding은 명세 예시 값으로 세고 있어요.
         </p>
       )}
 

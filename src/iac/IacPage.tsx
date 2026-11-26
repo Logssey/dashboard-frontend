@@ -1,6 +1,6 @@
-import { Fragment, useState } from 'react'
+import { Fragment } from 'react'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/Badge'
 import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/Icon'
@@ -8,8 +8,6 @@ import { PageHeader } from '@/components/PageHeader'
 import { fetchIacPaths, fetchIacPullRequests, fetchIacSummary, triggerIacJob } from './api'
 import { GateSection } from './GateSection'
 import { JobSection } from './JobSection'
-import { PathDrawer } from './PathDrawer'
-import { PullRequestDrawer } from './PullRequestDrawer'
 import { RemediationSection } from './RemediationSection'
 import { StateSection } from './StateSection'
 import {
@@ -29,18 +27,18 @@ function metricValue(value: number | null | undefined) {
   return value === null || value === undefined ? '—' : value
 }
 
-/** B 지표를 누르면 해당 영역 제목으로 옮기고 포커스를 준다 (키보드·스크린 리더도 같은 곳으로) */
-function goToSection(event: React.MouseEvent<HTMLAnchorElement>, id: string) {
-  const target = document.getElementById(id)
-  if (!target) return
-  event.preventDefault()
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
-  target.focus({ preventScroll: true })
-}
 
 /** IaC 보안 탭 (S-01, security-solution-docs iac-security dashboard-flow). 계산은 백엔드가 하고 화면은 보여주기만 한다 */
+export const iacPages = [
+  { path: '/iac', title: '현황' }, { path: '/iac/prs', title: 'PR 검사' },
+  { path: '/iac/paths', title: '현재 공격 경로' }, { path: '/iac/changes', title: '변경 감시' },
+  { path: '/iac/checks', title: '검사 이력' },
+]
 export function IacPage() {
+  const location = useLocation(), navigate = useNavigate()
+  const view = location.pathname.split('/')[2] || 'overview'
+  const openDetail = (kind: string, id: number) => navigate(`/iac/${kind}/${id}`, { state: { from: location.pathname + location.search } })
+
   const summary = useQuery({ queryKey: ['iac', 'summary'], queryFn: fetchIacSummary })
   const paths = useInfiniteQuery({
     queryKey: ['iac', 'paths', 'OPEN'],
@@ -49,9 +47,9 @@ export function IacPage() {
     getNextPageParam: (last) => last.nextCursor,
   })
   const openPaths = paths.data?.pages.flatMap((page) => page.items) ?? []
-  const [selectedPathId, setSelectedPathId] = useState<number | null>(null)
+
   const pullRequests = useQuery({ queryKey: ['iac', 'prs'], queryFn: fetchIacPullRequests })
-  const [selectedPr, setSelectedPr] = useState<number | null>(null)
+
   const queryClient = useQueryClient()
   // 수집(COLLECT_GRAPH)은 배포된 클러스터에서만 돌릴 수 있어, 지금 있는 그래프로 경로와 State 를 다시 계산한다
   const checkNow = useMutation({
@@ -61,7 +59,7 @@ export function IacPage() {
 
   return (
     <>
-      <PageHeader title="IaC 보안" description="인프라 코드 변경이 만드는 공격 경로와 State·드리프트를 확인하세요." />
+      <PageHeader title={view === 'overview' ? 'IaC 보안' : iacPages.find((page) => page.path === location.pathname)?.title ?? 'IaC 보안'} description="인프라 코드 변경이 만드는 공격 경로와 상태 파일의 접근 권한을 확인하세요." />
 
       {/* A 상단 상태줄 */}
       <div className="iac-status-bar">
@@ -69,15 +67,15 @@ export function IacPage() {
         <span className="caption">마지막 전체 점검 {formatDateTime(summary.data?.lastFullCheckAt ?? null)}</span>
         <span className="caption">그래프 기준 {formatDateTime(summary.data?.graphAsOf ?? null)}</span>
         <div className="iac-status-actions">
-          <a className="btn outline" href={IAC_POLICY_URL} target="_blank" rel="noopener noreferrer">규칙 보기</a>
-          <Link className="btn outline" to="/reports?new=1&part=IAC">리포트 만들기</Link>
+          <details className="security-more"><summary>추가 작업</summary><a className="btn outline" href={IAC_POLICY_URL} target="_blank" rel="noopener noreferrer">규칙 보기</a>
+          <Link className="btn outline" to="/reports?new=1&part=IAC">리포트 만들기</Link></details>
           <button className="btn primary" onClick={() => checkNow.mutate()} disabled={checkNow.isPending}>
             {checkNow.isPending ? '등록 중…' : '지금 점검'}
           </button>
         </div>
       </div>
       {checkNow.isSuccess && (
-        <p className="notice page-notice" role="status">점검을 등록했어요. 아래 "검사 주기와 상태"에서 진행을 볼 수 있어요.</p>
+        <p className="notice page-notice" role="status">점검을 등록했어요. 검사 이력 메뉴에서 진행 상태를 확인하세요.</p>
       )}
       {checkNow.isError && <p className="notice error page-notice" role="alert">점검을 등록하지 못했어요.</p>}
       {summary.data?.graphStale && (
@@ -89,31 +87,31 @@ export function IacPage() {
 
       <div className="stack">
         {/* B 지표 4개 */}
-        <section aria-label="IaC 지표">
+        {view === 'overview' && <section aria-label="IaC 지표">
           <div className="iac-metrics">
-            <a className="card iac-metric" href="#iac-paths-title" onClick={(e) => goToSection(e, 'iac-paths-title')}>
+            <Link className="card iac-metric" to="/iac/paths">
               <span className="caption">1등급까지 열린 경로</span>
               <strong>{summary.isPending ? '—' : metricValue(summary.data?.metrics.tier1OpenPaths)}<small>개</small></strong>
               <span className="caption">전체 열린 경로 {metricValue(summary.data?.metrics.openPaths)}개</span>
-            </a>
-            <a className="card iac-metric" href="#iac-state-title" onClick={(e) => goToSection(e, 'iac-state-title')}>
-              <span className="caption">실제 드리프트</span>
+            </Link>
+            <Link className="card iac-metric" to="/iac/changes">
+              <span className="caption">코드 밖 설정 변경</span>
               <strong>{metricValue(summary.data?.metrics.drifts)}<small>건</small></strong>
               <span className="caption">코드 밖에서 바뀐 리소스 (노이즈 제외)</span>
-            </a>
-            <a className="card iac-metric" href="#iac-state-title" onClick={(e) => goToSection(e, 'iac-state-title')}>
-              <span className="caption">State 속 실제 시크릿</span>
+            </Link>
+            <Link className="card iac-metric" to="/iac/changes">
+              <span className="caption">상태 파일에 포함된 시크릿</span>
               <strong>{metricValue(summary.data?.metrics.stateSecrets)}<small>건</small></strong>
               <span className="caption">tfstate 에 평문으로 남은 값</span>
-            </a>
-            <a className="card iac-metric" href="#iac-gates-title" onClick={(e) => goToSection(e, 'iac-gates-title')}>
+            </Link>
+            <Link className="card iac-metric" to="/iac/checks">
               <span className="caption">plan 전 검사 위반 (main 기준)</span>
               <strong>{metricValue(summary.data?.metrics.gateViolations)}<small>건</small></strong>
               <span className="caption">plan 전 검사에서 걸린 규칙</span>
-            </a>
+            </Link>
           </div>
           {summary.data && (
-            <div className="iac-severity-row" aria-label="열린 발견 건 심각도별 건수">
+            <div className="iac-severity-row" aria-label="열린 발견 건 위험도별 건수">
               {severities.map((severity) => (
                 <Badge key={severity} label={`${severityLabel[severity]} ${summary.data.severityCounts[severity] ?? 0}`}
                   tone={severityTone[severity]} />
@@ -122,8 +120,9 @@ export function IacPage() {
           )}
         </section>
 
+        }
         {/* C 지금 열린 공격 경로 */}
-        <section className="card list-card" aria-labelledby="iac-paths-title">
+        {view === 'paths' && <section className="card list-card" aria-labelledby="iac-paths-title">
           <div className="card-head">
             <h2 id="iac-paths-title" tabIndex={-1}>지금 열린 공격 경로</h2>
             <span className="caption">인터넷에서 등급이 매겨진 데이터까지 · 6단계 이내</span>
@@ -136,7 +135,7 @@ export function IacPage() {
             <EmptyState title="1등급 데이터까지 열린 경로 없음"
               description={`마지막 계산 ${formatDateTime(summary.data?.lastFullCheckAt ?? null)}`} />
           ) : (
-            <PathTable items={openPaths} onSelect={setSelectedPathId} />
+            <PathTable items={openPaths} onSelect={(id) => openDetail('paths', id)} />
           )}
           {paths.hasNextPage && (
             <div className="table-foot">
@@ -147,8 +146,9 @@ export function IacPage() {
           )}
         </section>
 
+        }
         {/* D PR 경로 미리보기 */}
-        <section className="card list-card" aria-labelledby="iac-prs-title">
+        {(view === 'prs' || view === 'overview') && <section className="card list-card" aria-labelledby="iac-prs-title">
           <div className="card-head">
             <h2 id="iac-prs-title">PR 검사 결과</h2>
             <span className="caption">PR 마다 최신 커밋 기준 · 최근 50개</span>
@@ -158,26 +158,25 @@ export function IacPage() {
           ) : pullRequests.isError ? (
             <p className="notice error iac-card-body">PR 검사 결과를 불러오지 못했어요.</p>
           ) : pullRequests.data.length === 0 ? (
-            <EmptyState title="검사한 PR 없음" description="인프라 레포에 PR 이 올라오면 여기에 판정이 보여요." />
+            <EmptyState title="검사한 PR 없음" description="인프라 저장소에 PR 이 올라오면 여기에 판정이 보여요." />
           ) : (
-            <PullRequestTable items={pullRequests.data} onSelect={setSelectedPr} />
+            <PullRequestTable items={pullRequests.data} onSelect={(id) => openDetail('prs', id)} />
           )}
         </section>
 
+        }
         {/* E plan 전 검사 */}
-        <GateSection />
+        {view === 'checks' && <GateSection />}
 
-        {/* F State·드리프트 */}
-        <StateSection />
+        {/* F 상태 파일과 설정 변경 */}
+        {view === 'changes' && <StateSection />}
 
         {/* G 할 수 있는 조치 */}
-        <RemediationSection />
+        {view === 'paths' && <RemediationSection />}
 
         {/* H 검사 주기와 상태 */}
-        <JobSection />
+        {view === 'checks' && <JobSection />}
       </div>
-      <PathDrawer pathId={selectedPathId} onClose={() => setSelectedPathId(null)} />
-      <PullRequestDrawer number={selectedPr} onClose={() => setSelectedPr(null)} />
     </>
   )
 }
@@ -188,7 +187,7 @@ function PathTable({ items, onSelect }: { items: IacPath[]; onSelect: (pathId: n
       <table>
         <thead>
           <tr>
-            <th scope="col">심각도</th>
+            <th scope="col">위험도</th>
             <th scope="col">경로</th>
             <th scope="col">대상</th>
             <th scope="col">마지막 확인</th>
@@ -223,8 +222,8 @@ function PathTable({ items, onSelect }: { items: IacPath[]; onSelect: (pathId: n
               </td>
               <td className="muted">{formatDateTime(path.lastSeenAt)}</td>
               <td>
-                <button className="btn iac-nowrap" onClick={() => onSelect(path.pathId)} aria-label={`경로 #${path.pathId} 끊을 지점 보기`}>
-                  끊을 지점
+                <button className="btn iac-nowrap" onClick={() => onSelect(path.pathId)} aria-label={`경로 #${path.pathId} 수정할 지점 보기`}>
+                  수정할 지점
                 </button>
               </td>
             </tr>

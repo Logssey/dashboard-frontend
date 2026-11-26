@@ -10,10 +10,27 @@ import type { IacDrift } from './types'
 
 type Feedback = { kind: 'success' | 'error'; message: string }
 
+function AssigneeEditor({ drift, userId, busy, onSave }: { drift: IacDrift; userId: number | null; busy: boolean; onSave: (toMe: boolean) => void }) {
+  const [choice, setChoice] = useState('')
+  const mine = userId !== null && drift.assigneeUserId === userId
+  return <div>
+    <span>{drift.assigneeUserId === null ? '미지정' : mine ? '나' : `사용자 #${drift.assigneeUserId}`}</span>
+    <details className="security-more"><summary>담당자 변경</summary>
+      <div className="security-assignment-form">
+        <label className="field">담당자<select className="select" value={choice} onChange={(event) => setChoice(event.target.value)} disabled={busy || userId === null}>
+          <option value="">담당자 선택</option><option value="me">나</option><option value="unassigned">지정 해제</option>
+        </select></label>
+        <p className="caption">현재는 본인 지정과 담당 해제를 지원합니다.</p>
+        <button className="btn primary" disabled={busy || userId === null || !choice || (choice === 'me' ? mine : drift.assigneeUserId === null)} onClick={() => onSave(choice === 'me')}>{busy ? '저장 중…' : '담당자 저장'}</button>
+      </div>
+    </details>
+  </div>
+}
+
 /** 아직 계산하지 않는 값은 0 이 아니라 — 로 둔다 */
 const countText = (value: number | null) => (value === null ? '—' : `${value}개`)
 
-/** State·드리프트 (S-01 F). 드리프트는 속성 이름만 보여주고 값은 다루지 않는다 */
+/** 상태 파일과 설정 변경 (S-01 F). 드리프트는 속성 이름만 보여주고 값은 다루지 않는다 */
 export function StateSection() {
   const queryClient = useQueryClient()
   const me = useMe()
@@ -48,7 +65,7 @@ export function StateSection() {
   return (
     <section className="card list-card" aria-labelledby="iac-state-title">
       <div className="card-head">
-        <h2 id="iac-state-title" tabIndex={-1}>State·드리프트</h2>
+        <h2 id="iac-state-title" tabIndex={-1}>상태 파일과 설정 변경</h2>
         <span className="caption">State 점검 {formatDateTime(state.data?.checkedAt ?? null)}</span>
       </div>
 
@@ -86,7 +103,7 @@ export function StateSection() {
         )}
       </div>
 
-      <h3 className="iac-subhead">열린 드리프트</h3>
+      <h3 className="iac-subhead">확인이 필요한 설정 변경</h3>
       {feedback && (
         <p className={`notice iac-card-body${feedback.kind === 'error' ? ' error' : ''}`} role={feedback.kind === 'error' ? 'alert' : 'status'}>
           {feedback.message}
@@ -99,9 +116,9 @@ export function StateSection() {
       ) : drifts.data.length === 0 && jobs.isSuccess && !driftChecked ? (
         <EmptyState title="드리프트 점검 기록 없음" description="main 매일 점검(iac-drift)이 한 번 돌면 코드 밖에서 바뀐 리소스가 여기에 보여요." />
       ) : drifts.data.length === 0 ? (
-        <EmptyState title="열린 드리프트 없음" description="코드 밖에서 바뀐 리소스가 없어요. 태그·노이즈 속성 변경은 빼고 셉니다." />
+        <EmptyState title="확인이 필요한 설정 변경 없음" description="코드 밖에서 바뀐 리소스가 없어요. 태그·노이즈 속성 변경은 빼고 셉니다." />
       ) : (
-        <div className="table-scroll" tabIndex={0} role="region" aria-label="열린 드리프트 표. 좁은 화면에서는 가로로 스크롤하세요.">
+        <div className="table-scroll" tabIndex={0} role="region" aria-label="확인이 필요한 설정 변경 표. 좁은 화면에서는 가로로 스크롤하세요.">
           <table>
             <thead>
               <tr>
@@ -115,7 +132,6 @@ export function StateSection() {
             <tbody>
               {drifts.data.map((drift) => {
                 const level = driftLevel[drift.ruleId] ?? { label: drift.ruleId, tone: '' }
-                const mine = myId !== null && drift.assigneeUserId === myId
                 const busy = assign.isPending && assign.variables?.drift.findingId === drift.findingId
                 return (
                   <tr key={drift.findingId}>
@@ -132,20 +148,7 @@ export function StateSection() {
                     <td>{drift.attributes.length > 0 ? drift.attributes.join(', ') : <span className="muted">—</span>}</td>
                     <td className="muted">{formatDateTime(drift.lastSeenAt)}</td>
                     <td>
-                      <div className="row">
-                        <span className={drift.assigneeUserId === null ? 'muted' : undefined}>
-                          {drift.assigneeUserId === null ? '없음' : mine ? '나' : `사용자 #${drift.assigneeUserId}`}
-                        </span>
-                        {mine ? (
-                          <button className="btn iac-nowrap" disabled={busy} onClick={() => assign.mutate({ drift, toMe: false })}>
-                            담당 해제
-                          </button>
-                        ) : (
-                          <button className="btn iac-nowrap" disabled={busy || myId === null} onClick={() => assign.mutate({ drift, toMe: true })}>
-                            내가 맡기
-                          </button>
-                        )}
-                      </div>
+                      <AssigneeEditor key={`${drift.findingId}:${drift.version}`} drift={drift} userId={myId} busy={busy} onSave={(toMe) => assign.mutate({ drift, toMe })} />
                     </td>
                   </tr>
                 )

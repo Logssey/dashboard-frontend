@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
 import {
@@ -22,7 +21,6 @@ import {
   reachStatusLabel,
 } from '@/lib/reachLabels'
 import { EmptyState } from './EmptyState'
-import { Icon } from './Icon'
 import { ReachDeploymentBadge, ReachL3Badge, ReachMethodTag, ReachReviewBadge, ReachSeverityChip, ReachStatusBadge } from './ReachBadges'
 import { ReachL3Section } from './ReachL3Section'
 import { ReachReviewForm } from './ReachReviewForm'
@@ -47,7 +45,7 @@ function locationText(evidence: ReachEvidence): string {
     .join(', ')
 }
 
-/** 판정 근거. 앱 코드 사실을 먼저, 호출 경로는 후보로 나중에 보인다 (SCR-03-06~09) */
+/** 판정 근거. 코드에서 확인한 내용을 먼저, 호출 경로는 후보로 나중에 보인다 (SCR-03-06~09) */
 function EvidenceSection({ detail }: { detail: ReachFindingDetail }) {
   const { evidence, callgraph, method } = detail.verdict
   const facts = evidence
@@ -61,11 +59,11 @@ function EvidenceSection({ detail }: { detail: ReachFindingDetail }) {
   return (
     <section className="reach-section">
       <h3>근거</h3>
-      <p className="caption">앱 코드 사실을 먼저 보여줘요. 호출 경로는 후보예요.</p>
+      <p className="caption">코드에서 확인한 내용을 먼저 보여줘요. 호출 경로는 후보예요.</p>
 
-      <h4>① 앱 코드 사실</h4>
+      <h4>① 코드에서 확인한 내용</h4>
       {facts.length ? (
-        <div className="table-scroll" tabIndex={0} role="region" aria-label="앱 코드 사실 표">
+        <div className="table-scroll" tabIndex={0} role="region" aria-label="코드에서 확인한 내용 표">
           <table className="reach-facts">
             <thead>
               <tr>
@@ -91,7 +89,7 @@ function EvidenceSection({ detail }: { detail: ReachFindingDetail }) {
           </table>
         </div>
       ) : (
-        <p className="caption">이 판정에 쓴 앱 코드 사실이 없어요.</p>
+        <p className="caption">이 판정에 쓴 코드에서 확인한 내용이 없어요.</p>
       )}
 
       {checked.length > 0 && (
@@ -113,7 +111,7 @@ function EvidenceSection({ detail }: { detail: ReachFindingDetail }) {
           <strong>③ 호출 경로</strong> · 후보 경로, 실제와 다를 수 있음
           <span className="caption">
             {' '}
-            (패키지 도달 {yesNo(callgraph?.packageReached)} · 취약 메서드 도달 {yesNo(callgraph?.vulnFunctionReached)})
+            (패키지 사용 {yesNo(callgraph?.packageReached)} · 취약 함수 호출 {yesNo(callgraph?.vulnFunctionReached)})
           </span>
         </summary>
         {paths.length ? (
@@ -298,7 +296,7 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
 }) {
   const { verdict, review, vulnerability, component } = detail
   const raised = l3Raise(verdict.evidence)
-  // 규칙 데이터의 L3 한도가 생기기 전에 올린 판정: 다음 스캔·재대조에서 바뀐다
+  // 규칙 데이터의 L3 한도가 생기기 전에 올린 판정: 다음 검사·재대조에서 바뀐다
   const outdated = l3RaiseOutdated(verdict.status, detail.l3, raised)
   const fix = nearestFixedVersion(component.version, vulnerability.fixedVersions)
   const humanDiffers = review.disagreesWithTool
@@ -317,13 +315,13 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
           이미지 안 위치 <code>{component.path}</code>
         </p>
       )}
-      {vulnerability.severityNote && <p className="caption">심각도 참고: {vulnerability.severityNote}</p>}
+      {vulnerability.severityNote && <p className="caption">위험도 참고: {vulnerability.severityNote}</p>}
       <VulnerabilityInfo vulnerability={vulnerability} />
 
       <section className={`reach-band ${verdict.status === 'REACHABLE' ? 'alert' : ''}`.trim()}>
         <dl className="reach-band-cells">
           <div>
-            <dt>판정(L2)</dt>
+            <dt>취약 함수 호출 가능 여부</dt>
             <dd>
               <ReachStatusBadge status={verdict.status} large />
             </dd>
@@ -341,13 +339,13 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
             </dd>
           </div>
           <div>
-            <dt>배포(L1)</dt>
+            <dt>이미지 실행 여부</dt>
             <dd>
               <ReachDeploymentBadge deployment={detail.deployment} />
             </dd>
           </div>
           <div>
-            <dt>실행(L3)</dt>
+            <dt>실제 실행 기록</dt>
             <dd>
               <ReachL3Badge l3={detail.l3} />
               {(l3DiffersFromL2(verdict.status, detail.l3) || outdated) && <span className="badge reach-flag differs">≠ 판정</span>}
@@ -363,7 +361,7 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
         {raised?.l2Status && (outdated ? (
           <p className="notice">
             이전 규칙으로 L3가 올린 판정이에요. 이 실행은 이 취약점의 조건을 그만큼 보여 주지 않아, 지금 규칙으로는{' '}
-            {labelOf(reachStatusLabel, outdated)}이에요. 이 이미지를 다시 스캔하거나 재대조하면 바뀌어요(실행 중인 이미지는 매일 재대조, 그 밖은 [스캔 요청]. 코드 분석 L2 판정:{' '}
+            {labelOf(reachStatusLabel, outdated)}이에요. 이 이미지를 다시 검사하거나 재대조하면 바뀌어요(실행 중인 이미지는 매일 재대조, 그 밖은 [검사 요청]. 코드 분석 L2 판정:{' '}
             {labelOf(reachStatusLabel, raised.l2Status)}).
           </p>
         ) : (
@@ -372,7 +370,7 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
           </p>
         ))}
         <p className="caption">
-          판정 {formatKst(verdict.analyzedAt)} · 스캔 #{detail.scanId}
+          판정 {formatKst(verdict.analyzedAt)} · 검사 #{detail.scanId}
           {verdict.engine?.reach ? ` · reach ${verdict.engine.reach}` : ''}
         </p>
         {review.proposal && (
@@ -407,12 +405,12 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
         </dl>
         {detail.upgrade?.change && <pre className="evidence">{detail.upgrade.change}</pre>}
         {detail.upgrade?.note && <p className="caption">{detail.upgrade.note}</p>}
-        <p className="caption">결정 상태: 결정 전(팀 결정). 도달 불가여도 수정 버전을 보여줘요.</p>
+        <p className="caption">수정 버전은 팀에서 선택합니다. 호출 경로가 없어도 수정 가능한 버전을 함께 보여줍니다.</p>
       </section>
 
       <section className="reach-section">
         <h3>
-          사람 검토 <ReachReviewBadge state={review.reviewState} />
+          담당자 검토 <ReachReviewBadge state={review.reviewState} />
         </h3>
         <dl className="facts">
           <dt>도구</dt>
@@ -442,7 +440,7 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
             </>
           )}
         </dl>
-        {review.carriedFrom && <p className="caption">이전 스캔에서 이어받음 ({formatKst(review.carriedFrom.reviewedAt)})</p>}
+        {review.carriedFrom && <p className="caption">이전 검사에서 이어받음 ({formatKst(review.carriedFrom.reviewedAt)})</p>}
         {review.resetReason && (
           <span className="badge reach-flag differs">{labelOf(reachResetReasonLabel, review.resetReason)}</span>
         )}
@@ -465,34 +463,19 @@ export function ReachFindingDetailView({ detail, onShowSameCve, onOpenVulnFuncti
   )
 }
 
-/** SCR-03 Finding 상세 패널. 주소의 finding 값으로 열고 닫는다 */
-export function ReachFindingDrawer({ findingId, onClose, onShowSameCve, onOpenVulnFunctions }: {
+/** SCR-03 취약점 상세 패널. 주소의 finding 값으로 열고 닫는다 */
+export function ReachFindingDrawer({ findingId, onShowSameCve, onOpenVulnFunctions }: {
   findingId: number | null
   onClose: () => void
   onShowSameCve?: (cve: string) => void
   onOpenVulnFunctions?: (cve: string) => void
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
   const detail = useQuery({
     queryKey: ['reach-finding', findingId],
     queryFn: () => fetchReachFinding(findingId!),
     enabled: findingId !== null,
   })
 
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    if (findingId !== null && !dialog.open) dialog.showModal()
-    if (findingId === null && dialog.open) dialog.close()
-  }, [findingId])
-
-  const handleBackdropClick = (event: React.MouseEvent<HTMLDialogElement>) => {
-    if (event.target !== event.currentTarget) return
-    const rect = event.currentTarget.getBoundingClientRect()
-    const outside =
-      event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom
-    if (outside) onClose()
-  }
 
   const data = detail.data?.data
   const notFound = detail.error instanceof ApiError && detail.error.status === 404
@@ -507,23 +490,11 @@ export function ReachFindingDrawer({ findingId, onClose, onShowSameCve, onOpenVu
   })
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="drawer reach-drawer"
-      aria-labelledby="reach-detail-title"
-      // Esc로 닫을 때만 주소를 고친다. 닫기 버튼으로 주소가 먼저 바뀌어 닫힌 경우 한 번 더 고치지 않는다
-      onClose={() => {
-        if (findingId !== null) onClose()
-      }}
-      onClick={handleBackdropClick}
-    >
+    <section className="card security-detail-content">
       {findingId !== null && (
         <>
           <div className="drawer-head">
-            <h2 id="reach-detail-title">{data?.vulnerability.id ?? 'Finding 상세'}</h2>
-            <button className="icon-btn" onClick={onClose} aria-label="상세 패널 닫기">
-              <Icon name="close" />
-            </button>
+            <h2 id="reach-detail-title">{data?.vulnerability.id ?? '취약점 상세'}</h2>
           </div>
           {detail.isPending && (
             <div className="drawer-body" role="status" aria-live="polite">
@@ -559,12 +530,9 @@ export function ReachFindingDrawer({ findingId, onClose, onShowSameCve, onOpenVu
             </>
           )}
           <div className="drawer-foot">
-            <button className="btn outline" onClick={onClose}>
-              닫기
-            </button>
           </div>
         </>
       )}
-    </dialog>
+    </section>
   )
 }
