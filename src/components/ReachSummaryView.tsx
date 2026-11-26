@@ -1,3 +1,4 @@
+import { securitySeverityLabel } from '@/lib/securityLabels'
 import type { ReactNode } from 'react'
 import type { ReachDeployment, ReachReviewState, ReachSeverity, ReachStatus, ReachSummary } from '@/api/reach'
 import { formatKst, fraction, judgedCount, matrixCell, notAnalyzedReasonParts } from '@/lib/reach'
@@ -52,9 +53,9 @@ function KpiCard({ label, value, description, alert = false, onClick }: {
 export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
   summary: ReachSummary
   onOpen: (link: ReachSummaryLink) => void
-  /** 워크로드·스캔 화면으로 이동. 없으면 이동 버튼을 그리지 않는다 */
+  /** 워크로드·검사 화면으로 이동. 없으면 이동 버튼을 그리지 않는다 */
   onNavigate?: (path: string) => void
-  /** 기준 스캔 줄마다 붙일 버튼 ([다시 대조]). 기준 스캔은 모두 PR이 아닌 성공 스캔이다 */
+  /** 기준 검사 줄마다 붙일 버튼 ([다시 대조]). 기준 검사는 모두 PR이 아닌 성공 검사이다 */
   scanAction?: (scanId: number) => ReactNode
 }) {
   const { byStatus } = summary
@@ -62,13 +63,13 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
   const reasons = notAnalyzedReasonParts(summary.byNotAnalyzedReason, reachNotAnalyzedReasonLabel)
   const judgedDescription =
     judged === 0
-      ? '판정한 Finding 없음'
+      ? '판정한 취약점 없음'
       : byStatus.UNREACHABLE === judged
-        ? '모두 도달 불가'
-        : `도달 가능 ${byStatus.REACHABLE} · 미확인 ${byStatus.UNKNOWN} · 도달 불가 ${byStatus.UNREACHABLE}`
+        ? '모두 취약 조건 미충족'
+        : `호출 가능 ${byStatus.REACHABLE} · 미확인 ${byStatus.UNKNOWN} · 취약 조건 미충족 ${byStatus.UNREACHABLE}`
   const severityParts = reachSeverityOrder
     .filter((severity) => summary.bySeverity[severity] > 0)
-    .map((severity) => `${severity} ${summary.bySeverity[severity]}`)
+    .map((severity) => `${securitySeverityLabel[severity] ?? severity} ${summary.bySeverity[severity]}`)
 
   return (
     <div className="stack">
@@ -80,13 +81,13 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
           onClick={() => onOpen({ status: ['REACHABLE', 'UNKNOWN', 'UNREACHABLE'] })}
         />
         <KpiCard
-          label="도달 가능"
+          label="호출 가능"
           value={byStatus.REACHABLE}
           description={byStatus.REACHABLE > 0 ? `먼저 고칠 것 · 판정한 ${judged}건 중` : `판정한 ${judged}건 중`}
           alert={byStatus.REACHABLE > 0}
           onClick={() => onOpen({ status: ['REACHABLE'] })}
         />
-        <KpiCard label="미확인" value={byStatus.UNKNOWN} description="사람 확인 필요" onClick={() => onOpen({ status: ['UNKNOWN'] })} />
+        <KpiCard label="판단 정보 부족" value={byStatus.UNKNOWN} description="추가 정보 확인 필요" onClick={() => onOpen({ status: ['UNKNOWN'] })} />
         <KpiCard
           label="분석 대상 아님"
           value={byStatus.NOT_ANALYZED}
@@ -98,16 +99,16 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
       <div className="reach-summary-grid">
         <section className="card list-card">
           <div className="card-head">
-            <h2>상태 × 심각도</h2>
-            <span className="caption">칸을 누르면 그 조건의 Finding을 봐요</span>
+            <h2>상태 × 위험도</h2>
+            <span className="caption">칸을 누르면 그 조건의 취약점을 봐요</span>
           </div>
-          <div className="table-scroll" tabIndex={0} role="region" aria-label="판정 상태와 심각도별 Finding 수">
+          <div className="table-scroll" tabIndex={0} role="region" aria-label="판정 상태와 위험도별 취약점 수">
             <table className="reach-matrix">
               <thead>
                 <tr>
                   <th scope="col">상태</th>
                   {reachSeverityOrder.map((severity) => (
-                    <th key={severity} scope="col">{severity}</th>
+                    <th key={severity} scope="col">{securitySeverityLabel[severity] ?? severity}</th>
                   ))}
                   <th scope="col">합계</th>
                 </tr>
@@ -151,7 +152,7 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
 
         <section className="card">
           <div className="card-head">
-            <h2>사람 검토</h2>
+            <h2>담당자 검토</h2>
           </div>
           <div className="reach-review-counts">
             {reachReviewOrder.map((state) => (
@@ -163,7 +164,7 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
             ))}
           </div>
           <p className="caption reach-note">
-            검토 상태는 도구 판정을 바꾸지 않아요. 확정·잠정은 사람이 근거를 보고 남긴 기록이에요.
+            검토 상태는 도구 판정을 바꾸지 않아요. 확정·임시 판단은 사람이 근거를 보고 남긴 기록이에요.
           </p>
         </section>
       </div>
@@ -172,15 +173,15 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
         <div className="card-head reach-flow-head">
           <h2>판정 흐름</h2>
           <span className="caption">
-            판정 범위(M-02) <strong>{fraction(summary.coverage.judged, summary.coverage.total)}</strong>
+            분석한 취약점 비율 <strong>{fraction(summary.coverage.judged, summary.coverage.total)}</strong>
             {' · '}
-            노이즈 감소율(M-01) <strong>{fraction(summary.noiseReduction.unreachable, summary.noiseReduction.judged)}</strong>
+            취약 조건이 성립하지 않는 비율 <strong>{fraction(summary.noiseReduction.unreachable, summary.noiseReduction.judged)}</strong>
           </span>
         </div>
         <div className="reach-flow">
           <button type="button" className="reach-flow-box" onClick={() => onOpen({})}>
             <span className="caption">스캐너 결과</span>
-            <strong>{summary.totals.findings}행</strong>
+            <strong>{summary.totals.findings}건</strong>
             <span className="caption">{severityParts.join(' · ') || '—'}</span>
           </button>
           <span className="reach-flow-arrow" aria-hidden="true">→</span>
@@ -195,24 +196,24 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
           </button>
           <span className="reach-flow-arrow" aria-hidden="true">→</span>
           <button type="button" className="reach-flow-box" onClick={() => onOpen({ status: ['REACHABLE'] })}>
-            <span className="caption">도달 가능</span>
+            <span className="caption">호출 가능</span>
             <strong>{byStatus.REACHABLE}건</strong>
             <span className="caption">먼저 고칠 것</span>
           </button>
         </div>
         <button type="button" className="reach-flow-box reach-flow-branch" onClick={() => onOpen({ status: ['NOT_ANALYZED'] })}>
           <span className="caption">분석 대상 아님</span>
-          <strong>{byStatus.NOT_ANALYZED}행</strong>
+          <strong>{byStatus.NOT_ANALYZED}건</strong>
           <span className="caption">{reasons.join(' · ') || '—'}</span>
         </button>
         <p className="caption reach-note">
-          판정 범위 = 판정한 Finding ÷ 전체 Finding. 노이즈 감소율 = 도달 불가 ÷ 판정한 Finding. 분석 대상 아님은 줄었다고 세지 않아요.
+          분석한 취약점 비율은 전체 취약점 중 분석 결과가 있는 비율입니다. 취약 조건이 성립하지 않는 비율은 분석한 취약점만 기준으로 계산하며, 분석하지 못한 항목은 제외합니다.
         </p>
       </section>
 
       <div className="reach-summary-grid">
         <section className="card">
-          <h2>배포 상태(L1)</h2>
+          <h2>이미지 실행 상태</h2>
           <div className="reach-flow reach-summary-deployment">
             {reachDeploymentOrder.map((deployment) => (
               <button key={deployment} type="button" className="reach-flow-box" onClick={() => onOpen({ deployment: [deployment] })}>
@@ -222,7 +223,7 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
               </button>
             ))}
           </div>
-          <p className="caption">클러스터 수집기가 조회한 실행 중 이미지(digest)와 스캔한 이미지를 맞춰 본 결과예요.</p>
+          <p className="caption">클러스터 수집기가 조회한 실행 중 이미지(digest)와 검사한 이미지를 맞춰 본 결과예요.</p>
           {onNavigate && (
             <button type="button" className="btn outline small" onClick={() => onNavigate(VULNERABILITY_WORKLOADS_PATH)}>
               워크로드 보기
@@ -230,20 +231,20 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
           )}
         </section>
         <section className="card">
-          <h2>스캔 정보</h2>
+          <h2>검사 정보</h2>
           {summary.scope.scanId != null ? (
-            <p className="caption">이 요약은 스캔 #{summary.scope.scanId} 기준이에요. 집계 {formatKst(summary.generatedAt)}</p>
+            <p className="caption">이 요약은 검사 #{summary.scope.scanId} 기준이에요. 집계 {formatKst(summary.generatedAt)}</p>
           ) : summary.basis?.scans.length ? (
             <ul className="reach-basis-scans">
               {summary.basis.scans.map((scan) => (
                 <li key={scan.scanId}>
-                  <strong>{scan.app}</strong> {scan.targetType === 'IMAGE' ? '이미지' : '레포'}{' '}
+                  <strong>{scan.app}</strong> {scan.targetType === 'IMAGE' ? '이미지' : '저장소'}{' '}
                   {onNavigate ? (
                     <button type="button" className="btn soft small" onClick={() => onNavigate(`${VULNERABILITY_SCANS_PATH}?scan=${scan.scanId}`)}>
-                      스캔 #{scan.scanId}
+                      검사 #{scan.scanId}
                     </button>
                   ) : (
-                    `스캔 #${scan.scanId}`
+                    `검사 #${scan.scanId}`
                   )}
                   <span className="caption"> · {scan.running ? '운영에서 실행 중' : scan.targetType === 'IMAGE' ? '최신 빌드(실행 중 아님·모름)' : '최신 커밋'}</span>
                   {scanAction && <span className="reach-basis-action">{scanAction(scan.scanId)}</span>}
@@ -251,18 +252,18 @@ export function ReachSummaryView({ summary, onOpen, onNavigate, scanAction }: {
               ))}
             </ul>
           ) : (
-            <p className="caption">앱·대상 종류마다 PR이 아닌 최신 성공 스캔을 모아 집계했어요. 집계 {formatKst(summary.generatedAt)}</p>
+            <p className="caption">앱·대상 종류마다 PR이 아닌 최신 성공 검사를 모아 집계했어요. 집계 {formatKst(summary.generatedAt)}</p>
           )}
           {onNavigate && (
             <div className="row">
               {summary.scope.scanId != null && (
                 <button type="button" className="btn outline small"
                   onClick={() => onNavigate(`${VULNERABILITY_SCANS_PATH}?scan=${summary.scope.scanId}`)}>
-                  스캔 #{summary.scope.scanId} 상세
+                  검사 #{summary.scope.scanId} 상세
                 </button>
               )}
               <button type="button" className="btn outline small" onClick={() => onNavigate(VULNERABILITY_SCANS_PATH)}>
-                스캔 이력
+                검사 이력
               </button>
             </div>
           )}

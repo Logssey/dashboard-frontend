@@ -75,10 +75,12 @@ export function SecretsPage() {
   const error = inventory.error
   const refreshRequired = error instanceof ApiError && [404, 409].includes(error.status) && Boolean(filters.snapshotId)
   return <>
-    <PageHeader title="키·노출 위치" description="고유 키별로 발견 위치와 확인할 이유를 살펴보세요." actions={<>
+    <PageHeader title="발견된 키" description="고유 키별로 발견 위치와 확인할 이유를 살펴보세요." actions={<>
+      <details className="security-more"><summary>추가 작업</summary>
       <button className="btn secret-export-button" disabled={download.isPending || locallyInvalidated || !inventory.isSuccess || !snapshot || !inventory.data?.asOf || !filters.snapshotId || inventory.data.total === 0} onClick={() => snapshot && inventory.data?.asOf && download.mutate({ filters: { ...filters, snapshotId: snapshot }, asOf: inventory.data.asOf })}><Icon name="download" />{download.isPending ? 'CSV 준비 중…' : '마스킹 CSV 내보내기'}</button>
-      <Link className="btn primary" to={withSecretOrigin("/secrets/history?request=scan", filters.origin)}><Icon name="search" /> 스캔 요청</Link>
       {inventory.isSuccess && !locallyInvalidated && <SecretFixtureBatch items={inventory.data.items} snapshotId={snapshot ?? undefined} onChanged={refresh} />}
+      </details>
+      <Link className="btn primary" to={withSecretOrigin("/secrets/history?request=scan", filters.origin)}><Icon name="search" /> 검사 요청</Link>
     </>} />
     <SecretFilterDisclosure label="키 목록" search busy={inventory.isFetching} searchRejected={params.get('searchRejected') === '1'}
       values={{ q: filters.q ?? '', contentKind: filters.contentKind, workBucket: filters.workBucket, source: filters.source, provider: filters.provider, environment: filters.environment, componentState: filters.componentState, validity: filters.validity, severity: filters.severity }}

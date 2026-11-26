@@ -52,7 +52,7 @@ test('handoff requests carry the readable target version and a stable retry key'
 })
 
 test('secret navigation has five task-oriented entries and keeps detail pages in their section', () => {
-  assert.deepEqual(api.secretNavigation.map((entry) => entry.label), ['현황', '키·노출 위치', '대응 관리', '연결 관리', '스캔 이력', '키 형식 등록'])
+  assert.deepEqual(api.secretNavigation.map((entry) => entry.label), ['현황', '발견된 키', '대응 관리', '연결 및 설정', '검사 이력', '키 형식 등록'])
   assert.equal(api.activeSecretNavigation('/secrets/findings', '/secrets/triage/12'), true)
   assert.equal(api.activeSecretNavigation('/secrets/findings', '/secrets/12'), true)
   assert.equal(api.activeSecretNavigation('/secrets', '/secrets/12'), false)

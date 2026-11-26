@@ -567,7 +567,7 @@ test('Notion retains test and scan controls while GitHub/AWS receive settings', 
     ]
   ])
   assert.match(html, /연결 테스트/)
-  assert.match(html, /스캔 요청/)
+  assert.match(html, /검사 요청/)
   assert.match(html, /\+ 연결 추가/)
   assert.doesNotMatch(html, />설정<\/button>/)
   const githubHtml = render(api.SecretConnectionsPage, {}, [

@@ -27,7 +27,7 @@ function Requests({ during, run, limit = 4 }: { during: ReachL3Detail['during'];
 }
 
 /**
- * SCR-03 "실제 실행(L3)" 절. 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드 쪽으로 어디까지 실행됐는지,
+ * SCR-03 "실제 실제 실행 기록" 절. 이미지를 실제로 띄워 시나리오를 보냈을 때 취약 코드 쪽으로 어디까지 실행됐는지,
  * 어느 요청에서였는지를 근거로 보인다. 판정을 올렸는지는 판정 요약 띠가 보인다
  */
 export function ReachL3Section({ l3 }: { l3: ReachL3Detail | null | undefined }) {
@@ -36,7 +36,7 @@ export function ReachL3Section({ l3 }: { l3: ReachL3Detail | null | undefined })
       <section className="reach-section">
         <h3>실제 실행 (L3)</h3>
         <p className="caption">
-          이 이미지를 띄워 시나리오를 보낸 결과가 없어요. 판정 데이터가 없는 취약점이거나, 서비스 저장소에 L3 시나리오가 없거나, 대시보드에서 [새 스캔]으로 요청한 스캔인 경우예요(앱은 PR 이미지가 빌드될 때만 띄워요).
+          이 이미지를 띄워 시나리오를 보낸 결과가 없어요. 판정 데이터가 없는 취약점이거나, 서비스 저장소에 L3 시나리오가 없거나, 대시보드에서 [새 검사]으로 요청한 검사인 경우예요(앱은 PR 이미지가 빌드될 때만 띄워요).
         </p>
       </section>
     )
@@ -133,10 +133,10 @@ export function ReachL3Section({ l3 }: { l3: ReachL3Detail | null | undefined })
         <div className="reach-kv-row">
           <dt>관측</dt>
           <dd>
-            {formatKst(run.observedAt)} · 스캔 #{run.scanId} · 시나리오 {run.scenario}
+            {formatKst(run.observedAt)} · 검사 #{run.scanId} · 시나리오 {run.scenario}
             {run.rematch && (
               <div className="caption">
-                앱을 다시 띄운 것이 아니에요. 위 시각에 남긴 실행 기록을 스캔 #{run.scanId}에서 지금의 판정 데이터로 다시 대조한 결과예요.
+                앱을 다시 띄운 것이 아니에요. 위 시각에 남긴 실행 기록을 검사 #{run.scanId}에서 지금의 판정 데이터로 다시 대조한 결과예요.
               </div>
             )}
           </dd>

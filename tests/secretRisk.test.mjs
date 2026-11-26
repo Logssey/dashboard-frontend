@@ -18,12 +18,12 @@ function render(value, url = '/?occurrence=8', history) {
 }
 test('unassessed automatic risk preserves and explains a separately held incident grade', () => {
   const html = render({ ...data, effectiveAssessment: { ...assessment, assessmentId: 2, sourceAssessmentId: 1, assessmentStatus: 'ASSESSED', severity: 'CRITICAL', ruleId: 'R01', held: true, reviewRequired: true, holdReasonCodes: ['EXPOSURE_INCIDENT_CONFLICT'] }, lastConfirmedSeverity: { assessmentId: 1, severity: 'CRITICAL', assessedAt: '2026-10-20T00:00:00Z' } })
-  assert.match(html, /최근 자동 평가/); assert.match(html, /미평가/); assert.match(html, /현재 적용 판단/); assert.match(html, /치명적/); assert.match(html, /기존 판단 유지 · 재검토 필요/); assert.match(html, /R01/); assert.match(html, /R99/); assert.match(html, /마지막 확정 등급/); assert.doesNotMatch(html, /악용 없음/)
+  assert.match(html, /최근 자동 평가/); assert.match(html, /미평가/); assert.match(html, /현재 적용 판단/); assert.match(html, /Critical/); assert.match(html, /기존 판단 유지 · 재검토 필요/); assert.match(html, /R01/); assert.match(html, /R99/); assert.match(html, /마지막 확정 등급/); assert.doesNotMatch(html, /악용 없음/)
 })
 test('R00 with null severity remains distinct from R99 and low risk', () => {
-  assert.equal(api.severityText(null, 'NOT_APPLICABLE'), '심각도 적용 대상 아님'); assert.equal(api.severityText(null, 'UNASSESSED'), '미평가')
+  assert.equal(api.severityText(null, 'NOT_APPLICABLE'), '위험도 적용 대상 아님'); assert.equal(api.severityText(null, 'UNASSESSED'), '미평가')
   const html = render({ ...data, latestAutomaticAssessment: { ...assessment, assessmentStatus: 'NOT_APPLICABLE', ruleId: 'R00' } })
-  assert.match(html, /유효한 보관 허용 근거/); assert.match(html, /심각도 적용 대상 아님/); assert.doesNotMatch(html, /<strong>낮음/)
+  assert.match(html, /유효한 보관 허용 근거/); assert.match(html, /위험도 적용 대상 아님/); assert.doesNotMatch(html, /<strong>낮음/)
 })
 test('manual acceptance is not provider verification and uninvestigated abuse is not absence', () => {
   const html = render({ ...data, evidenceSummary: [{ evidenceId: 4, kind: 'PERMISSION_MAPPING', verificationLevel: 'MANUAL_ACCEPTED', observedAt: null }] })

@@ -50,7 +50,7 @@ function FixtureBatchReview({ items, snapshotId, onChanged, onClose }: {
     onClose()
   }
 
-  return <SecretDetailPanel title="합성 표본 묶음 검토" open onClose={close} closeDisabled={save.isPending}>
+  return <SecretDetailPanel title="테스트용 키 묶음 검토" open onClose={close} closeDisabled={save.isPending}>
     <p>현재 목록에서 승인된 표본과 정확히 일치하는 근거를 조회해요.</p>
     {matches.isPending ? <p role="status">{items.length}개 키의 일치 근거를 조회하고 있어요.</p> : matches.isError ? <p role="alert">근거를 조회하지 못했어요.</p> : <>
       {unavailable > 0 && <p className="caption">조회하지 못한 키 {unavailable}개. 열람 권한과 현재 상태를 확인하세요.</p>}
@@ -86,7 +86,7 @@ function FixtureBatchReview({ items, snapshotId, onChanged, onClose }: {
 export function SecretFixtureBatch({ items, snapshotId, onChanged }: { items: KeyOption[]; snapshotId?: string; onChanged: () => void }) {
   const [open, setOpen] = useState(false)
   return <>
-    <button className="btn outline" disabled={!items.length} onClick={() => setOpen(true)}>합성 표본 묶음 검토</button>
+    <button className="btn outline" disabled={!items.length} onClick={() => setOpen(true)}>테스트용 키 묶음 검토</button>
     {open && <FixtureBatchReview items={items} snapshotId={snapshotId} onChanged={onChanged} onClose={() => setOpen(false)} />}
   </>
 }

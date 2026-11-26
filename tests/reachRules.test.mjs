@@ -219,7 +219,7 @@ test('규칙 탭: 목록은 CVE 순, 고른 규칙이 없으면 첫 규칙을 �
 test('규칙 상세: 평가 순서 4줄, 사실 링크, 참고 사실, 적용 Finding', () => {
   const html = renderView({ selectedRuleId: 'RULE-CVE-2026-89407' })
   assert.match(html, /aria-label="RULE-CVE-2026-89407 상세"/)
-  for (const step of ['1. 도달 가능', '2. 도달 불가', '3. 미확인', '4. 기본값']) assert.ok(html.includes(step), step)
+  for (const step of ['1. 호출 가능', '2. 취약 조건 미충족', '3. 미확인', '4. 기본값']) assert.ok(html.includes(step), step)
   assert.match(html, /href="\/vulnerabilities\/rules\?tab=facts&amp;fact=F-dto.floating.tokens"/)
   assert.match(html, /reach-fact-tag negated"[^>]*><span class="reach-term-not">없음<\/span><code class="reach-term-id">F-dto.floating.tokens<\/code>/)
   assert.match(html, /<code class="reach-term-id">F-dto.floating.any<\/code> <span class="caption">판정에 쓰지 않음<\/span>/)
@@ -229,9 +229,9 @@ test('규칙 상세: 평가 순서 4줄, 사실 링크, 참고 사실, 적용 Fi
   assert.match(html, /역직렬화 타입에 실수형 필드가 있다/)
 })
 
-test('규칙 상세: Finding을 못 받았거나 적용 Finding이 없을 때', () => {
-  assert.match(renderView({ findings: null, selectedRuleId: 'RULE-CVE-2026-89407' }), /Finding을 불러오지 못해/)
-  assert.match(renderView({ selectedRuleId: 'RULE-CVE-2026-8763' }), /이 규칙을 쓴 Finding이 아직 없어요/)
+test('규칙 상세: 취약점을 못 받았거나 적용 취약점이 없을 때', () => {
+  assert.match(renderView({ findings: null, selectedRuleId: 'RULE-CVE-2026-89407' }), /취약점을 불러오지 못해/)
+  assert.match(renderView({ selectedRuleId: 'RULE-CVE-2026-8763' }), /이 규칙을 쓴 취약점이 아직 없어요/)
 })
 
 test('검색어에 맞는 규칙이 없으면 빈 상태를 보인다', () => {
@@ -256,7 +256,7 @@ test('취약 함수 탭: CVE 한 줄로 묶고, 주소의 CVE는 펼친다', () 
 
 test('사이드바 하위 메뉴에 규칙이 있다', () => {
   assert.equal(reach.VULNERABILITY_RULES_PATH, '/vulnerabilities/rules')
-  assert.ok(reach.vulnerabilityPages.some((page) => page.path === '/vulnerabilities/rules' && page.title === '규칙'))
+  assert.ok(reach.vulnerabilityPages.some((page) => page.path === '/vulnerabilities/rules' && page.title === '검사 기준'))
   assert.equal(reach.rulesLink({ tab: 'facts', fact: 'F-a' }), '/vulnerabilities/rules?tab=facts&fact=F-a')
 })
 

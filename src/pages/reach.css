@@ -18,12 +18,12 @@
 .reach-deploy.running { color: #3538CD; background: #EEF4FF; }
 .reach-deploy.not-running { color: #475467; background: #F2F4F7; }
 .reach-deploy.unknown { color: #475467; background: #FFFFFF; border: 1px dashed #667085; }
-.reach-severity { color: #101828; background: #FFFFFF; border: 1px solid var(--border); border-left-width: 4px; border-radius: 4px; }
-.reach-severity.critical { border-left-color: #7A271A; }
-.reach-severity.high { border-left-color: #C4320A; }
-.reach-severity.medium { border-left-color: #B54708; }
-.reach-severity.low { border-left-color: #175CD3; }
-.reach-severity.unknown { border-left-color: #667085; }
+.reach-severity { color: #101828; background: #FFFFFF; border: 1px solid var(--border); border-left: 0; border-radius: 4px; }
+.reach-severity.critical { border-left: 0; }
+.reach-severity.high { border-left: 0; }
+.reach-severity.medium { border-left: 0; }
+.reach-severity.low { border-left: 0; }
+.reach-severity.unknown { border-left: 0; }
 .reach-method { color: #344054; background: #F9FAFB; border: 1px solid var(--border); border-radius: 4px; }
 .reach-flag { margin-left: 6px; color: var(--text-body); background: var(--surface-subtle); }
 .reach-flag.differs { color: #B42318; background: #FEE4E2; }
@@ -31,8 +31,8 @@
 /* 요약 (SCR-01) */
 .reach-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .reach-kpi { display: grid; gap: 4px; text-align: left; border: 0; cursor: pointer; font: inherit; color: inherit; }
-.reach-kpi:hover { box-shadow: inset 0 0 0 1px var(--primary-soft); }
-.reach-kpi.alert { box-shadow: inset 4px 0 0 #B42318; }
+.reach-kpi:hover { box-shadow: none; }
+.reach-kpi.alert { box-shadow: none; }
 .reach-summary-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
 .reach-matrix th[scope="row"] { background: none; }
 .reach-matrix td, .reach-matrix th { padding: 12px 14px; text-align: center; }
@@ -76,7 +76,7 @@
 .reach-group-row th { text-align: left; color: var(--text); background: var(--canvas); white-space: normal; }
 .reach-group-row .caption { margin-left: 8px; font-weight: 400; }
 .reach-cve { min-width: 0; white-space: nowrap; }
-.reach-group { font-size: 12px; }
+.reach-group { font-size: var(--text-small); }
 .reach-evidence-cell { min-width: 240px; max-width: 360px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text-body); }
 .reach-table-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 
@@ -85,13 +85,13 @@
 .reach-sample-inline { margin: 20px 28px 0; }
 .reach-title-row { gap: 10px; flex-wrap: wrap; }
 .reach-band { border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
-.reach-band.alert { box-shadow: inset 4px 0 0 #B42318; }
+.reach-band.alert { box-shadow: none; }
 .reach-band-cells { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 0; }
-.reach-band-cells dt { color: var(--text-muted); font-size: 12px; margin-bottom: 6px; }
+.reach-band-cells dt { color: var(--text-muted); font-size: var(--text-small); margin-bottom: 6px; }
 .reach-band-cells dd { margin: 0; }
 .reach-conclusion { font-size: 14px; font-weight: 600; margin: 0; }
 .reach-section { display: grid; gap: 10px; }
-.reach-section h4 { font-size: 13px; margin: 6px 0 0; }
+.reach-section h4 { font-size: var(--text-small); margin: 6px 0 0; }
 .reach-facts th, .reach-facts td { padding: 10px 12px; }
 .reach-facts th:first-child, .reach-facts td:first-child { padding-left: 12px; }
 /* 위치(파일:줄, 클래스.필드)는 띄어쓰기가 없어 줄이 안 바뀌고 표를 패널 밖으로 밀어낸다. 아무 데서나 줄을 바꾼다 */
@@ -99,12 +99,12 @@
 .reach-component-path { margin: 0; }
 .reach-component-path code { overflow-wrap: anywhere; }
 .reach-vuln-title { margin: 0; }
-.reach-vuln-more summary { cursor: pointer; font-size: 13px; color: var(--primary-text); }
+.reach-vuln-more summary { cursor: pointer; font-size: var(--text-small); color: var(--primary-text); }
 .reach-vuln-more[open] { display: grid; gap: 8px; }
-.reach-vuln-description { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-body); white-space: pre-wrap; overflow-wrap: anywhere; }
+.reach-vuln-description { margin: 0; font-size: var(--text-small); line-height: 1.6; color: var(--text-body); white-space: pre-wrap; overflow-wrap: anywhere; }
 .reach-references a { color: var(--primary-text); overflow-wrap: anywhere; }
 .reach-vuln-functions code { overflow-wrap: anywhere; }
-.reach-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; }
+.reach-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: var(--text-small); }
 .reach-path { border-radius: 10px; background: #FFFAEB; color: #93370D; padding: 12px 14px; }
 .reach-path summary { cursor: pointer; }
 .reach-path .caption { color: #93370D; }
@@ -116,16 +116,16 @@
 
 /* 검토 이력 (SCR-03-14) */
 .reach-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.reach-history-item { border-left: 2px solid var(--border); padding: 2px 0 2px 12px; display: grid; gap: 4px; }
+.reach-history-item { border-left: 0; padding: 2px 0 2px 12px; display: grid; gap: 4px; }
 .reach-history-head { gap: 6px; flex-wrap: wrap; }
-.reach-history-note { margin: 0; font-size: 13px; color: var(--text-body); white-space: pre-wrap; }
+.reach-history-note { margin: 0; font-size: var(--text-small); color: var(--text-body); white-space: pre-wrap; }
 
 /* 공통 */
-.reach-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
+.reach-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-small); word-break: break-all; }
 .reach-nowrap { white-space: nowrap; }
 .reach-big { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
 .reach-kpi.active { box-shadow: 0 0 0 2px var(--primary); }
-.reach-kpi.alert.active { box-shadow: inset 4px 0 0 #B42318, 0 0 0 2px var(--primary); }
+.reach-kpi.alert.active { box-shadow: none; }
 
 /* 워크로드 (SCR-04) */
 .reach-match.match { color: #1849A9; background: #EEF4FF; }
@@ -138,8 +138,8 @@
 .reach-workload-card { display: grid; gap: 4px; padding: 20px 24px; }
 .reach-match-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .reach-digest { display: flex; align-items: center; gap: 6px; }
-.reach-copy { min-height: 24px; padding: 2px 8px; font-size: 11px; }
-.reach-link { font-size: 13px; font-weight: 600; color: var(--primary-text); white-space: nowrap; }
+.reach-copy { min-height: 24px; padding: 2px 8px; font-size: var(--text-small); }
+.reach-link { font-size: var(--text-small); font-weight: 600; color: var(--primary-text); white-space: nowrap; }
 .reach-link:hover { text-decoration: underline; }
 .reach-workload-table { min-width: 900px; }
 .reach-workload-table code { white-space: nowrap; }
@@ -156,25 +156,25 @@
 .reach-scans-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
 .reach-scans-layout.with-detail { grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); }
 .reach-row.selected td { background: #EEF4FF; }
-.reach-row.selected td:first-child { box-shadow: inset 4px 0 0 var(--primary); }
+.reach-row.selected td:first-child { box-shadow: none; }
 .reach-scan-panel { position: sticky; top: 20px; display: grid; gap: 16px; padding: 24px; }
 .reach-panel-head { justify-content: space-between; }
 .reach-scan-detail { display: grid; gap: 18px; }
 .reach-scan-detail h2 { font-size: 18px; margin: 0; }
-.reach-kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 13px; }
+.reach-kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: var(--text-small); }
 .reach-kv dt { color: var(--text-muted); }
 .reach-kv dd { margin: 0; }
 .reach-kv-row { display: contents; }
 .reach-stages { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
-.reach-stage { position: relative; display: grid; gap: 2px; padding: 0 0 12px 22px; border-left: 2px solid var(--border); margin-left: 6px; }
+.reach-stage { position: relative; display: grid; gap: 2px; padding: 0 0 12px 22px; border-left: 0; margin-left: 6px; }
 .reach-stage::before { content: ''; position: absolute; left: -7px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid #98A2B3; }
 .reach-stage.succeeded::before { background: #12B76A; border-color: #12B76A; }
 .reach-stage.running::before { border-color: #175CD3; }
 .reach-stage.failed::before { background: #D92D20; border-color: #D92D20; }
-.reach-stage:last-child { border-left-color: transparent; }
-.reach-stage-name { font-weight: 600; font-size: 13px; }
-.reach-stage-message { font-size: 12px; color: var(--text-body); }
-.reach-count-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 12px; font-size: 13px; }
+.reach-stage:last-child { border-left: 0; }
+.reach-stage-name { font-weight: 600; font-size: var(--text-small); }
+.reach-stage-message { font-size: var(--text-small); color: var(--text-body); }
+.reach-count-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 12px; font-size: var(--text-small); }
 .reach-scan-actions { gap: 8px; flex-wrap: wrap; }
 .reach-scan-scope { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 
@@ -185,23 +185,23 @@
 .reach-dialog-head { display: flex; justify-content: space-between; align-items: center; }
 .reach-dialog-head h2 { font-size: 16px; margin: 0; }
 .reach-dialog-foot { display: flex; justify-content: flex-end; gap: 10px; }
-.reach-fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+.reach-fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; font-size: var(--text-small); }
 .reach-fieldset legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
 .reach-radio { display: flex; align-items: center; gap: 8px; }
 .reach-disabled { color: var(--text-muted); }
 /* 새 스캔 대화상자의 고르기 목록 (SCR-05-09) */
 .reach-picks { display: grid; gap: 12px; }
 .reach-pick-group { display: grid; gap: 6px; }
-.reach-pick-group h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.reach-pick-group h3 { margin: 0; font-size: var(--text-small); font-weight: 600; }
 .reach-pick-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 208px; overflow-y: auto; }
 .reach-pick { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: baseline; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font: inherit; text-align: left; cursor: pointer; }
 .reach-pick:hover { background: var(--surface-subtle); }
 .reach-pick:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .reach-pick[aria-pressed='true'] { border-color: var(--primary); background: var(--primary-soft); }
-.reach-pick-title { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.reach-pick-note { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.reach-pick-ref { grid-column: 1 / -1; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.reach-manual > summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.reach-pick-title { font-weight: 600; font-size: var(--text-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reach-pick-note { font-size: var(--text-small); color: var(--text-muted); white-space: nowrap; }
+.reach-pick-ref { grid-column: 1 / -1; font-size: var(--text-small); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reach-manual > summary { cursor: pointer; font-size: var(--text-small); font-weight: 600; }
 .reach-manual-body { display: grid; gap: 16px; margin-top: 12px; }
 
 /* 규칙·취약 함수 (SCR-06) */
@@ -219,19 +219,19 @@
 .reach-rule-head code { margin-right: 6px; }
 .reach-rule-id { font-size: 20px; font-weight: 700; margin: 0; }
 .reach-eval-table th[scope="row"] { background: none; font-weight: 600; vertical-align: top; }
-.reach-reason { min-width: 220px; max-width: 360px; font-size: 13px; color: var(--text-body); }
+.reach-reason { min-width: 220px; max-width: 360px; font-size: var(--text-small); color: var(--text-body); }
 .reach-clauses { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.reach-or { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+.reach-or { display: block; font-size: var(--text-small); color: var(--text-muted); margin-bottom: 2px; }
 .reach-and { display: inline; }
-.reach-term { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0; font-size: 12px; }
-.reach-term-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: none; padding: 0; color: inherit; }
+.reach-term { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0; font-size: var(--text-small); }
+.reach-term-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-small); background: none; padding: 0; color: inherit; }
 .reach-term-not { font-weight: 600; color: #B42318; }
 .reach-fact-tag { color: #1849A9; background: #EEF4FF; text-decoration: none; }
 .reach-fact-tag:hover { text-decoration: underline; }
 .reach-fact-tag.negated { color: #475467; background: #F2F4F7; }
 .reach-fact-tag.info { color: #475467; background: #FFFFFF; border: 1px dashed #98A2B3; }
 .reach-tags { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
-.reach-applied { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.reach-applied { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: var(--text-small); }
 .reach-fact-table, .reach-function-table { min-width: 900px; }
 .reach-fact-id { white-space: nowrap; word-break: normal; }
 .reach-function-table summary { cursor: pointer; }
@@ -271,7 +271,7 @@
 .reach-ci-head { gap: 8px; flex-wrap: wrap; align-items: center; }
 .reach-ci-title { margin: 0; font-size: 16px; }
 .reach-ci-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 20px; margin: 0; }
-.reach-ci-facts dt { font-size: 12px; color: var(--text-muted, #667085); }
+.reach-ci-facts dt { font-size: var(--text-small); color: var(--text-muted, #667085); }
 .reach-ci-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
 .reach-ci-section h4 { margin: 0 0 8px; font-size: 14px; }
 .reach-ci-counts { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
@@ -289,17 +289,17 @@
 .reach-l3.none { border-style: dashed; color: #475467; }
 .reach-l3.not-recorded { border-style: dotted; color: #667085; }
 .reach-l3-summary { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
-.reach-l3-summary.region { box-shadow: inset 4px 0 0 #B42318; }
-.reach-l3-summary.function { box-shadow: inset 4px 0 0 #B54708; }
+.reach-l3-summary.region { box-shadow: none; }
+.reach-l3-summary.function { box-shadow: none; }
 .reach-l3-headline { margin: 0; }
 .reach-l3-requests, .reach-l3-steps, .reach-l3-paths, .reach-l3-path-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.reach-l3-requests code, .reach-l3-steps code, .reach-l3-paths code { font-size: 12px; overflow-wrap: anywhere; }
+.reach-l3-requests code, .reach-l3-steps code, .reach-l3-paths code { font-size: var(--text-small); overflow-wrap: anywhere; }
 .reach-l3-steps li, .reach-l3-path-steps li { display: flex; gap: 8px; align-items: baseline; }
-.reach-l3-mark { font-size: 10px; color: #98A2B3; }
+.reach-l3-mark { font-size: var(--text-small); color: #98A2B3; }
 .reach-l3-steps li.ran .reach-l3-mark, .reach-l3-path-steps li.ran .reach-l3-mark { color: #B42318; }
 .reach-l3-steps li.missed code, .reach-l3-path-steps li.missed code { color: var(--text-muted); }
 .reach-l3-paths > li { border-top: 1px solid var(--border); padding-top: 8px; display: grid; gap: 6px; }
 .reach-l3-path-steps { padding-left: 14px; gap: 2px; }
 .reach-l3-count { margin-right: 14px; }
-.reach-config { margin: 0 6px 4px 0; background: var(--surface-subtle); color: var(--text-body); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+.reach-config { margin: 0 6px 4px 0; background: var(--surface-subtle); color: var(--text-body); border-radius: 4px; padding: 1px 6px; font-size: var(--text-small); }
 .reach-config.off { color: var(--text-muted); text-decoration: line-through; }

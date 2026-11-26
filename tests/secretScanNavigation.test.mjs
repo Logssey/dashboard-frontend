@@ -24,8 +24,8 @@ after(() => unlink(bundlePath))
 test('scan navigation asks for confirmation without registering an automatic scan', () => {
   const html = renderPage(SecretHistoryPage, '/secrets/history', '/secrets/history?request=scan')
   assert.match(html, /승인된 범위를 검사할까요/)
-  assert.match(html, /스캔 등록/)
-  assert.match(html, /disabled=""[^>]*>스캔 등록/)
+  assert.match(html, /검사 등록/)
+  assert.match(html, /disabled=""[^>]*>검사 등록/)
 })
 
 test('scan request is an independent dialog and never silently chooses the first available connection', () => {
@@ -33,10 +33,10 @@ test('scan request is an independent dialog and never silently chooses the first
   const html = renderPage(SecretHistoryPage, '/secrets/history', '/secrets/history?request=scan', [[['secret-connections'], { items: [connection] }]])
   assert.match(html, /<dialog[^>]*secret-scan-request-dialog/)
   assert.match(html, /<option value="" selected="">연결 선택/)
-  assert.match(html, /disabled=""[^>]*>스캔 등록/)
+  assert.match(html, /disabled=""[^>]*>검사 등록/)
   const explicit = renderPage(SecretHistoryPage, '/secrets/history', '/secrets/history?request=scan&connectionId=3', [[['secret-connections'], { items: [connection] }]])
   assert.match(explicit, /<option value="3" selected="">승인 연결/)
-  assert.doesNotMatch(explicit, /disabled=""[^>]*>스캔 등록/)
+  assert.doesNotMatch(explicit, /disabled=""[^>]*>검사 등록/)
 })
 
 function renderPage(Component, path, url, entries = []) {
@@ -103,7 +103,7 @@ test('independent detail distinguishes seven successes from twelve finished scop
   assert.doesNotMatch(html, /처음 발견한 키 후보<\/span><strong>0/)
 })
 test('metadata skip reasons and unavailable legacy aggregates stay explicit', () => {
-  assert.equal(scanReason('NO_SUPPORTED_VALIDATOR'), '지원되는 유효성 확인 방식 없음')
+  assert.equal(scanReason('NO_SUPPORTED_VALIDATOR'), '지원되는 키 인증 확인 방식 없음')
   assert.equal(scanReason('SOURCE_GUARD_BLOCKED'), '당시 원천 보호 설정에 따른 검증 생략')
   assert.equal(scanReason('SYNTHETIC_FIXTURE'), '합성 키 검증 생략')
   const run = { ...baseRun, status: 'SUCCEEDED', aggregationStatus: 'LEGACY_UNAVAILABLE', detection: stage('SKIPPED', 'NOT_APPLICABLE_METADATA', false), validation: stage('SKIPPED', 'NOT_APPLICABLE_METADATA', false), findingCount: null, distinctCredentialCount: null }
@@ -187,7 +187,7 @@ test('Notion connection probe explains authentication and uses server scan capab
   const connection = { connectionId: 9, provider: 'NOTION', safeDisplayAlias: '승인 문서 연결', connectionStatus: 'ACTIVE', approvedScopeCount: 1, scopeRevision: 1, latestProbe: { status: 'CONNECTED', reasonCode: null, checkedAt: '2026-11-06T00:00:00Z' }, lastFullScanAttempt: null, lastSuccessfulFullScan: null, nextDueAt: null, activeJob: null, capabilities: { canTest: true, canRun: true } }
   const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
   assert.match(html, /연결 확인됨/)
-  assert.match(html, /<button class="btn primary">스캔 요청<\/button>/)
+  assert.match(html, /<button class="btn primary">검사 요청<\/button>/)
   assert.doesNotMatch(html, /신원·설치/)
 })
 
@@ -196,7 +196,7 @@ test('disabled Notion collection explains setup and blocks test and scan actions
   const html = renderPage(SecretConnectionsPage, '/secrets/connections', '/secrets/connections', [[['secret-connections-manage', 0, '', ''], { items: [connection], total: 1, page: 0, size: 12 }]])
   assert.match(html, /Notion 수집 연결 설정을 확인하세요/)
   assert.match(html, /<button[^>]*disabled=""[^>]*>연결 테스트<\/button>/)
-  assert.match(html, /<button[^>]*disabled=""[^>]*>스캔 요청<\/button>/)
+  assert.match(html, /<button[^>]*disabled=""[^>]*>검사 요청<\/button>/)
   assert.doesNotMatch(html, /href="\/secrets\/history\?request=scan/)
 })
 test('history displays server total and real detail links without page-level metric cards', () => {
@@ -271,7 +271,7 @@ test('scan request suppresses only known bootstrap labels and has a task-specifi
   const html = renderPage(SecretHistoryPage, '/secrets/history', '/secrets/history?request=scan&connectionId=3&origin=TEST', [[['secret-connections'], { items: [connection] }]])
   assert.match(html, /GitHub · 연결 3/)
   assert.doesNotMatch(html, /GitHub fixtures/)
-  assert.match(html, /aria-label="스캔 요청 닫기"/)
+  assert.match(html, /aria-label="검사 요청 닫기"/)
   assert.equal(scanConnectionLabel({ ...connection, displayName: '결제 운영 저장소' }), '결제 운영 저장소')
   assert.equal(scanConnectionLabel({ ...connection, safeDisplayAlias: '팀 승인 연결' }), '팀 승인 연결')
   assert.equal(scanConnectionLabel({ ...connection, displayName: 'GitHub fixtures custom' }), 'GitHub fixtures custom')
@@ -288,7 +288,7 @@ test('actual findings lead the result page, with success scopes collapsed and fa
   assert.match(html, /<details class="secret-run-scope-details"><summary>검사 범위 자세히/)
   const beforeTechnical = html.slice(0, html.indexOf('<details class="card secret-scan-technical"'))
   assert.doesNotMatch(beforeTechnical, /적용 여부 미기록|관측 시각 미기록/)
-  assert.match(beforeTechnical, /유효성 검증<\/span><strong>건너뜀/)
+  assert.match(beforeTechnical, /키 인증 확인<\/span><strong>건너뜀/)
   const partial = renderPage(SecretRunDetailPage, '/secrets/history/:runId', '/secrets/history/12', [[['secret-run', 12], baseRun]])
   assert.match(partial, /<details class="secret-run-scope-details" open="">/)
   assert.match(partial, /접근 권한 확인 필요/)

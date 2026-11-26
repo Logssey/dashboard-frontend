@@ -52,7 +52,7 @@ test('inconsistent or unavailable evidence never becomes a zero-risk visualizati
   assert.match(html, /집계하지 못했어요/)
   assert.doesNotMatch(html, /필수 대응 0/)
 })
-test('selecting a location opens one dialog instead of appending evidence under the table', () => {
+test('selecting a location opens a full page and retains the key return URL', () => {
   const params = new URLSearchParams('occurrence=8'), filters = api.parseLocationFilters(params).filters
   const item = { id: 12, issuer: 'AWS', credentialType: 'AWS_ACCESS_KEY_PAIR', componentState: 'CONFIRMED', maskedLabel: 'AWS ••••1234', severity: 'UNASSESSED', validationStatus: 'UNCHECKED', occurrenceCount: 6, firstSeenAt: '2026-10-20T01:00:00Z', lastSeenAt: '2026-10-21T01:00:00Z', remediationSummary: summary, occurrences: [] }
   const location = { occurrenceId: 8, connectionId: 2, scopeId: 5, scopeRevision: 1, source: 'GITHUB', environment: 'UNKNOWN', origin: 'PRODUCTION', safeLocationLabel: '주문 서비스 · 위치 #8', presence: 'PRESENT', exposure: 'UNKNOWN', validity: { result: 'UNCHECKED' }, storagePolicy: { result: 'UNKNOWN' }, capabilities: {}, coverage: {}, caseId: null }
@@ -61,9 +61,10 @@ test('selecting a location opens one dialog instead of appending evidence under 
   client.setQueryData(['secret-key-locations', 12, filters, 0], { credentialSetId: 12, credential: item, items: [location], detailVersion: 'v1', total: 6, visibleLocationCount: 6, page: 0, size: 20, readAt: '2026-10-21T01:00:00Z', locationStateCounts: { presence: { PRESENT: 3, MISSING: 1, UNKNOWN: 2 } }, sourceGroups: [{ source: 'GITHUB', locationCount: 6, scopeCount: 2, presenceCounts: { PRESENT: 3, MISSING: 1, UNKNOWN: 2 } }] })
   const html = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/secrets/12?occurrence=8'] }, createElement(Routes, null, createElement(Route, { path: '/secrets/:secretId', element: createElement(api.SecretKeyDetailPage) })))))
   client.clear()
-  assert.match(html, /<dialog[^>]*secret-detail-panel/)
-  assert.match(html, /위치 근거 닫기/)
-  assert.match(html, /현재 위치 필터의 소스별 분포/)
+  assert.match(html, /security-detail-page/)
+  assert.doesNotMatch(html, /<dialog|<table/)
+  assert.match(html, /locationPanel=closed/)
+  assert.match(html, /발견 위치 상세/)
   assert.doesNotMatch(html, /<td colSpan="7"/)
 })
 
@@ -111,7 +112,7 @@ test('the primary case action follows the explicit location and never falls back
   const selectedB = page(9, 2)
   assert.match(selectedB, /cases\/2\?origin=ALL&amp;occurrence=9/); assert.doesNotMatch(selectedB, /cases\/1/)
   const withoutCase = page(9, null)
-  assert.match(withoutCase, /선택 위치 확인/); assert.doesNotMatch(withoutCase, /cases\/1|현재 대응·조치/)
+  assert.match(withoutCase, /선택 위치 확인/); assert.doesNotMatch(withoutCase, /cases\/1|대응 상세 보기/)
   const invalidSelection = page(404, 2)
   assert.match(invalidSelection, /선택 위치를 다시 확인/); assert.doesNotMatch(invalidSelection, /cases\//)
 })

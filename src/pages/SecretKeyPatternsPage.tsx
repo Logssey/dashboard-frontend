@@ -19,7 +19,7 @@ const QUERY_KEY = ['custom-key-patterns']
 const FOUND_QUERY_KEY = ['custom-key-found']
 const EMPTY: CustomKeyPatternInput = { name: '', prefix: '', charset: 'HEX_LOWER', length: 32, secret: true, sample: '' }
 
-/** 폼 입력 → 서버가 규칙(정규식) 자동 생성 → DB 저장 → 다음 스캔부터 내장 규칙과 함께 검사 */
+/** 폼 입력 → 서버가 규칙(정규식) 자동 생성 → DB 저장 → 다음 검사부터 내장 규칙과 함께 검사 */
 export function SecretKeyPatternsPage() {
   const client = useQueryClient()
   const list = useQuery({ queryKey: QUERY_KEY, queryFn: fetchCustomKeyPatterns, retry: false, refetchOnWindowFocus: false })
@@ -42,7 +42,7 @@ export function SecretKeyPatternsPage() {
   const create = useMutation({
     mutationFn: createCustomKeyPattern,
     onSuccess: (created) => {
-      setNotice(`'${created.name}' 형식을 등록했어요. 다음 스캔부터 ${created.rule} 모양의 키를 찾아요.`)
+      setNotice(`'${created.name}' 형식을 등록했어요. 다음 검사부터 ${created.rule} 모양의 키를 찾아요.`)
       setForm(EMPTY)
       void client.invalidateQueries({ queryKey: QUERY_KEY })
     },
@@ -68,7 +68,7 @@ export function SecretKeyPatternsPage() {
   const createError = create.error instanceof ApiError ? create.error.message : create.isError ? '등록하지 못했어요.' : null
 
   return <>
-    <PageHeader title="키 형식 등록" description="사내에서 쓰는 키 모양을 알려 주면, 정규식은 자동으로 만들어 스캔에 더해요." />
+    <PageHeader title="키 형식 등록" description="사내에서 쓰는 키 모양을 알려 주면, 정규식은 자동으로 만들어 검사에 더해요." />
 
     <section className="card key-pattern-form" aria-labelledby="key-pattern-form-title">
       <div className="card-head"><h2 id="key-pattern-form-title">새 형식</h2><span className="caption">기본 규칙(AWS·Notion)은 항상 함께 검사해요</span></div>
@@ -138,16 +138,16 @@ export function SecretKeyPatternsPage() {
     <section className="card key-pattern-found" aria-labelledby="key-pattern-found-title">
       <div className="card-head">
         <h2 id="key-pattern-found-title">등록한 형식으로 찾은 키</h2>
-        <button className="btn soft" disabled={scan.isPending} onClick={() => scan.mutate()}>{scan.isPending ? '검사 중…' : '지금 스캔'}</button>
+        <button className="btn soft" disabled={scan.isPending} onClick={() => scan.mutate()}>{scan.isPending ? '검사 중…' : '지금 검사'}</button>
       </div>
       <p className="caption">수집기에 공유된 Notion 페이지를 기본 규칙(AWS·Notion)과 위에 등록한 형식으로 함께 검사해요. 키 원문은 저장하지 않고 가린 값만 보여요.</p>
       {scan.data && <p className={`notice ${scan.data.status === 'FAILED' || scan.data.status === 'NOT_CONFIGURED' ? 'error' : ''}`.trim()} role="status">
         {scan.data.message}{scan.data.newKeys > 0 && ` 새로 찾은 키 ${scan.data.newKeys}개.`} <span className="caption">({new Date(scan.data.scannedAt).toLocaleString('ko-KR')})</span>
       </p>}
-      {scan.isError && <p className="notice error" role="alert">{scan.error instanceof ApiError ? scan.error.message : '스캔을 실행하지 못했어요.'}</p>}
+      {scan.isError && <p className="notice error" role="alert">{scan.error instanceof ApiError ? scan.error.message : '검사를 실행하지 못했어요.'}</p>}
       {found.isPending ? <p role="status">불러오는 중이에요.</p>
         : found.isError ? <p className="notice error" role="alert">찾은 키를 불러오지 못했어요. <button className="btn outline small" onClick={() => void found.refetch()}>다시 조회</button></p>
-        : found.data.length === 0 ? <p className="notice">아직 찾은 키가 없어요. 형식을 등록한 뒤 지금 스캔을 눌러 보세요.</p>
+        : found.data.length === 0 ? <p className="notice">아직 찾은 키가 없어요. 형식을 등록한 뒤 지금 검사를 눌러 보세요.</p>
         : <div className="table-scroll" tabIndex={0} role="region" aria-label="등록한 형식으로 찾은 키">
           <table>
             <thead><tr><th>키</th><th>발견 위치</th><th>구성</th></tr></thead>

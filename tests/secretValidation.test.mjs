@@ -107,7 +107,7 @@ test('an invalid explicit validation location cannot borrow another location res
   const value = { ...data, latestAttempt: { result: 'VALID', reasonCode: 'AUTHENTICATED', providerCheckedAt: '2026-10-22T00:00:00Z' }, capabilities: { canRequestValidation: true, blockedReasonCodes: [] } }
   const html = render(api.SecretValidationCard, { secretId: 12, locations: [location] }, [[['secret-validation', 12, 8], value]], '/?occurrence=0&validationOccurrence=8')
   assert.match(html, /선택한 위치가 현재 필터·페이지에 없어요/)
-  assert.doesNotMatch(html, /<h3>유효<\/h3>|>유효성 확인<|>확인 요청</)
+  assert.doesNotMatch(html, /<h3>유효<\/h3>|>키 인증 확인<|>확인 요청</)
 })
 
 test('provider failure reasons identify access, response and network failures in the actual card', () => {

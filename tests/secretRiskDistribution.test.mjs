@@ -80,7 +80,7 @@ test('missing or partial risk data cannot masquerade as an available zero distri
 test('non-applicable cases remain accessible when the five graded counts are empty', () => {
   const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNASSESSED: 0 }
   const html = render(api.SecretRiskDistribution, { summary: { ...summary, caseSummary: { ...summary.caseSummary, severityCounts: counts } }, filters })
-  assert.match(html, /심각도 평가 대상 외/)
+  assert.match(html, /위험도 평가 대상 외/)
   assert.doesNotMatch(html, /secret-risk-grade-list/)
   assert.match(html, /<details class="secret-risk-matrix"/)
   assert.ok(links(html).some((url) => url.searchParams.get('severity') === 'NOT_APPLICABLE' && !url.searchParams.has('validity')))

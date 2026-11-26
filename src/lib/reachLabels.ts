@@ -30,30 +30,30 @@ export function labelOf(labels: Record<string, string>, value: string): string {
   return labels[value] ?? value
 }
 
-/** 도달 불가의 초록은 "안전"이 아니라 "호출 경로가 없다"는 뜻이다. "안전", "해결됨"이라고 쓰지 않는다 */
+/** 취약 조건 미충족의 초록은 "안전"이 아니라 "분석 범위에서 호출 경로나 취약 조건이 성립하지 않는다"는 뜻이다. "안전", "해결됨"이라고 쓰지 않는다 */
 export const reachStatusLabel: Record<ReachStatus, string> = {
-  REACHABLE: '도달 가능',
-  UNKNOWN: '미확인',
-  UNREACHABLE: '도달 불가',
+  REACHABLE: '호출 가능',
+  UNKNOWN: '판단 정보 부족',
+  UNREACHABLE: '취약 조건 미충족',
   NOT_ANALYZED: '분석 대상 아님',
 }
 
 export const reachMethodLabel: Record<ReachMethod, string> = {
-  CALLGRAPH: '호출 그래프',
-  RULE: '규칙',
-  MANUAL: '사람',
+  CALLGRAPH: '코드 호출 경로 분석',
+  RULE: '검사 규칙',
+  MANUAL: '담당자 검토',
 }
 
 export const reachReviewLabel: Record<ReachReviewState, string> = {
   UNREVIEWED: '검토 전',
-  PROVISIONAL: '잠정',
+  PROVISIONAL: '임시 판단',
   CONFIRMED: '확정',
 }
 
 export const reachL3Order: ReachL3Level[] = ['REGION', 'FUNCTION', 'NONE', 'NOT_RECORDED']
 
 /**
- * L3(실제 실행)가 닿은 곳. NONE은 시나리오가 그 코드를 안 탔다는 뜻일 뿐 도달 불가가 아니라서 "실행 없음"이라고만 쓴다.
+ * L3(실제 실행)가 닿은 곳. NONE은 시나리오가 그 코드를 안 탔다는 뜻일 뿐 취약 조건 미충족을 뜻하지 않아서 "실행 없음"이라고만 쓴다.
  * NOT_RECORDED는 기록 범위 밖이거나 클래스 파일이 없어 볼 수 없었던 것
  */
 export const reachL3Label: Record<ReachL3Level, string> = {
@@ -93,8 +93,8 @@ export const reachResetReasonLabel: Record<ReachResetReason, string> = {
 }
 
 export const reachMatchedConditionLabel: Record<string, string> = {
-  REACHABLE: '도달 가능 조건',
-  UNREACHABLE: '도달 불가 조건',
+  REACHABLE: '호출 가능 조건',
+  UNREACHABLE: '취약 조건 미충족 판정',
   UNKNOWN: '미확인 조건',
   DEFAULT: '기본값',
 }
@@ -109,13 +109,13 @@ export const reachStatusTone: Record<ReachStatus, string> = {
 
 // ---- 워크로드 (SCR-04) ----
 
-/** 화면 기본 순서: 불일치 → 스캔 없음 → 일치 (SCR-04-06). 손볼 것이 위로 온다 */
+/** 화면 기본 순서: 불일치 → 검사 없음 → 일치 (SCR-04-06). 손볼 것이 위로 온다 */
 export const reachScanMatchOrder: ReachScanMatchStatus[] = ['MISMATCH', 'NO_SCAN', 'MATCH']
 
 export const reachScanMatchLabel: Record<ReachScanMatchStatus, string> = {
   MATCH: '일치',
   MISMATCH: '불일치',
-  NO_SCAN: '스캔 없음',
+  NO_SCAN: '검사 없음',
 }
 
 export const reachSourceLabel: Record<string, string> = {
@@ -123,7 +123,7 @@ export const reachSourceLabel: Record<string, string> = {
   CLUSTER_READER: '자동',
 }
 
-// ---- 스캔 (SCR-05) ----
+// ---- 검사 (SCR-05) ----
 
 export const reachScanStatusOrder: ReachScanStatus[] = ['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED']
 export const reachTriggerOrder: ReachTrigger[] = ['MANUAL', 'PR', 'IMAGE_BUILD', 'SCHEDULE']
@@ -211,8 +211,8 @@ export const reachGateResultLabel: Record<string, string> = {
 
 /** 게이트 조건 (API 명세 6-2) */
 export const reachGateConditionLabel: Record<string, string> = {
-  REACHABLE_CRITICAL_HIGH: '도달 가능 · CRITICAL·HIGH',
-  REACHABLE_OTHER: '도달 가능 · 그 밖의 심각도',
+  REACHABLE_CRITICAL_HIGH: '호출 가능 · CRITICAL·HIGH',
+  REACHABLE_OTHER: '호출 가능 · 그 밖의 위험도',
   UNKNOWN_ANY: '미확인',
   NOT_ANALYZED_CRITICAL_HIGH: '분석 대상 아님 · CRITICAL·HIGH',
 }

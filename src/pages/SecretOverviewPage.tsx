@@ -92,8 +92,8 @@ function EmptyWork({ summary, filters, view }: { summary: WorkbenchSummary; filt
   if (health?.status === 'AVAILABLE' && health.counts && health.approvedScopeCount! > 0 && health.counts.notRun === health.approvedScopeCount) {
     return <div className="secret-overview-empty">
       <h3>현재 검사 대상을 확인하세요</h3>
-      <p>미검사·건너뛴 대상의 검사 이력을 확인하고 스캔을 요청하세요.</p>
-      <Link className="btn outline" to={withSecretOrigin('/secrets/history?request=scan', filters.origin)}>스캔 요청</Link>
+      <p>미검사·건너뛴 대상의 검사 이력을 확인하고 검사를 요청하세요.</p>
+      <Link className="btn outline" to={withSecretOrigin('/secrets/history?request=scan', filters.origin)}>검사 요청</Link>
     </div>
   }
   const title = filtered ? '선택한 조건에 맞는 업무가 없어요' : view === 'review' ? '현재 확인할 발견이 없어요' : view === 'response' ? '진행 중인 대응이 없어요' : '재검사를 기다리는 대응이 없어요'
@@ -103,7 +103,7 @@ function EmptyWork({ summary, filters, view }: { summary: WorkbenchSummary; filt
     <div className="secret-overview-empty-links">
       {filtered && <Link to={`/secrets?${overviewSearch({ ...filters, source: 'ALL', provider: 'ALL', environment: 'ALL', connectionId: null, assignee: '', snapshotId: '' }, view)}`}>조건 초기화</Link>}
       <Link to={inventoryPath(filters)}>키·발견 위치 보기</Link>
-      <Link to={withSecretOrigin('/secrets/history', filters.origin)}>스캔 이력</Link>
+      <Link to={withSecretOrigin('/secrets/history', filters.origin)}>검사 이력</Link>
     </div>
   </div>
 }
@@ -192,7 +192,7 @@ function CollectionHealth({ summary, filters }: { summary: WorkbenchSummary; fil
   const gaps = availableMetric(gapMetric) && gapMetric!.value! > 0
   const ignoredFilters = health?.notApplicableFilters?.filter((key) => key === 'assignee' ? !!filters.assignee : key === 'provider' ? filters.provider !== 'ALL' : key === 'environment' && filters.environment !== 'ALL') ?? []
   return <section className="card secret-overview-health" aria-labelledby="secret-health-title">
-    <div className="secret-overview-section-title"><div><h2 id="secret-health-title">최근 검사 상태</h2><p>현재 승인된 검사 대상 기준</p></div><Link to={withSecretOrigin('/secrets/history', filters.origin)}>스캔 이력</Link></div>
+    <div className="secret-overview-section-title"><div><h2 id="secret-health-title">최근 검사 상태</h2><p>현재 승인된 검사 대상 기준</p></div><Link to={withSecretOrigin('/secrets/history', filters.origin)}>검사 이력</Link></div>
     {!available || !health ? <p className="secret-overview-muted">{summaryReason(health?.status)}</p> : <>
       {health.configuredConnectionCount === 0 ? <div className="secret-overview-health-empty"><p>현재 조회 조건에서 확인할 연결이 없어요.</p><Link to={withSecretOrigin('/secrets/connections', filters.origin)}>연결 관리</Link></div>
         : health.providers?.length ? <ul className="secret-overview-providers">{health.providers.map((item) => <ProviderHealth key={item.source} item={item} origin={filters.origin} />)}</ul>
@@ -260,7 +260,7 @@ export function SecretOverviewPage() {
   const listCount = preview?.status === 'AVAILABLE' ? countText(preview.total) : countText(selectedMetric?.value)
 
   return <>
-    <PageHeader title="시크릿 현황" description="발견한 키를 확인하고 조치 결과까지 추적하세요." actions={<><button className="btn outline" disabled={refreshing || !valid} onClick={() => void refresh()}>{refreshing ? '갱신 중…' : '새로고침'}</button><Link className="btn outline" to={inventoryPath(filters)}>키·발견 위치</Link><Link className="btn primary" to={withSecretOrigin('/secrets/history?request=scan', filters.origin)}>스캔 요청</Link></>} />
+    <PageHeader title="시크릿 현황" description="발견한 키를 확인하고 조치 결과까지 추적하세요." actions={<><button className="btn outline" disabled={refreshing || !valid} onClick={() => void refresh()}>{refreshing ? '갱신 중…' : '새로고침'}</button><Link className="btn outline" to={inventoryPath(filters)}>키·발견 위치</Link><Link className="btn primary" to={withSecretOrigin('/secrets/history?request=scan', filters.origin)}>검사 요청</Link></>} />
     {refreshMessage && !query.isError && <p className="notice error" role="alert">{refreshMessage}</p>}
     {!valid ? <p className="notice error" role="alert">현황 조회 조건을 확인해 주세요. <Link to="/secrets">조건 초기화</Link></p>
       : invalidated ? <section className="card secret-overview-empty"><h2>조회 기준이 변경됐어요</h2><button className="btn primary" onClick={() => void refresh()}>최신 현황 조회</button></section>

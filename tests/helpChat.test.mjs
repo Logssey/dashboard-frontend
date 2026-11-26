@@ -76,10 +76,10 @@ test('history keeps only answered pairs, newest six messages', () => {
 })
 
 test('every page gets at least one suggested question', () => {
-  for (const page of ['통합 현황', '키·노출 위치', '대응 관리', '연결 관리', '컴플라이언스', 'Finding 목록', '알 수 없는 화면']) {
+  for (const page of ['통합 현황', '발견된 키', '대응 관리', '연결 및 설정', '컴플라이언스', '취약점 목록', '알 수 없는 화면']) {
     assert.ok(help.suggestedQuestions(page).length > 0, page)
   }
-  for (const page of ['요약', 'Finding 목록', '워크로드', '스캔']) {
+  for (const page of ['요약', '취약점 목록', '워크로드', '검사']) {
     assert.ok(help.suggestedQuestions(page).some((q) => q.includes('Log4Shell')), page)
   }
 })
@@ -106,8 +106,8 @@ test('checklist mode is sent only when asked for', async () => {
     })
   }
   try {
-    await help.askHelp('Log4Shell 터졌어', 'Finding 목록', [], 'checklist')
-    await help.askHelp('대응 건은?', 'Finding 목록', [])
+    await help.askHelp('Log4Shell 터졌어', '취약점 목록', [], 'checklist')
+    await help.askHelp('대응 건은?', '취약점 목록', [])
     assert.equal(bodies[0].mode, 'checklist')
     assert.ok(!('mode' in bodies[1]))
   } finally {
@@ -200,13 +200,13 @@ test('CVE numbers are picked from questions and only exact ids are reused from s
 test('impact lines warn that zero is not safe and point at unscanned workloads', () => {
   const base = { cve: 'CVE-2021-44228', total: 0, running: 0, reachable: 0, runningReachable: 0, unscannedRunning: 2, basis: 'LATEST' }
   const zero = help.impactLines(base)
-  assert.deepEqual(zero.rows[0], ['Finding 전체', '0건'])
+  assert.deepEqual(zero.rows[0], ['취약점 전체', '0건'])
   assert.ok(zero.notes.some((n) => n.includes('안전하다는 뜻은 아니에요')))
-  assert.ok(zero.notes.some((n) => n.includes('스캔 없는 워크로드')))
-  assert.ok(zero.notes.some((n) => n.includes('최신 스캔 기준')))
+  assert.ok(zero.notes.some((n) => n.includes('검사 없는 워크로드')))
+  assert.ok(zero.notes.some((n) => n.includes('최신 검사 기준')))
   const hit = help.impactLines({ ...base, total: 4, running: 2, reachable: 1, runningReachable: 1, unscannedRunning: null, basis: 'RUNNING' })
   assert.equal(hit.rows.length, 4)
-  assert.ok(hit.notes[0].includes('Finding부터 처리'))
+  assert.ok(hit.notes[0].includes('취약점부터 처리'))
 })
 
 test('impact numbers never enter the history sent to the help API', async () => {
@@ -240,7 +240,7 @@ test('incident talk is recognised by fixed words only', () => {
   for (const q of ['우리 서버 뚫린 것 같아', '해킹당했어 어떡해', '랜섬웨어 걸렸어', '키가 유출된 것 같아', '이상한 접속이 보여']) {
     assert.equal(help.looksLikeIncident(q), true, q)
   }
-  for (const q of ['대응 건은 어떻게 만들어요?', 'CSV로 내보내려면?', '스캔은 어떻게 시작해요?']) {
+  for (const q of ['대응 건은 어떻게 만들어요?', 'CSV로 내보내려면?', '검사는 어떻게 시작해요?']) {
     assert.equal(help.looksLikeIncident(q), false, q)
   }
 })
@@ -573,8 +573,8 @@ test('report draft: AI sentences plus code-filled time and Logssey numbers, note
 test('digests and commit hashes are not treated as keys, other long tokens still are', () => {
   const digest = 'sha256:' + '4f9e2c1a7b3d5e6f'.repeat(4)
   const commit = '9c1e4b7a2d5f8e3c6b9a1d4e7f2a5c8b3e6d9f1a'
-  assert.equal(help.looksLikeSecret(`이미지 ${digest} 스캔 결과는?`), false)
-  assert.equal(help.looksLikeSecret(`커밋 ${commit} 기준으로 스캔`), false)
+  assert.equal(help.looksLikeSecret(`이미지 ${digest} 검사 결과는?`), false)
+  assert.equal(help.looksLikeSecret(`커밋 ${commit} 기준으로 검사`), false)
   assert.equal(help.maskPrivate(digest), digest)
   assert.equal(help.maskPrivate(commit), commit)
   assert.equal(help.looksLikeSecret('값 ' + '4f9e2c1a7b3d5e6f'.repeat(4)), true)

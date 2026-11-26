@@ -20,7 +20,7 @@ function errorMessage(error: unknown): string {
     return '다른 사람이 먼저 저장했어요. 최신 내용을 불러왔으니 확인한 뒤 다시 저장해 주세요.'
   }
   if (error instanceof ApiError && error.status === 400) {
-    return '입력한 내용을 확인해 주세요. 확정·잠정에는 판정과 메모(2,000자 이하)가 필요해요.'
+    return '입력한 내용을 확인해 주세요. 확정·임시 판단에는 판정과 메모(2,000자 이하)가 필요해요.'
   }
   if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
     return '저장 권한이 없거나 로그인이 끝났어요. 다시 로그인해 주세요.'
@@ -28,7 +28,7 @@ function errorMessage(error: unknown): string {
   return '검토를 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.'
 }
 
-/** SCR-03 사람 검토 입력 (API-06). 도구 판정은 바꾸지 않고, 도구가 판정하지 않은 항목만 사람 판정이 현재 판정이 된다 */
+/** SCR-03 담당자 검토 입력 (API-06). 도구 판정은 바꾸지 않고, 도구가 판정하지 않은 항목만 사람 판정이 현재 판정이 된다 */
 export function ReachReviewForm({ findingId, detail }: { findingId: number; detail: ReachFindingDetail }) {
   const { review, verdict } = detail
   const queryClient = useQueryClient()
@@ -74,7 +74,7 @@ export function ReachReviewForm({ findingId, detail }: { findingId: number; deta
   }
 
   return (
-    <form className="reach-review-form" onSubmit={submit} aria-label="사람 검토 기록">
+    <form className="reach-review-form" onSubmit={submit} aria-label="담당자 검토 기록">
       <div className="reach-review-row">
         <label className="field" htmlFor="reach-review-state">
           검토 상태
@@ -85,7 +85,7 @@ export function ReachReviewForm({ findingId, detail }: { findingId: number; deta
             onChange={(event) => setReviewState(event.target.value as HumanReviewState)}
           >
             <option value="CONFIRMED">확정</option>
-            <option value="PROVISIONAL">잠정</option>
+            <option value="PROVISIONAL">임시 판단</option>
           </select>
         </label>
         <label className="field" htmlFor="reach-review-status">

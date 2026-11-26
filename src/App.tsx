@@ -1,3 +1,4 @@
+import { SecurityDetailPage } from '@/pages/SecurityDetailPages'
 import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/layout/AppLayout'
@@ -72,6 +73,13 @@ export function App() {
           <Route path="/secrets/history/:runId" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunDetailPage /></SecretPageBoundary>} />
           <Route path="/secrets/history/:runId/findings" element={<SecretPageBoundary returnTo="/secrets/history"><SecretRunFindingsPage /></SecretPageBoundary>} />
           <Route path="/iac" element={<IacPage />} />
+          <Route path="/iac/prs" element={<IacPage />} />
+          <Route path="/iac/paths" element={<IacPage />} />
+          <Route path="/iac/changes" element={<IacPage />} />
+          <Route path="/iac/checks" element={<IacPage />} />
+          <Route path="/iac/prs/:id" element={<SecurityDetailPage kind="pr" />} />
+          <Route path="/iac/paths/:id" element={<SecurityDetailPage kind="path" />} />
+          <Route path="/vulnerabilities/findings/:id" element={<SecurityDetailPage kind="finding" />} />
           <Route path="/vulnerabilities" element={<VulnerabilitySummaryPage />} />
           <Route path="/vulnerabilities/findings" element={<VulnerabilityFindingsPage />} />
           <Route path="/vulnerabilities/workloads" element={<VulnerabilityWorkloadsPage />} />

@@ -12,7 +12,7 @@ export const inventoryOptions = {
   environment: { ALL: '전체 환경', PROD: '운영', DEV: '개발', UNKNOWN: '환경 미확인' },
   componentState: { ALL: '전체 구성', CONFIRMED: '구성 확인', CANDIDATE: '일부 구성', METADATA_ONLY: '메타데이터' },
   validity: { ALL: '전체 검증', VALID: '유효', INVALID: '무효', UNKNOWN: '확인 불가', UNCHECKED: '미검증' },
-  severity: { ALL: '전체 심각도', UNASSESSED: '미평가', LOW: '낮음', MEDIUM: '보통', HIGH: '높음', CRITICAL: '심각' },
+  severity: { ALL: '전체 위험도', UNASSESSED: '미평가', LOW: '낮음', MEDIUM: '보통', HIGH: '높음', CRITICAL: '심각' },
 } as const
 const defaults = { origin: 'ALL', contentKind: 'ALL', workBucket: 'ALL', source: 'ALL', provider: 'ALL', environment: 'ALL', componentState: 'ALL', validity: 'ALL', severity: 'ALL' } as const
 export function parseInventoryFilters(params: URLSearchParams): { filters: InventoryFilter; errors: string[] } {

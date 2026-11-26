@@ -73,9 +73,9 @@ export function incidentRows(status: IncidentStatus): Array<{ title: string; row
       ? {
           title: '열린 취약점',
           rows: [
-            ['실행 중 + 도달 가능 (Critical·High)', `${vuln.runningReachableSevere}건`],
-            ['실행 중 + 도달 가능 (전체)', `${vuln.runningReachable}건`],
-            ...(vuln.unscannedRunning !== null ? [['스캔 없는 실행 중 워크로드', `${vuln.unscannedRunning}개`] as [string, string]] : []),
+            ['실행 중 + 호출 가능 (Critical·High)', `${vuln.runningReachableSevere}건`],
+            ['실행 중 + 호출 가능 (전체)', `${vuln.runningReachable}건`],
+            ...(vuln.unscannedRunning !== null ? [['검사 없는 실행 중 워크로드', `${vuln.unscannedRunning}개`] as [string, string]] : []),
           ],
         }
       : { title: '열린 취약점', rows: [], note: noteFor('vuln') },
@@ -251,12 +251,12 @@ export function incidentPriorities(status: IncidentStatus, types: readonly strin
   if (vuln) {
     if (vuln.runningReachableSevere > 0) {
       list.push({
-        text: `실행 중이면서 도달 가능한 Critical·High Finding ${vuln.runningReachableSevere}건이 있어요. 바깥에서 닿는지 보고 고치세요 (4·9번).`,
+        text: `실행 중이면서 호출 가능한 Critical·High Finding ${vuln.runningReachableSevere}건이 있어요. 바깥에서 닿는지 보고 고치세요 (4·9번).`,
         screen: 'VULN_FINDINGS',
         topic: 'vuln',
       })
     } else if (vuln.runningReachable > 0) {
-      list.push({ text: `실행 중이면서 도달 가능한 Finding ${vuln.runningReachable}건을 확인하세요 (4번).`, screen: 'VULN_FINDINGS', topic: 'vuln' })
+      list.push({ text: `실행 중이면서 호출 가능한 Finding ${vuln.runningReachable}건을 확인하세요 (4번).`, screen: 'VULN_FINDINGS', topic: 'vuln' })
     }
   }
   if (exposure && exposure.drifts > 0) {
@@ -268,7 +268,7 @@ export function incidentPriorities(status: IncidentStatus, types: readonly strin
   }
   if (vuln?.unscannedRunning) {
     list.push({
-      text: `스캔 없는 실행 중 워크로드 ${vuln.unscannedRunning}개는 위 숫자에 빠져 있어요. 먼저 스캔하세요 (3번).`,
+      text: `검사 없는 실행 중 워크로드 ${vuln.unscannedRunning}개는 위 숫자에 빠져 있어요. 먼저 검사하세요 (3번).`,
       screen: 'VULN_WORKLOADS',
       topic: 'coverage',
     })
@@ -309,17 +309,17 @@ export function usableCve(value: unknown): string | undefined {
 /** 영향 조회 결과를 사람이 읽는 줄로 바꾼다. 숫자는 서버 조회 값 그대로이고 AI가 만든 문장이 아니다 */
 export function impactLines(impact: CveImpact): { rows: Array<[string, string]>; notes: string[] } {
   const rows: Array<[string, string]> = [
-    ['Finding 전체', `${impact.total}건`],
+    ['취약점 전체', `${impact.total}건`],
     ['실행 중인 곳', `${impact.running}건`],
-    ['도달 가능 판정', `${impact.reachable}건`],
-    ['실행 중 + 도달 가능', `${impact.runningReachable}건`],
+    ['호출 가능 판정', `${impact.reachable}건`],
+    ['실행 중 + 호출 가능', `${impact.runningReachable}건`],
   ]
-  if (impact.unscannedRunning !== null) rows.push(['스캔 없는 실행 중 워크로드', `${impact.unscannedRunning}개`])
+  if (impact.unscannedRunning !== null) rows.push(['검사 없는 실행 중 워크로드', `${impact.unscannedRunning}개`])
   const notes: string[] = []
-  if (impact.runningReachable > 0) notes.push('실행 중이면서 도달 가능한 Finding부터 처리하세요.')
-  if (impact.total === 0) notes.push('0건이라고 안전하다는 뜻은 아니에요. 스캔하지 않은 이미지는 목록에 나오지 않아요.')
-  if (impact.unscannedRunning) notes.push('스캔 없는 워크로드는 이 숫자에 빠져 있어요. 워크로드 화면에서 먼저 스캔하세요.')
-  if (impact.basis === 'LATEST') notes.push('실행 중 정보가 없어 최신 스캔 기준으로 셌어요.')
+  if (impact.runningReachable > 0) notes.push('실행 중이면서 호출 가능한 취약점부터 처리하세요.')
+  if (impact.total === 0) notes.push('0건이라고 안전하다는 뜻은 아니에요. 검사하지 않은 이미지는 목록에 나오지 않아요.')
+  if (impact.unscannedRunning) notes.push('검사 없는 워크로드는 이 숫자에 빠져 있어요. 워크로드 화면에서 먼저 검사하세요.')
+  if (impact.basis === 'LATEST') notes.push('실행 중 정보가 없어 최신 검사 기준으로 셌어요.')
   return { rows, notes }
 }
 
@@ -332,13 +332,13 @@ export const CHECKLIST_DEFAULT_QUESTION = '침해사고가 났을 때 무엇부�
  * OUTSIDE(Logssey 밖)는 경로가 없어 버튼을 그리지 않는다.
  */
 export const HELP_SCREEN_ROUTES: Readonly<Record<string, { path: string; title: string } | null>> = Object.freeze({
-  VULN_SUMMARY: { path: '/vulnerabilities', title: '취약점 관리' },
-  VULN_FINDINGS: { path: '/vulnerabilities/findings', title: 'Finding 목록' },
-  VULN_WORKLOADS: { path: '/vulnerabilities/workloads', title: '워크로드' },
-  VULN_SCANS: { path: '/vulnerabilities/scans', title: '스캔' },
+  VULN_SUMMARY: { path: '/vulnerabilities', title: '이미지 보안' },
+  VULN_FINDINGS: { path: '/vulnerabilities/findings', title: '취약점 목록' },
+  VULN_WORKLOADS: { path: '/vulnerabilities/workloads', title: '실행 중 워크로드' },
+  VULN_SCANS: { path: '/vulnerabilities/scans', title: '이미지 검사' },
   RUNTIME: { path: '/runtime', title: '런타임 보안' },
   IAC: { path: '/iac', title: 'IaC 보안' },
-  SECRET_FINDINGS: { path: '/secrets/findings', title: '키·노출 위치' },
+  SECRET_FINDINGS: { path: '/secrets/findings', title: '발견된 키' },
   SECRET_CASES: { path: '/secrets/cases', title: '대응 관리' },
   COMPLIANCE: { path: '/configuration', title: '컴플라이언스' },
   OUTSIDE: null,
@@ -410,14 +410,14 @@ export function buildHistory(messages: HelpMessage[]): HelpTurn[] {
 
 const suggestions: Array<{ match: (page: string) => boolean; questions: string[] }> = [
   { match: (p) => p === '통합 현황', questions: ['환경별로 보려면 어떻게 해요?', '위험 기준 점수는 어떻게 계산돼요?'] },
-  { match: (p) => p === '키·노출 위치' || p === '키 상세', questions: ['CSV로 내보내려면 어떻게 해요?', '키 유효성 확인은 어떻게 해요?'] },
+  { match: (p) => p === '발견된 키' || p === '키 상세', questions: ['CSV로 내보내려면 어떻게 해요?', '키 유효성 확인은 어떻게 해요?'] },
   { match: (p) => ['확인 대기열', '위치 확인', '추가 조사', '실키 경고'].includes(p), questions: ['대응 건은 어떻게 만들어요?', '추가 조사는 어떻게 종료해요?'] },
   { match: (p) => p === '대응 관리' || p === '대응 상세', questions: ['담당자는 어떻게 바꿔요?', '대응 건을 해결로 바꾸려면?'] },
-  { match: (p) => p === '연결 관리' || p === '연결 범위', questions: ['GitHub 연결은 어떻게 추가해요?', '연결 테스트 결과는 어떻게 읽어요?'] },
-  { match: (p) => p === '스캔 이력' || p === '스캔 상세', questions: ['스캔은 어떻게 시작해요?'] },
+  { match: (p) => p === '연결 및 설정' || p === '연결 범위', questions: ['GitHub 연결은 어떻게 추가해요?', '연결 테스트 결과는 어떻게 읽어요?'] },
+  { match: (p) => p === '검사 이력' || p === '검사 상세', questions: ['검사는 어떻게 시작해요?'] },
   { match: (p) => p === '키 형식 등록', questions: ['사내 키 형식은 어떻게 등록해요?'] },
   { match: (p) => p === '컴플라이언스', questions: ['컴플라이언스 점검은 어떻게 시작해요?', 'ISMS-P 2.11.2는 어디서 증적을 봐요?'] },
-  { match: (p) => ['요약', '취약점 관리', 'Finding 목록', '워크로드', '스캔'].includes(p), questions: ['Log4Shell 같은 취약점이 터지면 무엇부터 봐요?', 'CVE-2021-44228 우리 영향 있어?','취약점 스캔은 어떻게 요청해요?', 'Finding 검토는 어떻게 저장해요?'] },
+  { match: (p) => ['요약', '현황', '이미지 보안', '취약점 목록', '워크로드', '실행 중 워크로드', '검사', '이미지 검사', '검사 기준', '이미지 취약점 상세'].includes(p), questions: ['Log4Shell 같은 취약점이 터지면 무엇부터 봐요?', 'CVE-2021-44228 우리 영향 있어?','취약점 검사는 어떻게 요청해요?', 'Finding 검토는 어떻게 저장해요?'] },
 ]
 
 /** 답 아래 근거 목록은 기본으로 접어 두고, 이 문구를 눌러 펼친다 */
@@ -560,7 +560,7 @@ export function incidentSignals(seen: SignalSnapshot, now: SignalSnapshot): Inci
     })
   }
   const exposureParts = [
-    grew(now.severeReachable, seen.severeReachable) ? `실행 중+도달 가능 Critical·High +${now.severeReachable! - seen.severeReachable!}` : '',
+    grew(now.severeReachable, seen.severeReachable) ? `실행 중+호출 가능 Critical·High +${now.severeReachable! - seen.severeReachable!}` : '',
     grew(now.tier1Paths, seen.tier1Paths) ? `1순위 공격 경로 +${now.tier1Paths! - seen.tier1Paths!}` : '',
     grew(now.drifts, seen.drifts) ? `드리프트 +${now.drifts! - seen.drifts!}` : '',
   ].filter(Boolean)
@@ -714,7 +714,7 @@ export function reportText(
       lines.push(`- 열린 공격 경로 ${status.exposure.openPaths}개(1순위 ${status.exposure.tier1OpenPaths}개), 드리프트 ${status.exposure.drifts}건`)
     }
     if (status.vuln) {
-      lines.push(`- 실행 중+도달 가능 Critical·High ${status.vuln.runningReachableSevere}건${status.vuln.unscannedRunning !== null ? `, 스캔 없는 실행 중 워크로드 ${status.vuln.unscannedRunning}개` : ''}`)
+      lines.push(`- 실행 중+호출 가능 Critical·High ${status.vuln.runningReachableSevere}건${status.vuln.unscannedRunning !== null ? `, 검사 없는 실행 중 워크로드 ${status.vuln.unscannedRunning}개` : ''}`)
     }
     const sourceNames: Record<IncidentSource, string> = { runtime: '런타임', keys: '시크릿', exposure: 'IaC', vuln: '취약점' }
     for (const missing of status.unavailable) lines.push(`- ${sourceNames[missing.source]}: ${missing.denied ? '볼 권한 없음' : '불러오지 못함'}`)
